@@ -1,0 +1,9 @@
+# Diagnostics that only occur in the Linux simulation, one regex per line.
+# Each entry must say WHY it is not a real error on iOS.
+
+# swift-corelibs-foundation declares URLSessionConfiguration.waitsForConnectivity get-only; on Darwin it is settable.
+Core/API\.swift:[0-9]+:[0-9]+: error: cannot assign to property: 'waitsForConnectivity' is a get-only property
+
+# `extension UIWindow { override func motionEnded }` overrides an @objc dynamic method (allowed on Darwin);
+# Swift-only class hierarchies on Linux forbid overriding from extensions.
+VaultView\.swift:[0-9]+:[0-9]+: error: +instance method 'motionEnded\(_:with:\)' declared in 'UIResponder' cannot be overridden from extension

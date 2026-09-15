@@ -1,0 +1,153 @@
+name: SoooDreamy
+options:
+  bundleIdPrefix: app.sooodreamy
+  # 5.0 native redesign: iOS 26 is the floor — the app uses the system
+  # Liquid Glass tab bar / navigation bars, glassEffect, ToolbarSpacer,
+  # tabBarMinimizeBehavior and friends directly (no availability shims).
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  xcodeVersion: "26.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    MARKETING_VERSION: "5.0.0"
+    CURRENT_PROJECT_VERSION: "27"
+    GENERATE_INFOPLIST_FILE: NO
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    DEVELOPMENT_TEAM: ""
+  configs:
+    Debug:
+      APS_ENVIRONMENT: development
+    Release:
+      APS_ENVIRONMENT: production
+
+targets:
+  SoooDreamy:
+    type: application
+    platform: iOS
+    sources:
+      - path: SoooDreamy
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.sooodreamy.ios
+        PRODUCT_NAME: SoooDreamy
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        # v3.0 icon gifts (Agent C): alternate icons rendered procedurally in
+        # CI (GenerateIcon.swift <out> <variant>) — must match AppIconKit.
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-sunset AppIcon-midnight AppIcon-mint AppIcon-rose AppIcon-ocean AppIcon-gold AppIcon-lavender AppIcon-blossom"
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
+    info:
+      path: Config/SoooDreamy-Info.plist
+      properties:
+        CFBundleDisplayName: SoooDreamy
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        SoooDreamyKeychainAccessGroup: "$(AppIdentifierPrefix)group.app.sooodreamy.shared"
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSSupportsLiveActivities: true
+        # Background refresh: BGAppRefreshTask pulls partner status/countdowns
+        # and refreshes widgets. iOS grants these runs opportunistically —
+        # see README ("Background-Refresh") for the honest limitations.
+        UIBackgroundModes:
+          - fetch
+          - processing
+        BGTaskSchedulerPermittedIdentifiers:
+          - app.sooodreamy.refresh
+        NSMicrophoneUsageDescription: "SoooDreamy uses the microphone to record voice notes for your partner."
+        NSCameraUsageDescription: "SoooDreamy uses the camera to scan your partner's pairing QR code."
+        NSPhotoLibraryAddUsageDescription: "SoooDreamy can save shared photos and videos to your photo library."
+        NSFaceIDUsageDescription: "SoooDreamy can lock your shared moments behind Face ID."
+        NSLocalNetworkUsageDescription: "SoooDreamy connects to your own couple server on your home network."
+        # ATS stays closed. iOS may reach explicit local-network hosts, while
+        # the app's URL policy rejects cleartext public Internet endpoints.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            localhost:
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSIncludesSubdomains: true
+            "127.0.0.1":
+              NSExceptionAllowsInsecureHTTPLoads: true
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleURLTypes:
+          - CFBundleURLName: app.sooodreamy.ios
+            CFBundleURLSchemes:
+              - sooodreamy
+    entitlements:
+      path: Config/SoooDreamy.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.app.sooodreamy.shared
+        keychain-access-groups:
+          - "$(AppIdentifierPrefix)group.app.sooodreamy.shared"
+        # Honored only when the provisioning profile carries Push capability.
+        # Unsigned/free-profile sideloads commonly strip it; local alerts stay.
+        aps-environment: "$(APS_ENVIRONMENT)"
+        # iCloud backup (v2.0): CloudKit private DB + iCloud Drive export.
+        # Sideload signing often strips these — the app detects that at
+        # runtime and degrades to the always-working file export.
+        com.apple.developer.icloud-services:
+          - CloudKit
+          - CloudDocuments
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.app.sooodreamy.ios
+        com.apple.developer.ubiquity-container-identifiers:
+          - iCloud.app.sooodreamy.ios
+    dependencies:
+      - target: SoooDreamyWidgets
+
+  SoooDreamyWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.sooodreamy.ios.widgets
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
+    info:
+      path: Config/SoooDreamyWidgets-Info.plist
+      properties:
+        CFBundleDisplayName: "SoooDreamy Widgets"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        SoooDreamyKeychainAccessGroup: "$(AppIdentifierPrefix)group.app.sooodreamy.shared"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        # Same least-privilege local-network policy as the app.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            localhost:
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSIncludesSubdomains: true
+            "127.0.0.1":
+              NSExceptionAllowsInsecureHTTPLoads: true
+    entitlements:
+      path: Config/SoooDreamyWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.app.sooodreamy.shared
+        keychain-access-groups:
+          - "$(AppIdentifierPrefix)group.app.sooodreamy.shared"
+
+schemes:
+  SoooDreamy:
+    build:
+      targets:
+        SoooDreamy: all
+    run:
+      config: Debug
+    archive:
+      config: Release

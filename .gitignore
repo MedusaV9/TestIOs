@@ -1,0 +1,14 @@
+.DS_Store
+xcuserdata/
+build/
+DerivedData/
+*.ipa
+*.xcarchive
+*.log
+.build/
+.swiftpm/
+.typecheck-build/
+SoooDreamy/ios/SoooDreamy.xcodeproj/
+SoooDreamy/ios/SoooDreamy/Resources/Assets.xcassets/AppIcon.appiconset/icon_1024.png
+SoooDreamy/ios/SoooDreamy/Resources/Assets.xcassets/AppIcon-*.appiconset/icon_1024.png
+.env
