@@ -113,8 +113,6 @@ public struct AnyTransition: Sendable {
     public static func modifier<E: ViewModifier>(active: E, identity: E) -> AnyTransition { .identity }
     public static var blurReplace: AnyTransition { .identity }
     public static func blurReplace(_ config: BlurReplaceTransition.Configuration) -> AnyTransition { .identity }
-    public static var symbolEffect: AnyTransition { .identity }
-    public static func symbolEffect<T: SymbolEffect & TransitionSymbolEffect>(_ effect: T, options: SymbolEffectOptions = .default) -> AnyTransition { .identity }
     public func combined(with other: AnyTransition) -> AnyTransition { self }
     public func animation(_ animation: Animation?) -> AnyTransition { self }
 }

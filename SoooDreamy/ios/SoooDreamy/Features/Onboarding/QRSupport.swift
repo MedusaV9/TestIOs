@@ -63,13 +63,14 @@ struct QRScannerView: View {
     }
 }
 
-/// UIKit bridge for the VisionKit scanner. Scanning starts once the
-/// controller is on screen and stops with the first recognised QR code.
+/// UIKit bridge for the VisionKit scanner. `DataScannerViewController` is
+/// not open, so we do not subclass it — scanning starts on first update
+/// and stops when the representable is dismantled or a code is found.
 private struct DataScanner: UIViewControllerRepresentable {
     let onFound: (String) -> Void
 
-    func makeUIViewController(context: Context) -> ScannerController {
-        let controller = ScannerController(
+    func makeUIViewController(context: Context) -> DataScannerViewController {
+        let controller = DataScannerViewController(
             recognizedDataTypes: [.barcode(symbologies: [.qr])],
             qualityLevel: .balanced,
             recognizesMultipleItems: false,
@@ -81,24 +82,16 @@ private struct DataScanner: UIViewControllerRepresentable {
         return controller
     }
 
-    func updateUIViewController(_ uiViewController: ScannerController, context: Context) {}
+    func updateUIViewController(_ uiViewController: DataScannerViewController, context: Context) {
+        if !uiViewController.isScanning {
+            try? uiViewController.startScanning()
+        }
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator(onFound: onFound) }
 
-    static func dismantleUIViewController(_ uiViewController: ScannerController, coordinator: Coordinator) {
+    static func dismantleUIViewController(_ uiViewController: DataScannerViewController, coordinator: Coordinator) {
         uiViewController.stopScanning()
-    }
-
-    final class ScannerController: DataScannerViewController {
-        override func viewDidAppear(_ animated: Bool) {
-            super.viewDidAppear(animated)
-            try? startScanning()
-        }
-
-        override func viewWillDisappear(_ animated: Bool) {
-            super.viewWillDisappear(animated)
-            stopScanning()
-        }
     }
 
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {

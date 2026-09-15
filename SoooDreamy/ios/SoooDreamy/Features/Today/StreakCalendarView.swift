@@ -156,12 +156,16 @@ struct StreakCalendarView: View {
                         Circle().strokeBorder(Color.accentColor, lineWidth: 1.5)
                     }
                 }
-                .accessibilityLabel(both ? "\(day): " + L10n.t("home.streakCalendar.legendBoth")
-                                    : mine ? "\(day): " + L10n.t("home.streakCalendar.legendMine")
-                                    : "\(day)")
+                .accessibilityLabel(dayLabel(day, both: both, mine: mine))
         } else {
             Color.clear.frame(minHeight: 36)
         }
+    }
+
+    private func dayLabel(_ day: Int, both: Bool, mine: Bool) -> String {
+        if both { return "\(day): " + L10n.t("home.streakCalendar.legendBoth") }
+        if mine { return "\(day): " + L10n.t("home.streakCalendar.legendMine") }
+        return "\(day)"
     }
 
     private var legend: some View {

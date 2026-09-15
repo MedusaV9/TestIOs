@@ -115,7 +115,7 @@ struct IntroCutsceneView: View {
                     .foregroundStyle(Color.accentColor.gradient)
                     .symbolEffect(.pulse, options: .repeating, isActive: step >= .ready && !reduceMotion)
                     .offset(y: -58)
-                    .transition(reduceMotion ? .opacity : .symbolEffect(.drawOn))
+                    .transition(.opacity.combined(with: .scale))
                     .accessibilityHidden(true)
             }
         }

@@ -30,7 +30,7 @@ public enum RecognizedItem: Identifiable, Sendable {
     public var bounds: Bounds { Bounds() }
 }
 
-@preconcurrency @MainActor open class DataScannerViewController: UIViewController {
+@preconcurrency @MainActor public class DataScannerViewController: UIViewController {
     public enum RecognizedDataType: Hashable, Sendable {
         case barcodeType([VNBarcodeSymbology])
         case textType(String?, TextContentType?)
@@ -42,27 +42,27 @@ public enum RecognizedItem: Identifiable, Sendable {
     public enum ScanningUnavailable: Error, Sendable { case unsupported, cameraRestricted }
 
     public init(recognizedDataTypes: Set<RecognizedDataType>, qualityLevel: QualityLevel = .balanced, recognizesMultipleItems: Bool = false, isHighFrameRateTrackingEnabled: Bool = true, isPinchToZoomEnabled: Bool = true, isGuidanceEnabled: Bool = true, isHighlightingEnabled: Bool = false) { super.init() }
-    open class var isSupported: Bool { true }
-    open class var isAvailable: Bool { true }
-    open class var supportedTextRecognitionLanguages: [String] { [] }
-    open weak var delegate: (any DataScannerViewControllerDelegate)?
-    open var isScanning: Bool { false }
-    open var recognizedDataTypes: Set<RecognizedDataType> { [] }
-    open var qualityLevel: QualityLevel { .balanced }
-    open var recognizesMultipleItems: Bool { false }
-    open var isHighFrameRateTrackingEnabled: Bool { true }
-    open var isPinchToZoomEnabled: Bool { true }
-    open var isGuidanceEnabled: Bool { true }
-    open var isHighlightingEnabled: Bool { false }
-    open var zoomFactor: Double = 1
-    open var minZoomFactor: Double { 1 }
-    open var maxZoomFactor: Double { 10 }
-    open var regionOfInterest: CGRect?
-    open var overlayContainerView: UIView { UIView() }
-    open var recognizedItems: AsyncStream<[RecognizedItem]> { AsyncStream { $0.finish() } }
-    open func startScanning() throws {}
-    open func stopScanning() {}
-    open func capturePhoto() async throws -> UIImage { UIImage() }
+    public class var isSupported: Bool { true }
+    public class var isAvailable: Bool { true }
+    public class var supportedTextRecognitionLanguages: [String] { [] }
+    public weak var delegate: (any DataScannerViewControllerDelegate)?
+    public var isScanning: Bool { false }
+    public var recognizedDataTypes: Set<RecognizedDataType> { [] }
+    public var qualityLevel: QualityLevel { .balanced }
+    public var recognizesMultipleItems: Bool { false }
+    public var isHighFrameRateTrackingEnabled: Bool { true }
+    public var isPinchToZoomEnabled: Bool { true }
+    public var isGuidanceEnabled: Bool { true }
+    public var isHighlightingEnabled: Bool { false }
+    public var zoomFactor: Double = 1
+    public var minZoomFactor: Double { 1 }
+    public var maxZoomFactor: Double { 10 }
+    public var regionOfInterest: CGRect?
+    public var overlayContainerView: UIView { UIView() }
+    public var recognizedItems: AsyncStream<[RecognizedItem]> { AsyncStream { $0.finish() } }
+    public func startScanning() throws {}
+    public func stopScanning() {}
+    public func capturePhoto() async throws -> UIImage { UIImage() }
 }
 
 @preconcurrency @MainActor public protocol DataScannerViewControllerDelegate: AnyObject {

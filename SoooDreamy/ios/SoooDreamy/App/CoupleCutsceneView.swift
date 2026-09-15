@@ -112,7 +112,7 @@ struct CoupleCutsceneView: View {
                     .foregroundStyle(Color.accentColor.gradient)
                     .symbolEffect(.pulse, options: .repeating, isActive: step >= .ready && !reduceMotion)
                     .offset(y: -74)
-                    .transition(reduceMotion ? .opacity : .symbolEffect(.drawOn))
+                    .transition(.opacity.combined(with: .scale))
                     .zIndex(2)
                     .accessibilityHidden(true)
             }
