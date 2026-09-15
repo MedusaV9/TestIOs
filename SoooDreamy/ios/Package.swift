@@ -55,6 +55,7 @@ let package = Package(
                 "SoooDreamy/Core/Routes.swift",
                 "SoooDreamy/Core/SearchIndex.swift",
                 "SoooDreamy/Core/Invitation.swift",
+                "SoooDreamy/Core/ServerURLPolicy.swift",
                 "SoooDreamy/Core/SeasonLogic.swift",
                 "SoooDreamy/Core/OfflineOutbox.swift",
                 "SoooDreamy/Core/CoreColdCache.swift",

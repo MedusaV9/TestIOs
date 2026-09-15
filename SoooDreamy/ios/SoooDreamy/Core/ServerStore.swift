@@ -54,39 +54,21 @@ struct ServerProfile: Codable, Identifiable, Hashable {
         try c.encode(addedAt, forKey: .addedAt)
     }
 
-    /// Public Internet endpoints must be HTTPS. Plain HTTP is accepted only
-    /// for an explicit loopback/private-LAN host (including Tailscale CGNAT).
+    /// Public Internet endpoints must be HTTPS, except the AMP host listed in
+    /// `ServerURLPolicy.cleartextExceptionHosts` (and private LAN / loopback).
     static func normalize(_ raw: String) -> String? {
-        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !s.isEmpty else { return nil }
-        if !s.lowercased().hasPrefix("http://") && !s.lowercased().hasPrefix("https://") {
-            s = "https://" + s
-        }
-        while s.hasSuffix("/") { s.removeLast() }
-        guard let url = URL(string: s), let host = url.host, !host.isEmpty,
-              url.scheme == "https" || (url.scheme == "http" && isPrivateHost(host)) else { return nil }
-        return s
+        ServerURLPolicy.normalize(raw)
     }
 
     static func isPrivateHost(_ host: String) -> Bool {
-        let h = host.lowercased()
-        if h == "localhost" || h.hasSuffix(".local") || h == "::1" { return true }
-        let parts = h.split(separator: ".").compactMap { Int($0) }
-        if parts.count == 4 {
-            if parts[0] == 10 || parts[0] == 127 || (parts[0] == 192 && parts[1] == 168)
-                || (parts[0] == 169 && parts[1] == 254) { return true }
-            if parts[0] == 172 && (16...31).contains(parts[1]) { return true }
-            if parts[0] == 100 && (64...127).contains(parts[1]) { return true }
-        }
-        return h.hasPrefix("fc") || h.hasPrefix("fd") || h.hasPrefix("fe8")
-            || h.hasPrefix("fe9") || h.hasPrefix("fea") || h.hasPrefix("feb")
+        ServerURLPolicy.isPrivateHost(host)
     }
 
     mutating func enforceSecureTransport() {
         guard var components = URLComponents(string: urlString),
               components.scheme == "http",
               let host = components.host,
-              !Self.isPrivateHost(host) else { return }
+              !ServerURLPolicy.allowsCleartext(host) else { return }
         components.scheme = "https"
         if let secure = components.string { urlString = secure }
     }

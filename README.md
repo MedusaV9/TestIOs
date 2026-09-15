@@ -1,7 +1,11 @@
 # SoooDreamy — IPA build snapshot
 
-Public build repo for the unsigned iOS 26 IPA. Source of truth stays in the private project; this tree is only the app + CI.
+Build snapshot for the unsigned iOS 26 IPA. Source of truth stays in the private project; this tree is only the app + CI.
 
-Sideload `SoooDreamy-unsigned.ipa` with [AltStore](https://altstore.io), [SideStore](https://sidestore.io) or Sideloadly. The IPA is not signed; those tools sign it with your Apple ID.
+**Current client: 5.0.0 (28)** — allows `http://ark.atomi23.de:7792` (AMP). Sideload `SoooDreamy-unsigned.ipa` with [AltStore](https://altstore.io), [SideStore](https://sidestore.io) or Sideloadly. The IPA is not signed; those tools sign it with your Apple ID.
 
-Workflow: Linux logic tests + typecheck, then `macos-26` / Xcode 26 unsigned `xcodebuild`. Download from Actions artifacts or the `sooodreamy-latest` prerelease.
+Download: [sooodreamy-latest](https://github.com/MedusaV9/TestIOs/releases/tag/sooodreamy-latest)
+
+After install, the server screen must show **App-Build 5.0.0 (28) · HTTPS, AMP-HTTP für ark.atomi23.de**. If it still says “HTTPS geschützt”, the old IPA is still on the phone — delete the app first.
+
+Workflow: Linux logic tests + typecheck, then `macos-26` / Xcode 26 unsigned `xcodebuild`.
