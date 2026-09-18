@@ -1,0 +1,373 @@
+{
+  "intro_stinger": {
+    "task_id": "e5068f57-853f-4f46-b6d1-0f183475d9ed",
+    "prompt": "Epic 30 second game show opening fanfare, drum roll build up, brass hit, tropical jungle drums, huge triumphant final chord, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "2020s",
+      "orchestral",
+      "big band",
+      "percussion",
+      "brass",
+      "triumphant",
+      "stage & screen",
+      "anthem"
+    ],
+    "bytes": 469892
+  },
+  "money_moment": {
+    "task_id": "97fc401a-c2d5-400e-944f-3bce226712e3",
+    "prompt": "Triumphant 20 second jackpot win jingle, cash register, brass fanfare, casino slot machine bells, tropical percussion flourish, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "fanfare",
+      "2020s",
+      "dance pop",
+      "uplifting",
+      "happy",
+      "instrumental",
+      "brass",
+      "triumphant",
+      "anthemic",
+      "congas"
+    ],
+    "bytes": 665724
+  },
+  "wheel_spin": {
+    "task_id": "f691efd3-2880-40c2-857f-32e51d509636",
+    "prompt": "Carnival wheel of fortune spinning music, circus organ, accelerating then slowing percussion, playful suspense, tropical twist, big reveal ending, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "organ",
+      "reggae-pop",
+      "2020s",
+      "pop rap",
+      "tropical house",
+      "percussion",
+      "breaks",
+      "playful",
+      "rhythmic"
+    ],
+    "bytes": 673655
+  },
+  "theme_main": {
+    "task_id": "ba792f2a-99ac-4526-808b-a4045a911076",
+    "prompt": "Upbeat jungle TV game show main theme, big brass fanfare, tropical percussion, marimba and steel drums, playful mischievous monkey energy, casino jackpot bells, glamorous, catchy hook, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "catchy",
+      "breakbeat",
+      "tropical",
+      "2020s",
+      "marimba",
+      "playful",
+      "brass",
+      "jungle"
+    ],
+    "bytes": 1368290
+  },
+  "question_bed_easy": {
+    "task_id": "27afe07b-8d6f-42aa-84cf-11eb99d9a42f",
+    "prompt": "Light suspenseful quiz show thinking music, ticking clock, soft marimba pulse, jungle percussion, playful tension, steady tempo, loopable underscore, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "2020s",
+      "suspenseful",
+      "marimba",
+      "instrumental",
+      "percussion",
+      "rhythmic",
+      "minimalistic",
+      "jungle"
+    ],
+    "bytes": 1200582
+  },
+  "bomb_pass": {
+    "task_id": "51910622-c13c-4c09-9921-7f546f1d8ed6",
+    "prompt": "Frantic hot potato ticking bomb chase music, fast comedic percussion, tuba, panic, cartoon jungle chaos, accelerating, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "2020s",
+      "tuba",
+      "happy",
+      "percussion",
+      "chaotic",
+      "quirky",
+      "instrumental",
+      "cartoon"
+    ],
+    "bytes": 960107
+  },
+  "jackpot_drama": {
+    "task_id": "a3feaa20-cb9e-4c0a-80c2-b89e7bd9dcea",
+    "prompt": "Dramatic jackpot question build up, timpani, long drum roll, choir stabs, casino bells, cinematic tension, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "dissonant",
+      "timpani",
+      "2020s",
+      "ominous",
+      "suspenseful",
+      "cinematic classical",
+      "orchestral",
+      "Tension",
+      "film score",
+      "experimental"
+    ],
+    "bytes": 587567
+  },
+  "steal_sneak": {
+    "task_id": "121c919b-ce89-47c4-b39d-48af1b65eafd",
+    "prompt": "Sneaky pickpocket thief music, pizzicato strings, cartoon sneaking jazz, muted trumpet, playful mischief, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "jazz rap",
+      "2020s",
+      "mellow",
+      "quirky",
+      "playful",
+      "jazz pop",
+      "cartoon"
+    ],
+    "bytes": 808419
+  },
+  "bank_round": {
+    "task_id": "dacb8f1a-2bbd-43db-ad7f-dc2912168c7d",
+    "prompt": "Exciting casino heist jazz funk, walking upright bass, big band brass stabs, urgent hi hats, money vault vibe, loopable, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "soul jazz",
+      "jazz-rock",
+      "2020s",
+      "big band",
+      "energetic",
+      "rhythmic",
+      "acid jazz",
+      "jazz-funk"
+    ],
+    "bytes": 1539218
+  },
+  "standings_groove": {
+    "task_id": "49cf1214-973d-4326-8959-6cae22e916dd",
+    "prompt": "Smooth upbeat lounge funk for a scoreboard interlude, funky guitar, tropical keys, relaxed groove, loopable, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "funk-pop",
+      "2020s",
+      "tropical house",
+      "synth funk",
+      "mellow",
+      "funky house",
+      "rhythmic",
+      "nu-disco"
+    ],
+    "bytes": 1199497
+  },
+  "pixel_retro": {
+    "task_id": "0fe66e61-f3e7-44a8-ba29-1d154e5d908e",
+    "prompt": "Retro 8 bit chiptune jungle adventure music, upbeat arcade, playful, bouncy bass, loopable, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "2020s",
+      "upbeat",
+      "bouncy",
+      "video game",
+      "chiptune",
+      "Arcade",
+      "playful"
+    ],
+    "bytes": 1081134
+  },
+  "duel_showdown": {
+    "task_id": "825c1cae-1708-4b6f-bb05-aa0b05d4c557",
+    "prompt": "Spaghetti western showdown duel music with a jungle twist, whistling, twangy guitar, tribal drums, tense standoff, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "2020s",
+      "ominous",
+      "tribal house",
+      "cinematic classical",
+      "percussion",
+      "rhythmic",
+      "whistle",
+      "spaghetti western",
+      "jungle"
+    ],
+    "bytes": 1097010
+  },
+  "lobby_loop": {
+    "task_id": "f32362a0-f6be-483d-a5aa-10894aaacac8",
+    "prompt": "Chill tropical lounge groove for a party quiz waiting room, marimba, steel drums, soft congas, laid back jungle ambience, playful, warm, loopable, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "tropical",
+      "2020s",
+      "balearic beat",
+      "marimba",
+      "chillout",
+      "tropical house",
+      "mellow",
+      "warm",
+      "playful",
+      "lounge",
+      "exotica",
+      "congas"
+    ],
+    "bytes": 2077168
+  },
+  "question_bed_hard": {
+    "task_id": "1012692b-f749-48f2-875c-554ebab2a497",
+    "prompt": "Dark suspenseful quiz show tension underscore, deep bass drone, heartbeat pulse, ticking clock, cinematic tribal jungle drums, high stakes, loopable, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "heavy",
+      "2020s",
+      "witch house",
+      "atmospheric",
+      "suspenseful",
+      "cinematic classical",
+      "experimental electronic",
+      "tribal"
+    ],
+    "bytes": 1838866
+  },
+  "finale_showdown": {
+    "task_id": "f9b70ff6-d8f3-4044-947a-102e0266f7c7",
+    "prompt": "Epic quiz show finale music, urgent tribal jungle drums, cinematic orchestral brass, rising tension, heroic, dramatic, driving, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "dramatic",
+      "epic",
+      "triumphant",
+      "2020s",
+      "drum machine",
+      "cinematic classical",
+      "orchestral",
+      "tribal",
+      "brass"
+    ],
+    "bytes": 1973221
+  },
+  "victory_podium": {
+    "task_id": "a72f152d-85bf-488d-9f65-2edf1ce7e97d",
+    "prompt": "Triumphant victory celebration, brass fanfare, tropical samba party, confetti energy, cheering crowd feel, awards ceremony, joyful, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "samba",
+      "2020s",
+      "tropical house",
+      "energetic",
+      "brass",
+      "triumphant",
+      "party",
+      "latin jazz"
+    ],
+    "bytes": 1946475
+  },
+  "estimate_think": {
+    "task_id": "c3afb9d0-b217-4d38-9adb-8b42512ce0bf",
+    "prompt": "Mysterious thinking music, vibraphone, soft jazz brushes, curiosity, treasure vault, gentle suspense, loopable, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "2020s",
+      "mysterious",
+      "suspenseful",
+      "mellow",
+      "vibraphone",
+      "instrumental",
+      "jazz pop"
+    ],
+    "bytes": 1652958
+  },
+  "credits_outro": {
+    "task_id": "2d361f51-96cb-4598-9e7a-8e6a7dc69b3f",
+    "prompt": "Warm nostalgic end credits music, jazzy piano, mellow brass, tropical sunset feel, feel good goodbye, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "smooth jazz",
+      "2020s",
+      "Bossanova",
+      "mellow",
+      "tropical house",
+      "instrumental",
+      "warm",
+      "nostalgic",
+      "jazzy hip-hop"
+    ],
+    "bytes": 1463427
+  },
+  "market_trade": {
+    "task_id": "c39cf22c-f348-4c2e-91c2-2f7bfc23e1a5",
+    "prompt": "Busy tropical bazaar marketplace trading music, upbeat hand percussion, accordion, marimba, lively haggling energy, loopable, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "tropical",
+      "2020s",
+      "upbeat",
+      "accordion",
+      "marimba",
+      "percussion",
+      "world",
+      "handclaps",
+      "instrumental",
+      "rhythmic",
+      "playful",
+      "party"
+    ],
+    "bytes": 1399704
+  },
+  "music_round_dj": {
+    "task_id": "b210cf78-db48-4529-95c1-b69a66d8be0f",
+    "prompt": "Funky DJ party music, disco strings, turntable scratches, upbeat dance groove, tropical brass, loopable, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "funk-pop",
+      "2020s",
+      "upbeat",
+      "turntablism",
+      "tropical house",
+      "funky house",
+      "brass",
+      "rhythmic",
+      "nu-disco"
+    ],
+    "bytes": 1442233
+  },
+  "werwolf_night": {
+    "task_id": "17f88935-82d5-4a8f-9737-03b9c8172a87",
+    "prompt": "Spooky mysterious jungle night ambience music, owl calls, low strings, slow tribal drums, whispering mystery, loopable, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "witch house",
+      "2020s",
+      "atmospheric",
+      "future garage",
+      "mysterious",
+      "dark ambient",
+      "hypnotic",
+      "experimental electronic",
+      "tribal"
+    ],
+    "bytes": 1986723
+  },
+  "boardgame_bed": {
+    "task_id": "d9be664c-39c2-4754-ba08-89034db5641e",
+    "prompt": "Relaxed cozy board game night music, acoustic guitar, ukulele, marimba, warm and playful, gentle percussion, loopable, instrumental",
+    "model_version": "v3-preview",
+    "tags": [
+      "2020s",
+      "bedroom pop",
+      "ukulele",
+      "soft",
+      "marimba",
+      "mellow",
+      "instrumental",
+      "warm",
+      "folk pop",
+      "playful",
+      "nature",
+      "acoustic guitar"
+    ],
+    "bytes": 2221306
+  }
+}
