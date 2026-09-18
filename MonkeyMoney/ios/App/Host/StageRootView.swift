@@ -23,7 +23,7 @@ struct StageRootView: View {
     func stageBody(width: CGFloat) -> some View {
         ZStack {
             if let stage = host.stage {
-                if stage.phase != .lobby {
+                if stage.phase != .lobby && stage.phase != .brettspiel {
                     StageDecor(jackpot: stage.jackpotAktiv ? stage.jackpotGlas : nil,
                                showCrowd: [.frage, .aufloesung, .siegerehrung, .highlights].contains(stage.phase),
                                showCrates: stage.phase != .rad && stage.phase != .brettspiel)
