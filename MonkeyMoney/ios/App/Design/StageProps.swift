@@ -26,8 +26,8 @@ struct StageDecor: View {
                 Group {
                     SpotlightHead(pointsRight: true).position(x: w * 0.09, y: 26)
                     SpotlightHead(pointsRight: false).position(x: w * 0.91, y: 26)
-                    HangingSign(lines: leftSign, tilt: -4).frame(width: signW).position(x: signW * 0.62, y: h * 0.36)
-                    HangingSign(lines: rightSign, tilt: 3).frame(width: signW).position(x: w - signW * 0.62, y: h * 0.36)
+                    HangingSign(lines: leftSign, tilt: -4).frame(width: signW).position(x: signW * 0.5 + 6, y: h * 0.34)
+                    HangingSign(lines: rightSign, tilt: 3).frame(width: signW).position(x: w - signW * 0.5 - 6, y: h * 0.34)
                 }
                 if showCrates && wide {
                     SloganCrate(lines: ["QUIZ", "PLAY", "WIN", "TOGETHER"]).frame(width: 118, height: 118).position(x: 84, y: h * 0.76)

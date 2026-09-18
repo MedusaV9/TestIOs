@@ -7,6 +7,20 @@ struct StageRootView: View {
     @State private var confirmEnd = false
 
     var body: some View {
+        GeometryReader { geo in
+            stageBody(width: geo.size.width)
+        }
+    }
+
+    /// Side padding that keeps the wall clear of the hanging boards (wide iPads
+    /// get the full dressing, narrower ones a slimmer one).
+    func sidePadding(width: CGFloat, phase: Phase) -> CGFloat {
+        if phase == .lobby || phase == .brettspiel { return 0 }
+        return width >= 1000 ? 150 : 118
+    }
+
+    @ViewBuilder
+    func stageBody(width: CGFloat) -> some View {
         ZStack {
             if let stage = host.stage {
                 if stage.phase != .lobby {
@@ -23,7 +37,7 @@ struct StageRootView: View {
                             .transition(.asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.96)).combined(with: .offset(y: 14)), removal: .opacity))
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.horizontal, stage.phase == .lobby || stage.phase == .brettspiel ? 0 : 112)
+                    .padding(.horizontal, sidePadding(width: width, phase: stage.phase))
                     .animation(.spring(response: 0.45, dampingFraction: 0.85), value: sceneKey(stage))
                     stageFooter(stage)
                 }
