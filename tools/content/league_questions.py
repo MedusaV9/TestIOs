@@ -320,39 +320,39 @@ def gen_champions():
                others("name", name, like=c), champ_desc(c),
                tipps=([REGION_HINT[c["region"]]] if c["region"] else []) + [f"Position: {ROLE_DE[c['role']]}.", f"Erschienen {c['year']}."])
         choice(SUB_CHAMP, bump("medium", OFF[t]), f"Welchen Titel trägt {name} im englischen Client?", c["title"],
-               others("title", c["title"], like=c), champ_desc(c))
+               others("title", c["title"], like=c), champ_desc(c), tipps=[f"Position: {ROLE_DE[c['role']]}."] + ([REGION_HINT[c["region"]]] if c["region"] else []) + [f"Beginnt mit „{c['title'].replace('the ', '')[0]}“ (ohne „the“)."])
         # region
         if c["region"]:
             choice(SUB_LORE, bump("easy", t), f"Aus welcher Region Runeterras stammt {name}?", c["region"],
-                   [r for r in RNG.sample(REGIONS, len(REGIONS)) if r != c["region"]][:3], champ_desc(c), tipps=[REGION_HINT[c["region"]]])
+                   [r for r in RNG.sample(REGIONS, len(REGIONS)) if r != c["region"]][:3], champ_desc(c), tipps=[REGION_HINT[c["region"]], f"Titel: „{c['title']}“."])
         # role
         choice(SUB_CHAMP, bump("easy", max(0, t - 1)), f"Auf welcher Position wird {name} klassischerweise gespielt?", ROLE_DE[c["role"]],
-               [ROLE_DE[r] for r in ROLE_DE if r != c["role"]], champ_desc(c))
+               [ROLE_DE[r] for r in ROLE_DE if r != c["role"]], champ_desc(c), tipps=[f"Titel: „{c['title']}“.", RESOURCES_DE[c["resource"]] + " als Ressource."])
         # resource (interesting for non-mana; a sample of mana champions keeps the answer honest)
         if c["resource"] != "Mana" or RNG.random() < 0.25:
             choice(SUB_CHAMP, bump("medium", t - 1 if c["resource"] != "Mana" else t), f"Welche Ressource nutzt {name} für seine Fähigkeiten?", RESOURCES_DE[c["resource"]],
-                   [RESOURCES_DE[r] for r in RESOURCES_DE if r != c["resource"]], f"{name} nutzt {RESOURCES_DE[c['resource']]}. " + champ_desc(c))
+                   [RESOURCES_DE[r] for r in RESOURCES_DE if r != c["resource"]], f"{name} nutzt {RESOURCES_DE[c['resource']]}. " + champ_desc(c), tipps=[f"Titel: „{c['title']}“.", f"Position: {ROLE_DE[c['role']]}."])
         # ultimate
         if c["r"]:
             choice(SUB_CHAMP, bump("medium", t), f"Wie heißt die ultimative Fähigkeit (R) von {name}?", c["r"],
-                   others("r", c["r"], like=c), f"Die Ultimate von {name} heißt „{c['r']}“. " + champ_desc(c), tipps=["Englischer Fähigkeitsname."])
+                   others("r", c["r"], like=c), f"Die Ultimate von {name} heißt „{c['r']}“. " + champ_desc(c), tipps=[f"Beginnt mit „{c['r'][0]}“.", f"{len(c['r'].split())} Wort/Wörter (englischer Name)."])
             choice(SUB_CHAMP, bump("hard", t - 1), f"Zu welchem Champion gehört die Ultimate „{c['r']}“?", name,
-                   others("name", name, like=c), f"„{c['r']}“ ist die R von {name}. " + champ_desc(c))
+                   others("name", name, like=c), f"„{c['r']}“ ist die R von {name}. " + champ_desc(c), tipps=[f"Position: {ROLE_DE[c['role']]}."] + ([REGION_HINT[c["region"]]] if c["region"] else []) + [f"Der Champion beginnt mit „{name[0]}“."])
         # passive (connoisseur territory)
         if c["passive"]:
             choice(SUB_CHAMP, bump("hard", 1 if t else 0), f"Wie heißt die passive Fähigkeit von {name}?", c["passive"],
-                   others("passive", c["passive"], like=c), f"Die Passive von {name} heißt „{c['passive']}“. " + champ_desc(c))
+                   others("passive", c["passive"], like=c), f"Die Passive von {name} heißt „{c['passive']}“. " + champ_desc(c), tipps=[f"Beginnt mit „{c['passive'][0]}“.", f"{len(c['passive'].split())} Wort/Wörter."])
         # Q
         if c["q"]:
             choice(SUB_CHAMP, bump("hard", 1 if t == 2 else 0), f"Wie heißt die Q-Fähigkeit von {name}?", c["q"], others("q", c["q"], like=c),
-                   f"Die Q von {name} heißt „{c['q']}“. " + champ_desc(c))
+                   f"Die Q von {name} heißt „{c['q']}“. " + champ_desc(c), tipps=[f"Beginnt mit „{c['q'][0]}“.", f"{len(c['q'].split())} Wort/Wörter."])
         # "not one of X's abilities"
         own = [a for a in (c["q"], c["w"], c["e"], c["r"]) if a]
         if len(own) == 4:
             foreign = others("w", c["w"])[0]
             opts = RNG.sample(own, 3) + [foreign]
             choice(SUB_CHAMP, bump("hard", 0 if t == 0 else 1), f"Welche dieser Fähigkeiten gehört NICHT zu {name}?", foreign, opts[:3],
-                   f"„{foreign}“ gehört einem anderen Champion; {name} hat {', '.join(own[:3])} und {own[3]}.")
+                   f"„{foreign}“ gehört einem anderen Champion; {name} hat {', '.join(own[:3])} und {own[3]}.", tipps=[f"{name} ist {ROLE_DE[c['role']]} — passt der Name zum Kit?", f"Die fremde Fähigkeit ist eine W-Fähigkeit."])
         # release year (estimate)
         schaetz(SUB_CHAMP, "hard" if t < 2 else "ultrahard", f"In welchem Jahr erschien {name} in League of Legends?", c["year"], "", 1, 2009, 2025,
                 champ_desc(c), tipps=["League of Legends startete 2009.", f"{name} kam {'zu den ersten Champions' if c['year'] == 2009 else ('in den frühen Jahren' if c['year'] <= 2012 else ('in der Mitte des Jahrzehnts' if c['year'] <= 2017 else 'in den letzten Jahren'))}."])
@@ -360,7 +360,7 @@ def gen_champions():
         if c["species"] in ("Yordle", "Vastaya", "Darkin", "Leerenwesen", "Aufgestiegener", "Dämon", "Untoter", "Aspekt"):
             spec_de = {"Yordle": "Yordle", "Vastaya": "Vastaya", "Darkin": "Darkin", "Leerenwesen": "Leerenwesen", "Aufgestiegener": "Aufgestiegener (Ascended)", "Dämon": "Dämon", "Untoter": "Untoter / Geist", "Aspekt": "Aspekt von Targon"}
             choice(SUB_LORE, bump("medium", t), f"Zu welcher Art von Wesen gehört {name}?", spec_de[c["species"]],
-                   [spec_de[s] for s in spec_de if s != c["species"]], f"{name} ist ein {spec_de[c['species']]}. " + champ_desc(c))
+                   [spec_de[s] for s in spec_de if s != c["species"]], f"{name} ist ein {spec_de[c['species']]}. " + champ_desc(c), tipps=([REGION_HINT[c["region"]]] if c["region"] else []) + [f"Titel: „{c['title']}“."])
 
 
 def gen_region_sets():
@@ -392,8 +392,9 @@ def gen_region_sets():
         mana = [c for c in CHAMPS if c["resource"] == "Mana"]
         for _ in range(4):
             m = RNG.choice(users)
-            choice(SUB_MECH, "medium", f"Welcher dieser Champions nutzt {RESOURCES_DE[res]} statt Mana?", m["name"], [c["name"] for c in RNG.sample(mana, 3)],
-                   f"{m['name']} spielt mit {RESOURCES_DE[res]}; die anderen drei nutzen Mana.")
+            text = f"Welcher dieser Champions hat gar keine Ressourcenleiste (kein Mana)?" if res == "Keine" else f"Welcher dieser Champions nutzt {RESOURCES_DE[res]} statt Mana?"
+            choice(SUB_MECH, "medium", text, m["name"], [c["name"] for c in RNG.sample(mana, 3)],
+                   f"{m['name']} spielt mit {RESOURCES_DE[res]}; die anderen drei nutzen Mana.", tipps=[f"Gesucht ist ein {ROLE_DE[m['role']]}-Champion.", f"Titel: „{m['title']}“."])
     # species groups
     for species, label in (("Yordle", "ein Yordle"), ("Vastaya", "ein Vastaya"), ("Darkin", "ein Darkin"), ("Leerenwesen", "ein Wesen aus der Leere"), ("Aufgestiegener", "ein Aufgestiegener Shurimas")):
         members = [c for c in CHAMPS if c["species"] == species]
@@ -401,7 +402,7 @@ def gen_region_sets():
         for _ in range(min(5, len(members))):
             m = RNG.choice(members)
             choice(SUB_LORE, "medium", f"Welcher dieser Champions ist {label}?", m["name"], [c["name"] for c in RNG.sample(humans, 3)],
-                   f"{m['name']} ist {label}; die anderen drei sind Menschen.")
+                   f"{m['name']} ist {label}; die anderen drei sind Menschen.", tipps=([REGION_HINT[m["region"]]] if m["region"] else []) + [f"Titel: „{m['title']}“."])
 
 
 def gen_true_false():
@@ -823,11 +824,11 @@ def gen_extra_champion_facts():
             m = RNG.choice(same)
             wrong = [x["name"] for x in RNG.sample([x for x in CHAMPS if x["year"] != c["year"] and x is not c], 3)]
             choice(SUB_CHAMP, "ultrahard", f"Welcher Champion erschien im selben Jahr wie {c['name']} ({c['year']})?", m["name"], wrong,
-                   f"{m['name']} und {c['name']} kamen beide {c['year']}.")
+                   f"{m['name']} und {c['name']} kamen beide {c['year']}.", tipps=[f"Gesucht ist ein {ROLE_DE[m['role']]}-Champion."] + ([REGION_HINT[m["region"]]] if m["region"] else []))
         if c["w"] and RNG.random() < 0.55:
-            choice(SUB_CHAMP, bump("hard", 1 if t == 2 else 0), f"Wie heißt die W-Fähigkeit von {c['name']}?", c["w"], others("w", c["w"], like=c), f"Die W von {c['name']} heißt „{c['w']}“. " + champ_desc(c))
+            choice(SUB_CHAMP, bump("hard", 1 if t == 2 else 0), f"Wie heißt die W-Fähigkeit von {c['name']}?", c["w"], others("w", c["w"], like=c), f"Die W von {c['name']} heißt „{c['w']}“. " + champ_desc(c), tipps=[f"Beginnt mit „{c['w'][0]}“.", f"{len(c['w'].split())} Wort/Wörter."])
         if c["e"] and RNG.random() < 0.55:
-            choice(SUB_CHAMP, bump("hard", 1 if t == 2 else 0), f"Wie heißt die E-Fähigkeit von {c['name']}?", c["e"], others("e", c["e"], like=c), f"Die E von {c['name']} heißt „{c['e']}“. " + champ_desc(c))
+            choice(SUB_CHAMP, bump("hard", 1 if t == 2 else 0), f"Wie heißt die E-Fähigkeit von {c['name']}?", c["e"], others("e", c["e"], like=c), f"Die E von {c['name']} heißt „{c['e']}“. " + champ_desc(c), tipps=[f"Beginnt mit „{c['e'][0]}“.", f"{len(c['e'].split())} Wort/Wörter."])
         if c["region"] and RNG.random() < 0.5:
             same_r = [x for x in CHAMPS if x["region"] == c["region"] and x is not c]
             if same_r:
@@ -840,7 +841,7 @@ def gen_extra_champion_facts():
             m = RNG.choice(same_role)
             wrong = [x["name"] for x in RNG.sample([x for x in CHAMPS if x["role"] != c["role"]], 3)]
             choice(SUB_CHAMP, bump("easy", t), f"Welcher Champion wird wie {c['name']} klassisch auf der {ROLE_DE[c['role']]} gespielt?", m["name"], wrong,
-                   f"{m['name']} und {c['name']} sind beide {ROLE_DE[c['role']]}-Champions.")
+                   f"{m['name']} und {c['name']} sind beide {ROLE_DE[c['role']]}-Champions.", tipps=([REGION_HINT[m["region"]]] if m["region"] else []) + [f"Titel: „{m['title']}“."])
 
 
 def build():
