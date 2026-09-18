@@ -172,7 +172,9 @@ extension Engine {
             default: break
             }
         }
-        return WheelView(face: s.rad.face.map { Wheel.segment($0) }, resultIndex: s.rad.subphase == "dreht" ? nil : s.rad.resultIndex, subphase: s.rad.subphase,
+        // The result travels with the view from the first frame: the stage needs it
+        // to run the light chase (and its ticks) deterministically into the segment.
+        return WheelView(face: s.rad.face.map { Wheel.segment($0) }, resultIndex: s.rad.resultIndex, subphase: s.rad.subphase,
                          spinStartedAt: s.rad.spinStartedAt, spinDurationMs: s.rad.spinDurationMs, erklaerung: s.rad.subphase == "dreht" ? nil : seg?.wirkung,
                          betroffene: betroffene, interactionEndsAt: s.rad.interactionEndsAt)
     }

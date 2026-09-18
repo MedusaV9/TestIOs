@@ -26,10 +26,10 @@ final class HostModel: ObservableObject {
 
     let catalog: ContentCatalog
     let audio = AudioManager.shared
+    let regie = SoundRegie(audio: AudioManager.shared)
     private(set) var server: ShowServer?
     private var cancellables: Set<AnyCancellable> = []
     private var lastPhase: Phase?
-    private var lastMomentId = 0
 
     struct SaveSlot: Codable, Identifiable {
         var id: Int
@@ -104,6 +104,7 @@ final class HostModel: ObservableObject {
     /// Start (or restart) the show server with fresh room state.
     func startShow(settings: MatchSettings, restoring: EngineState? = nil) {
         stopShow()
+        regie.reset()
         var rng = SeededRandom(seed: UInt32(truncatingIfNeeded: Int(Date().timeIntervalSince1970)))
         let now = Int(Date().timeIntervalSince1970 * 1000)
         lanIP = HTTPServer.lanIPv4() ?? "127.0.0.1"
@@ -158,22 +159,9 @@ final class HostModel: ObservableObject {
             if view.phase == .lobby, previous?.phase == .ende || previous?.phase == .siegerehrung { screen = .lobby }
             if view.phase != .lobby, screen == .lobby { screen = .stage }
         }
-        // Audio: music from the cue, SFX for new moments.
+        // Audio: the regie turns transitions into stingers, the reveal beat and the beds.
         let musicOn = view.scene.musicAllowed && (server?.withHub { $0.state.settings.musik } ?? true)
-        audio.apply(view.audio, musicOn: musicOn)
-        if let m = view.moments.last, m.id > lastMomentId {
-            lastMomentId = m.id
-            switch m.art {
-            case "money", "jackpot", "sieger": audio.sfx("kaching")
-            case "joker": audio.sfx("joker")
-            case "join": audio.sfx("powerup")
-            case "rad": audio.sfx("dreiklang")
-            case "sound": audio.sfx(m.text)
-            case "streik", "pranger": audio.sfx("falsch")
-            case "rueckenwind", "bailout", "boost": audio.sfx("phaser")
-            default: break
-            }
-        }
+        regie.update(view, musicOn: musicOn)
         if case .frage(_, let extra, _, _, _) = view.scene, case .song(let songId, let snippet, let playAt, _, _, _, _, _) = extra {
             if let at = playAt, at != lastSnippetAt {
                 lastSnippetAt = at
@@ -245,7 +233,7 @@ final class HostModel: ObservableObject {
                     case .number(_, let lo, let hi, _, _, _, let cur, let locked, _): if cur == nil, !locked { action = .number(lo + (hi - lo) * rng.next()) }
                     case .wager(_, _, let lo, let hi, let step, let cur, let locked, _): if cur == nil, !locked { action = .wager(lo + step * rng.below(max(1, (hi - lo) / max(1, step) + 1))) }
                     case .vote(_, let opts, let chosen, _): if chosen == nil, let o = rng.pick(opts) { action = .vote(o.id) }
-                    case .explain(_, _, let ready, _, _): if !ready { action = .ready("bereit") }
+                    case .explain(_, _, _, _, let ready, _, _): if !ready { action = .ready("bereit") }
                     case .order(_, let items, _, let locked, _): if !locked { srv.hub.engine.reduce(&srv.hub.state, .player(bot.id, .order(rng.shuffled(items.map { $0.id }))), now: now); action = .confirm }
                     case .pickPlayer(_, _, let cands, let chosen, _): if chosen == nil, let c = rng.pick(cands) { action = .pickPlayer(c.id) }
                     case .binary(_, _, let a, let b, let chosen, _): if chosen == nil { action = .binary(rng.chance(0.5) ? a : b) }

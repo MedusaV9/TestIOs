@@ -143,4 +143,33 @@ public enum Wheel {
         face = rng.shuffled(face)
         return (face, face.firstIndex { $0.id == picked.id } ?? 0)
     }
+
+    // MARK: Light chase
+
+    /// Full laps the running light makes before it settles on the result.
+    public static let chaseLaps = 3
+
+    /// Total number of light steps of a spin (laps + the way to the result).
+    public static func chaseSteps(segments: Int, resultIndex: Int) -> Int {
+        max(1, chaseLaps * max(1, segments) + max(0, resultIndex))
+    }
+
+    /// Step of the running light after `elapsedMs` of a `durationMs` spin —
+    /// cubic ease-out, so the light races at first and slows to a crawl
+    /// before it stops. Deterministic: stage, phones and the tick sounds all
+    /// derive the same step from the server clock.
+    public static func chaseStep(elapsedMs: Int, durationMs: Int, segments: Int, resultIndex: Int) -> Int {
+        let total = chaseSteps(segments: segments, resultIndex: resultIndex)
+        guard durationMs > 0, elapsedMs > 0 else { return 0 }
+        if elapsedMs >= durationMs { return total }
+        let p = Double(elapsedMs) / Double(durationMs)
+        let eased = 1 - pow(1 - p, 3)
+        return min(total, Int(floor(eased * Double(total))))
+    }
+
+    /// Segment index lit at a given step.
+    public static func chaseIndex(step: Int, segments: Int) -> Int {
+        let n = max(1, segments)
+        return ((step % n) + n) % n
+    }
 }
