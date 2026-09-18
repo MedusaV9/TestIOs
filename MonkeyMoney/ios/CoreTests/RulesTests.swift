@@ -65,6 +65,32 @@ final class RulesTests: XCTestCase {
         XCTAssertEqual(Jokers.price(Jokers.def(.goldeneBanane), questionValue: 250, balance: 100), 0)
     }
 
+    func testWheelLightChaseSlowsDownAndLandsOnTheResult() {
+        let n = 10, result = 7, duration = 5000
+        let total = Wheel.chaseSteps(segments: n, resultIndex: result)
+        XCTAssertEqual(total, Wheel.chaseLaps * n + result)
+        XCTAssertEqual(Wheel.chaseStep(elapsedMs: 0, durationMs: duration, segments: n, resultIndex: result), 0)
+        XCTAssertEqual(Wheel.chaseStep(elapsedMs: duration, durationMs: duration, segments: n, resultIndex: result), total)
+        XCTAssertEqual(Wheel.chaseStep(elapsedMs: duration + 999, durationMs: duration, segments: n, resultIndex: result), total)
+        XCTAssertEqual(Wheel.chaseIndex(step: total, segments: n), result, "the light ends on the result field")
+        // Monotonic, and decelerating: the first second moves more steps than the last.
+        var last = 0
+        var firstSecond = 0, lastSecond = 0
+        for t in stride(from: 0, through: duration, by: 50) {
+            let s = Wheel.chaseStep(elapsedMs: t, durationMs: duration, segments: n, resultIndex: result)
+            XCTAssertGreaterThanOrEqual(s, last)
+            if t == 1000 { firstSecond = s }
+            if t == duration - 1000 { lastSecond = s }
+            last = s
+        }
+        XCTAssertGreaterThan(firstSecond, total - lastSecond, "ease-out: fast start, slow finish")
+        // Every lit index is a real field.
+        for t in stride(from: 0, through: duration, by: 37) {
+            let idx = Wheel.chaseIndex(step: Wheel.chaseStep(elapsedMs: t, durationMs: duration, segments: n, resultIndex: result), segments: n)
+            XCTAssertTrue((0..<n).contains(idx))
+        }
+    }
+
     func testWheelWeightsAndFairFinale() {
         XCTAssertEqual(Wheel.segments.filter { $0.id != .shotOderSchotter }.reduce(0) { $0 + $1.gewicht }, 100)
         let fair = Wheel.compatible(Wheel.Context(fairFinale: true, nextIsMcQuestion: true, lastSegment: nil, spinsWithoutGold: 0, playerCount: 4))
