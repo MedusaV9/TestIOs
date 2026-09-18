@@ -2,7 +2,7 @@ name: Monkey Money IPA
 
 on:
   push:
-    branches: [main, monkey-money-swift]
+    branches: [main, "cursor/**"]
     paths:
       - "MonkeyMoney/**"
       - ".github/workflows/monkey-money-ipa.yml"
