@@ -277,11 +277,21 @@ extension Engine {
             prompt = .choice(question: "Blitz-Stimmung: Wie geht's dir gerade?", options: ["🥱", "😐", "🙂", "😄", "🤩"].enumerated().map { ChoiceOption(id: $0.offset, text: $0.element) }, chosen: nil, deadline: now + 5000, secondTry: false, hint: nil)
         }
         let leader = s.leader?.balance ?? 0
+        let jackpotIdx = s.plan.firstIndex { $0.typ == .jackpot }
+        let jackpotAktiv = jackpotIdx.map { s.sectionIndex <= $0 } ?? false
+        let jackpotHinweis: String
+        if let ji = jackpotIdx {
+            let runde = s.plan[ji].rundenNummer
+            jackpotHinweis = "Strafen, Fehlbuzz und Insolvenzen wandern ins Glas. Vor Runde \(runde) kommt die Jackpot-Frage: wer richtig liegt, kassiert den doppelten Fragenwert PLUS das ganze Glas — mehrere Richtige teilen."
+        } else {
+            jackpotHinweis = "Strafen und Fehlbuzz wandern ins Glas. In dieser Show gibt es keine Jackpot-Frage — das Glas bleibt Deko."
+        }
         return PlayerView(roomCode: s.roomCode, phase: s.paused ? .pause : s.phase, me: ref, prompt: prompt, jokers: jokerViews(s, player: p), statusText: status,
                           phaseEndsAt: s.phaseEndsAt, paused: s.paused, pauseText: s.pauseText, serverTime: now,
                           rueckenwind: Economy.tailwindFactor(own: p.balance, leader: leader), whisper: s.whispers[id], moments: Array(s.moments.suffix(3)),
                           ranking: refs(s).sorted { $0.platz < $1.platz }, teamTopf: p.teamId.flatMap { t in s.teams.first { $0.id == t }?.topf },
-                          sectionLabel: sectionLabel(s), ohneScreen: !s.screenOnline, haptic: haptic, flash: flash)
+                          sectionLabel: sectionLabel(s), ohneScreen: !s.screenOnline, haptic: haptic, flash: flash,
+                          jackpotGlas: s.jackpotGlas, jackpotAktiv: jackpotAktiv, jackpotHinweis: jackpotHinweis, progress: progress(s))
     }
 
     // MARK: GM

@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Declarative UI contracts
 //
 // The engine never renders anything. It describes WHAT each device shows:
-// `PlayerPrompt` for the phones (native SwiftUI, App Clip and the web fallback
+// `PlayerPrompt` for the phones (native SwiftUI and the browser client
 // all render the same ~16 prompt kinds), `StageScene` for the iPad stage and
 // `GmView` for the Show-Master cockpit. Minigames only produce these values,
 // so 27 formats work on every client without per-format UI code.
@@ -188,6 +188,13 @@ public struct PlayerView: Codable, Equatable, Sendable {
     public var ohneScreen: Bool
     public var haptic: String?
     public var flash: String?
+    /// Jackpot jar as seen from the phone: amount, whether the jackpot question is
+    /// still ahead, and the one-line rule ("what is this jar?").
+    public var jackpotGlas: Int
+    public var jackpotAktiv: Bool
+    public var jackpotHinweis: String
+    /// Round progress 0…1 for the phone's thin progress line.
+    public var progress: Double
 }
 
 // MARK: Stage

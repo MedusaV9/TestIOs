@@ -154,16 +154,49 @@
     t._h = setTimeout(() => t.classList.remove("show"), 2800);
   }
 
+  // Count-up animation for the balance so money visibly arrives.
+  let shownBalance = null;
+  function animateBalance(to) {
+    const el = $("meBalance");
+    if (shownBalance === null) { shownBalance = to; el.textContent = fmtMM(to); return; }
+    const from = shownBalance;
+    if (from === to) return;
+    shownBalance = to;
+    const t0 = performance.now(), dur = 700;
+    el.classList.add(to > from ? "up" : "down");
+    const step = now => {
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmtMM(Math.round(from + (to - from) * e));
+      if (k < 1) requestAnimationFrame(step); else el.classList.remove("up", "down");
+    };
+    requestAnimationFrame(step);
+  }
+
+  $("jarChip").onclick = () => { $("jarSheet").classList.remove("hidden"); haptic(); };
+  $("jarClose").onclick = () => $("jarSheet").classList.add("hidden");
+  $("jarSheet").onclick = e => { if (e.target === $("jarSheet")) $("jarSheet").classList.add("hidden"); };
+
   function render() {
     if (!view) return;
     const me = view.me;
     $("meName").textContent = me.name;
-    $("meBalance").textContent = fmtMM(me.balance);
+    animateBalance(me.balance);
     const p0 = decode(view.prompt);
-    const noTimer = view.phase === "frage" && ["choice", "number", "order", "wager", "chips", "text"].includes(p0.kind) && !p0.deadline;
-    $("meStatus").textContent = view.statusText + (view.rueckenwind > 1 ? ` · 🌬️ ×${view.rueckenwind}` : "") + (noTimer ? " · ⏱️ kein Timer" : "");
+    const noTimer = view.phase === "frage" && ["choice", "number", "order", "wager", "chips", "text", "bank"].includes(p0.kind) && !p0.deadline;
+    $("meStatus").textContent = view.statusText;
     $("meStreak").textContent = me.streak >= 3 ? `🔥 Streak ${me.streak} (×${me.streak >= 5 ? 2 : 1.5})` : (me.streak > 0 ? `Serie: ${me.streak}` : "");
     if ($("meAvatar").dataset.wire !== me.avatar) { $("meAvatar").dataset.wire = me.avatar; renderAvatar($("meAvatar"), me.avatar); }
+    $("progress").firstElementChild.style.width = `${Math.round((view.progress || 0) * 100)}%`;
+    // Jackpot jar chip + explanation (players kept asking what the jar is).
+    const jarOn = !!view.jackpotAktiv; // Quick Cash has no jackpot question — no jar to explain
+    $("jarChip").classList.toggle("hidden", !jarOn);
+    $("jarChip").classList.toggle("live", !!view.jackpotAktiv);
+    $("jarAmount").textContent = fmtMM(view.jackpotGlas || 0);
+    $("jarSheetAmount").textContent = fmtMM(view.jackpotGlas || 0);
+    $("jarSheetText").textContent = view.jackpotHinweis || "";
+    $("windChip").classList.toggle("hidden", !(view.rueckenwind > 1));
+    $("windChip").textContent = `🌬️ Rückenwind ×${view.rueckenwind}`;
+    $("timerChip").classList.toggle("hidden", !noTimer);
     if (view.flash) { const f = $("flash"); f.className = "flash"; requestAnimationFrame(() => { f.className = "flash " + view.flash; }); }
     if (view.haptic) haptic(view.haptic);
     const newest = view.moments && view.moments.length ? view.moments[view.moments.length - 1] : null;
@@ -189,7 +222,9 @@
     if (["zwischenstand", "halbzeit", "siegerehrung", "ende", "pause"].includes(view.phase)) {
       rank.classList.remove("hidden");
       rank.querySelector("h3").textContent = ["siegerehrung", "ende"].includes(view.phase) ? "🏆 Endstand" : "Zwischenstand";
-      $("ranking").innerHTML = view.ranking.map(r => `<li><span>${r.platz}. ${esc(r.name)}${r.id === me.id ? " (du)" : ""}</span><span class="mm">${fmtMM(r.balance)}</span></li>`).join("");
+      const medal = ["🥇", "🥈", "🥉"];
+      $("ranking").innerHTML = view.ranking.map(r => `<li class="${r.id === me.id ? "me" : ""}"><span class="mini" data-avatar="${esc(r.avatar)}"></span><span>${medal[r.platz - 1] || `${r.platz}.`} ${esc(r.name)}${r.id === me.id ? " (du)" : ""}</span><span class="mm">${fmtMM(r.balance)}</span></li>`).join("");
+      $("ranking").querySelectorAll("[data-avatar]").forEach(h => renderAvatar(h, h.dataset.avatar));
     } else rank.classList.add("hidden");
 
     renderPrompt(decode(view.prompt));
@@ -247,9 +282,13 @@
     if (kindChanged) { orderState = null; chipsState = null; taps = 0; }
     let html = "";
     switch (p.kind) {
-      case "idle":
-        html = `<div class="idle"><div class="eye">🐵</div><h2>${esc(p.title)}</h2><p>${esc(p.subtitle || "")}</p></div>`;
+      case "idle": {
+        // The player's own monkey waits with them — face by mood of the message.
+        const t = String(p.title || "");
+        const face = /💥|MATSCH|matschig|Falsch|❌/.test(t) ? "frust" : (/GEWONNEN|Richtig|✅|🎉|👑/.test(t) ? "jubel" : (/…|\.\.\.|dreht|wartet|Warte/i.test(t) ? "denk" : "neutral"));
+        html = `<div class="idle"><div class="own" data-avatar="${esc(view.me.avatar)}" data-face="${face}"></div><h2>${esc(p.title)}</h2><p>${esc(p.subtitle || "")}</p></div>`;
         break;
+      }
       case "choice": {
         const locked = p.chosen !== null && p.chosen !== undefined && !p.secondTry;
         const EMO = ["🍌", "🥥", "🐒", "🌴", "💎", "🎩", "🌊", "🔥"];
@@ -263,8 +302,11 @@
         break;
       case "reveal": {
         const cls = p.correct === true ? "ok" : p.correct === false ? "nope" : "meh";
-        html = `<div class="reveal ${cls}"><div class="stamp">${esc(p.title)}</div><div class="delta ${p.delta < 0 ? "neg" : ""}">${fmtDelta(p.delta)}</div>${p.streak >= 3 ? `<div class="streak">🔥 Streak ${p.streak}</div>` : ""}<div class="detail">${esc(p.detail || "")}</div></div>`;
-        if (p.delta > 0) rain(p.delta >= 500 ? 34 : 18);
+        const face = p.correct === true ? "jubel" : (p.correct === false ? "frust" : "denk");
+        const parts = String(p.detail || "").split(" · ").filter(Boolean);
+        html = `<div class="reveal ${cls}"><div class="stamp">${esc(p.title)}</div><div class="reveal-row"><div class="own small" data-avatar="${esc(view.me.avatar)}" data-face="${face}"></div><div class="delta ${p.delta < 0 ? "neg" : (p.delta === 0 ? "zero" : "")}">${fmtDelta(p.delta)}</div></div>${p.streak >= 3 && p.correct === true ? `<div class="streak">🔥 Streak ${p.streak} — ×${p.streak >= 5 ? 2 : 1.5}</div>` : ""}<ul class="detail">${parts.map(d => `<li>${esc(d)}</li>`).join("")}</ul></div>`;
+        // Money rains only for a real win — never for the consolation banana.
+        if (p.correct === true && p.delta >= 50) rain(p.delta >= 500 ? 34 : 18);
         break;
       }
       case "buzzer":
@@ -309,16 +351,20 @@
       case "pickPlayer":
         html = `${timerHtml(p.deadline)}<div class="question">${esc(p.title)}</div>${p.subtitle ? `<p class="muted">${esc(p.subtitle)}</p>` : ""}<div class="players-grid">${p.candidates.map(c => `<button class="pcard ${p.chosen === c.id ? "on" : ""}" data-pid="${esc(c.id)}"><span class="mini" data-avatar="${esc(c.avatar)}"></span><span>${esc(c.name)}<small>${fmtMM(c.balance)}</small></span></button>`).join("")}</div>`;
         break;
-      case "bank":
+      case "bank": {
+        const hot = /LETZTE FRAGE/.test(p.question || "") && p.pot > 0;
+        const q = String(p.question || "").replace(/^⏳ LETZTE FRAGE — BANK jetzt oder nie!\n?/, "");
         html = `${timerHtml(p.deadline)}<div class="row" style="justify-content:space-between"><span class="chip gold">Pott: ${fmtMM(p.pot)}</span><span class="chip">Gesichert: ${fmtMM(p.banked)}</span></div>
-          <button class="btn bank-btn" id="bankBtn" ${p.pot > 0 ? "" : "disabled"}>🏦 BANK! ${fmtMM(p.pot)}</button>
-          ${p.question ? `<div class="question" style="margin-top:14px">${esc(p.question)}</div>` : ""}<div class="options ${p.chosen != null ? "locked" : ""}">${p.options.map((o, i) => `<button class="opt ${p.chosen === o.id ? "chosen" : ""} ${o.removed ? "removed" : ""}" data-i="${i}" data-id="${o.id}"><span class="letter">${"ABCD"[i]}</span><span>${esc(o.text)}</span></button>`).join("")}</div>`;
+          ${hot ? `<div class="notimer hot">⏳ LETZTE FRAGE — BANK jetzt oder nie!</div>` : ""}
+          <button class="btn bank-btn ${hot ? "pulse-red" : ""}" id="bankBtn" ${p.pot > 0 ? "" : "disabled"}>🏦 BANK! ${fmtMM(p.pot)}</button>
+          ${q ? `<div class="question" style="margin-top:14px">${esc(q)}</div>` : ""}<div class="options ${p.chosen != null ? "locked" : ""}">${p.options.map((o, i) => `<button class="opt ${p.chosen === o.id ? "chosen" : ""} ${o.removed ? "removed" : ""}" data-i="${i}" data-id="${o.id}"><span class="letter">${"ABCD"[i]}</span><span>${esc(o.text)}</span></button>`).join("")}</div>`;
         break;
+      }
       case "cheer":
-        html = `<div class="question center">${esc(p.title)}</div>${p.subtitle ? `<p class="muted center">${esc(p.subtitle)}</p>` : ""}<button class="btn cheer-btn" id="cheerBtn">🥁 ANFEUERN!</button><div class="tap-count">${p.taps || ""}</div>`;
+        html = `<div class="question center">${esc(p.title)}</div>${p.subtitle ? `<p class="muted center">${esc(p.subtitle)}</p>` : ""}<button class="btn cheer-btn" id="cheerBtn">🥁 ANFEUERN!</button><div class="tap-count" id="cheerCount">${p.taps ? `${p.taps}× 🥁` : ""}</div>`;
         break;
       case "confirm":
-        html = `${timerHtml(p.deadline)}<div class="question center">${esc(p.title)}</div>${p.subtitle ? `<p class="muted center">${esc(p.subtitle)}</p>` : ""}<button class="btn" id="confirmBtn" ${p.done ? "disabled" : ""}>${p.done ? "✔ " : ""}${esc(p.button)}</button>`;
+        html = `${timerHtml(p.deadline)}<div class="question center">${esc(p.title)}</div>${p.subtitle ? `<p class="muted center">${esc(p.subtitle)}</p>` : ""}${p.done ? `<div class="status-pill">✔ ${esc(p.button)}</div>` : `<button class="btn" id="confirmBtn">${esc(p.button)}</button>`}`;
         break;
       case "binary":
         html = `${timerHtml(p.deadline)}<div class="question center">${esc(p.title)}</div>${p.subtitle ? `<p class="muted center">${esc(p.subtitle)}</p>` : ""}<div class="row"><button class="btn ${p.chosen === p.a ? "" : "secondary"}" data-bin="${esc(p.a)}" ${p.chosen ? "disabled" : ""}>${esc(p.a).toUpperCase()}</button><button class="btn ${p.chosen === p.b ? "" : "secondary"}" data-bin="${esc(p.b)}" ${p.chosen ? "disabled" : ""}>${esc(p.b).toUpperCase()}</button></div>`;
@@ -345,7 +391,7 @@
         html = `<div class="idle"><h2>${esc(p.kind)}</h2></div>`;
     }
     main.innerHTML = html;
-    main.querySelectorAll("[data-avatar]").forEach(h => renderAvatar(h, h.dataset.avatar));
+    main.querySelectorAll("[data-avatar]").forEach(h => renderAvatar(h, h.dataset.avatar, h.dataset.face));
     bind(p);
     startTimers();
   }
@@ -366,7 +412,16 @@
     main.querySelectorAll(".ucard[data-id]").forEach(b => b.onclick = () => send({ type: "choose", value: Number(b.dataset.id) }));
     const buzz = $("buzz"); if (buzz) buzz.onclick = () => send({ type: "buzz", at: serverNow() });
     const bank = $("bankBtn"); if (bank) bank.onclick = () => { send({ type: "bank" }); toast("BANK! gedrückt"); };
-    const cheer = $("cheerBtn"); if (cheer) cheer.onclick = () => send({ type: "cheer" });
+    const cheer = $("cheerBtn");
+    if (cheer) {
+      let local = Number((($("cheerCount") || {}).textContent || "").replace(/\D/g, "")) || 0;
+      cheer.onclick = () => {
+        send({ type: "cheer" });
+        local += 1;
+        const c = $("cheerCount"); if (c) { c.textContent = `${local}× 🥁`; c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); }
+        cheer.classList.remove("hit"); void cheer.offsetWidth; cheer.classList.add("hit");
+      };
+    }
     const conf = $("confirmBtn"); if (conf) conf.onclick = () => send({ type: "confirm" });
     const ready = $("readyBtn"); if (ready) ready.onclick = () => send({ type: "ready", value: "bereit" });
     const strike = $("strikeBtn"); if (strike) strike.onclick = () => { if (confirm("Streik: das Minispiel entfällt bei Mehrheit — ersatzweise eine Blitzfrage.")) send({ type: "ready", value: "streik" }); };

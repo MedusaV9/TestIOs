@@ -70,10 +70,27 @@
       </div>
       <div class="balance" id="meBalance">0 MM</div>
     </div>
+    <div class="progress" id="progress"><div></div></div>
+    <div class="chips-row" id="chipsRow">
+      <button class="chip jar hidden" id="jarChip" type="button">💰 Jackpot-Glas <b id="jarAmount">0 MM</b> <span class="q">?</span></button>
+      <span class="chip hidden" id="windChip">🌬️ Rückenwind</span>
+      <span class="chip hidden" id="timerChip">⏱️ kein Timer</span>
+    </div>
     <div class="jokers hidden" id="jokers"></div>
     <div class="card" id="main"></div>
     <div class="card hidden" id="rankCard"><h3>Zwischenstand</h3><ul class="ranking" id="ranking"></ul></div>
     <div class="foot">SAME WIFI · REAL FUN · NO SERVER NEEDED</div>
+  </div>
+
+  <!-- Jackpot jar explanation -->
+  <div class="sheet hidden" id="jarSheet">
+    <div class="sheet-card">
+      <div class="jar-art"><span class="lid"></span><span class="glass"><i></i><i></i><i></i><i></i><i></i></span><span class="label">JACKPOT</span></div>
+      <h2>Das Jackpot-Glas</h2>
+      <div class="jar-amount" id="jarSheetAmount">0 MM</div>
+      <p id="jarSheetText"></p>
+      <button class="btn" id="jarClose" type="button">Alles klar!</button>
+    </div>
   </div>
 
   <script src="/common.js"></script>
