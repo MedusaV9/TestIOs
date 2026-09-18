@@ -3,7 +3,7 @@ import MonkeyMoneyCore
 
 // Linux/macOS dev server: runs the real ShowServer against the repo resources so
 // the web client (player + GM) can be tested in a browser without an iPad.
-//   swift run mm-dev-server [port] [modus]
+//   swift run mm-dev-server [port] [modus] [tempo]
 let args = CommandLine.arguments
 let port = UInt16(args.count > 1 ? args[1] : "8080") ?? 8080
 let modus = Modus(rawValue: args.count > 2 ? args[2] : "quick") ?? .quick
@@ -14,7 +14,7 @@ let engine = Engine(catalog: catalog)
 var rng = SeededRandom(seed: UInt32(truncatingIfNeeded: Int(Date().timeIntervalSince1970)))
 let now = Int(Date().timeIntervalSince1970 * 1000)
 var settings = MatchSettings(modus: modus)
-settings.tempo = .normal
+settings.tempo = Tempo(rawValue: args.count > 3 ? args[3] : "normal") ?? .normal
 let state = EngineState(matchId: "dev-\(now)", roomCode: RoomHub.makeRoomCode(rng: &rng), seed: rng.state, settings: settings, now: now, gmPin: RoomHub.makeGmPin(rng: &rng))
 let ip = HTTPServer.lanIPv4() ?? "127.0.0.1"
 let hub = RoomHub(engine: engine, state: state, joinBaseURL: "http://\(ip):\(port)")

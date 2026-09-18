@@ -58,7 +58,11 @@ public final class HTTPServer: @unchecked Sendable {
     // MARK: Lifecycle
 
     public func start() throws {
+        #if canImport(Glibc)
         listenFd = socket(AF_INET, Int32(SOCK_STREAM.rawValue), 0)
+        #else
+        listenFd = socket(AF_INET, SOCK_STREAM, 0)
+        #endif
         guard listenFd >= 0 else { throw NSError(domain: "HTTPServer", code: 1, userInfo: [NSLocalizedDescriptionKey: "socket() failed"]) }
         var yes: Int32 = 1
         setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))

@@ -20,6 +20,7 @@ public enum Scoring {
         for i in s.players.indices {
             let id = s.players[i].id
             var delta = scores[id] ?? 0
+            var alms = 0
             let o = outcomes[id] ?? Outcome(correct: nil)
             var p = s.players[i]
 
@@ -51,10 +52,9 @@ public enum Scoring {
                 p.stats.falsch += 1
                 if o.countsForStreak { p.streak = 0 }
                 p.wrongStreak += 1
-                // Applaus-Almosen: the only wrong one among answering players.
-                if wrongOnes.count == 1, answered >= 2, !isFinale, delta == 0 {
-                    delta += Economy.applauseAlms
-                }
+                // Applaus-Almosen (§3.4): the only wrong one among answering players —
+                // deliberately half a note, added after the multipliers below.
+                if wrongOnes.count == 1, answered >= 2, !isFinale, delta == 0 { alms = Economy.applauseAlms }
             } else {
                 if o.countsForStreak, p.connected, plugin.meta.streak { p.streak = 0 }
                 p.stats.keineAntwort += 1
@@ -96,6 +96,7 @@ public enum Scoring {
                 delta = roulette == "long" ? -100 : 0
             }
 
+            delta += alms
             if delta > 0 { p.stats.groessterGewinn = max(p.stats.groessterGewinn, delta) }
             if plugin.meta.id == "alles-oder-banane" || plugin.meta.id == "affen-auktion" {
                 if delta > 0 { p.stats.wettenGewonnen += 1 } else if delta < 0 { p.stats.wettenVerloren += 1 }
