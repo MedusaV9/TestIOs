@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" class="mm-affe" data-affe="kommissar-kokosnuss" role="img" aria-label="Kommissar Kokosnuss">
-  <title>Kommissar Kokosnuss  der Detektiv (Sherlock-Hut + Lupe)</title>
+  <title>Kommissar Kokosnuss - der Detektiv (Sherlock-Hut + Lupe)</title>
   <style>
     svg[data-affe="kommissar-kokosnuss"] .fell{fill:var(--fell,#8C7A6B)}
     svg[data-affe="kommissar-kokosnuss"] .fell-hell{fill:var(--fell-hell,#D8CCBF)}

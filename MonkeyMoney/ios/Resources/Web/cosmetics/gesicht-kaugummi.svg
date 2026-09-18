@@ -1,4 +1,4 @@
-<!-- Gesicht XXL-Kaugummi-Blase"  Overlay im #kopf (Mund H 120/112).
+<!-- Gesicht -XXL-Kaugummi-Blase" - Overlay im #kopf (Mund H 120/112).
      Pulsiert dezent per CSS (class mm-kaugummi, meta-avatar.ts). -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320">
   <g class="mm-kaugummi">

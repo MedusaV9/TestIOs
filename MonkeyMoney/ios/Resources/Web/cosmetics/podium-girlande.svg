@@ -1,4 +1,4 @@
-<!-- Podium Bananen-Girlande"  hängt als Deko-Leiste über dem eigenen
+<!-- Podium -Bananen-Girlande" - hängt als Deko-Leiste über dem eigenen
      Podest-Platz (wird von meta-avatar.ts absolut über den Puppen-Slot gelegt).
      preserveAspectRatio="none" ist ok: Seil + Blätter vertragen Streckung. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 44" preserveAspectRatio="none">

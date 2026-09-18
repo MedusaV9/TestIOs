@@ -1,0 +1,189 @@
+name: MonkeyMoney
+options:
+  bundleIdPrefix: de.monkeymoney
+  # iOS 17 floor: SwiftUI Observation, ContentUnavailableView, phaseAnimator.
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  xcodeVersion: "26.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    GENERATE_INFOPLIST_FILE: NO
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Manual
+
+targets:
+  MonkeyMoney:
+    type: application
+    platform: iOS
+    sources:
+      - path: Core
+        excludes:
+          - "**/*.md"
+      - path: App
+      - path: Resources/Web
+        type: folder
+        buildPhase: resources
+      - path: Resources/Fonts
+        type: folder
+        buildPhase: resources
+      - path: Resources/Content
+        type: folder
+        buildPhase: resources
+      - path: Resources/Audio
+        type: folder
+        buildPhase: resources
+      - path: Resources/Monkeys
+        type: folder
+        buildPhase: resources
+      - path: Resources/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.monkeymoney.app
+        PRODUCT_NAME: MonkeyMoney
+        # 1 = iPhone, 2 = iPad — the app is the stage on iPad and the controller on iPhone.
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        INFOPLIST_KEY_UIStatusBarHidden: YES
+    info:
+      path: Config/MonkeyMoney-Info.plist
+      properties:
+        CFBundleDisplayName: Monkey Money
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        "UISupportedInterfaceOrientations~ipad":
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: false
+        UIAppFonts:
+          - Fonts/Outfit-Regular.ttf
+          - Fonts/Outfit-Medium.ttf
+          - Fonts/Outfit-SemiBold.ttf
+          - Fonts/Outfit-Bold.ttf
+          - Fonts/Outfit-ExtraBold.ttf
+          - Fonts/Outfit-Black.ttf
+          - Fonts/Poppins-Regular.ttf
+          - Fonts/Poppins-Medium.ttf
+          - Fonts/Poppins-SemiBold.ttf
+          - Fonts/Poppins-Bold.ttf
+        NSCameraUsageDescription: "Monkey Money scannt den QR-Code auf dem iPad, um dem Raum beizutreten."
+        NSLocalNetworkUsageDescription: "Monkey Money verbindet die Handys der Mitspieler über dein WLAN mit dem iPad."
+        NSBonjourServices:
+          - _monkeymoney._tcp
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSAllowsArbitraryLoads: true
+        ITSAppUsesNonExemptEncryption: false
+        UIBackgroundModes:
+          - audio
+        CFBundleURLTypes:
+          - CFBundleURLName: de.monkeymoney.app
+            CFBundleURLSchemes:
+              - monkeymoney
+    entitlements:
+      path: Config/MonkeyMoney.entitlements
+      properties:
+        # Universal links + App Clip parent. Replace the domain with the one that serves the AASA file.
+        com.apple.developer.associated-domains:
+          - applinks:monkeymoney.example.com
+          - appclips:monkeymoney.example.com
+        com.apple.developer.parent-application-identifiers: []
+    dependencies:
+      - target: MonkeyMoneyClip
+        embed: true
+        codeSign: false
+
+  MonkeyMoneyClip:
+    type: application.on-demand-install-capable
+    platform: iOS
+    sources:
+      - path: Core
+        excludes:
+          - "**/*.md"
+          - "Server/**"
+      - path: Clip
+      - path: App/Player
+      - path: App/Design
+      - path: App/Audio
+      - path: App/Shared
+      - path: Resources/Fonts
+        type: folder
+        buildPhase: resources
+      - path: Resources/Monkeys
+        type: folder
+        buildPhase: resources
+      - path: Resources/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.monkeymoney.app.Clip
+        PRODUCT_NAME: MonkeyMoneyClip
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        SKIP_INSTALL: YES
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APPCLIP"
+    info:
+      path: Config/MonkeyMoneyClip-Info.plist
+      properties:
+        CFBundleDisplayName: Monkey Money
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: false
+        UIAppFonts:
+          - Fonts/Outfit-Bold.ttf
+          - Fonts/Outfit-ExtraBold.ttf
+          - Fonts/Outfit-Black.ttf
+          - Fonts/Poppins-Regular.ttf
+          - Fonts/Poppins-SemiBold.ttf
+          - Fonts/Poppins-Bold.ttf
+        NSCameraUsageDescription: "Monkey Money scannt den QR-Code auf dem iPad, um dem Raum beizutreten."
+        NSLocalNetworkUsageDescription: "Monkey Money verbindet dein Handy über das WLAN mit dem iPad."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSAllowsArbitraryLoads: true
+        NSAppClip:
+          NSAppClipRequestEphemeralUserNotification: false
+          NSAppClipRequestLocationConfirmation: false
+    entitlements:
+      path: Config/MonkeyMoneyClip.entitlements
+      properties:
+        com.apple.developer.parent-application-identifiers:
+          - "$(AppIdentifierPrefix)de.monkeymoney.app"
+        com.apple.developer.associated-domains:
+          - appclips:monkeymoney.example.com
+        com.apple.developer.on-demand-install-capable: true
+
+schemes:
+  MonkeyMoney:
+    build:
+      targets:
+        MonkeyMoney: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+  MonkeyMoneyClip:
+    build:
+      targets:
+        MonkeyMoneyClip: all
+    run:
+      config: Debug
+      environmentVariables:
+        _XCAppClipURL: "https://monkeymoney.example.com/j/DEMO?host=192.168.2.224:8080"

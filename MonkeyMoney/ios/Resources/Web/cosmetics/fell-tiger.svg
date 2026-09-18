@@ -1,7 +1,7 @@
-<!-- Fell Tiger-Streifen"  nahtlose Pattern-Kachel (48×48) für die Fell-Flächen.
+<!-- Fell -Tiger-Streifen" - nahtlose Pattern-Kachel (48×48) für die Fell-Flächen.
      Basis = var(--fell): der Farb-Swap (Palette/FELL_SWAPS) scheint durchs Muster.
      Rand-Regel: Bänder enden links/rechts auf GLEICHER Höhe; das unten
-     angeschnittene Band wiederholt sich oben (y48)  sonst gäbe es Nähte. -->
+     angeschnittene Band wiederholt sich oben (y-48) - sonst gäbe es Nähte. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
   <rect width="48" height="48" fill="var(--fell, #6B4226)"/>
   <g fill="#20150A" opacity="0.82">

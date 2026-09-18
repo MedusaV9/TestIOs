@@ -1,4 +1,4 @@
-<!-- Kopf Party-Hut"  Overlay für den #accessoire-Slot (viewBox 0 0 240 320).
+<!-- Kopf -Party-Hut" - Overlay für den #accessoire-Slot (viewBox 0 0 240 320).
      Die Konfetti-Spitze (class mm-partyhut-konfetti) flattert per CSS (meta-avatar.ts). -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320">
   <g transform="rotate(7 120 54)">

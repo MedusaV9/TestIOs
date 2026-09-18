@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" class="mm-affe" data-affe="astro-astrid" role="img" aria-label="Astro-Astrid">
-  <title>Astro-Astrid  die Raumfahrerin (Helm-Kuppel + Mond-Stiefel)</title>
+  <title>Astro-Astrid - die Raumfahrerin (Helm-Kuppel + Mond-Stiefel)</title>
   <style>
     svg[data-affe="astro-astrid"] .fell{fill:var(--fell,#8FCBA8)}
     svg[data-affe="astro-astrid"] .fell-hell{fill:var(--fell-hell,#DEF3E6)}
@@ -24,7 +24,7 @@
   </style>
 
   <g id="schwanz">
-    <!-- Nackter Affenschwanz aus dem Raumanzug  Zero-G-Schwung -->
+    <!-- Nackter Affenschwanz aus dem Raumanzug - Zero-G-Schwung -->
     <path class="os" d="M 144 242 C 192 250 212 212 186 200 C 170 192 162 208 176 212" stroke-width="16"/>
     <path class="fell-s" d="M 144 242 C 192 250 212 212 186 200 C 170 192 162 208 176 212" stroke-width="9"/>
   </g>

@@ -12,3 +12,6 @@ SoooDreamy/ios/SoooDreamy.xcodeproj/
 SoooDreamy/ios/SoooDreamy/Resources/Assets.xcassets/AppIcon.appiconset/icon_1024.png
 SoooDreamy/ios/SoooDreamy/Resources/Assets.xcassets/AppIcon-*.appiconset/icon_1024.png
 .env
+MonkeyMoney/ios/MonkeyMoney.xcodeproj/
+MonkeyMoney/ios/.typecheck-build/
+MonkeyMoney/ios/dist/

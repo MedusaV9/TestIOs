@@ -299,7 +299,7 @@ public enum Boardgames {
 
     public static func stageView(_ s: EngineState, catalog: ContentCatalog, now: Millis) -> BoardgameStageView {
         guard let box = s.boardgame, let plugin = BoardgameRegistry.plugin(box.id) else {
-            return BoardgameStageView(id: "", name: "", subphase: "howto", howto: [], howtoEndsAt: nil, view: .null, ergebnis: nil, aktuellerSpieler: nil, lokalerPrompt: nil)
+            return BoardgameStageView(id: "", name: "", subphase: "howto", howto: [], howtoEndsAt: nil, view: .null, ergebnis: nil, aktuellerSpieler: nil, lokalerPrompt: nil, sitze: [])
         }
         let ctx = context(s, box: box, now: now)
         let scene = plugin.scene(box.data, ctx)
@@ -308,7 +308,7 @@ public enum Boardgames {
         var lokalerPrompt: String? = nil
         if let c = current, c.hasPrefix("lokal_"), box.subphase == "spiel" { lokalerPrompt = "📲 Gib das iPad an \(ctx.name(c))!" }
         return BoardgameStageView(id: box.id, name: plugin.meta.name, subphase: box.subphase, howto: plugin.meta.howto, howtoEndsAt: box.howtoEndsAt, view: encoded,
-                                  ergebnis: box.ergebnis, aktuellerSpieler: current.map { ctx.name($0) }, lokalerPrompt: lokalerPrompt)
+                                  ergebnis: box.ergebnis, aktuellerSpieler: current.map { ctx.name($0) }, lokalerPrompt: lokalerPrompt, sitze: box.sitze)
     }
 
     /// Typed scene for the native stage (avoids the JSON round trip).

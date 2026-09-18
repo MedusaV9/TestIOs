@@ -1,4 +1,4 @@
-<!-- Kopf Heiligenschein"  Overlay für den #accessoire-Slot (viewBox 0 0 240 320).
+<!-- Kopf -Heiligenschein" - Overlay für den #accessoire-Slot (viewBox 0 0 240 320).
      Schwebt per CSS-Animation (class mm-heiligenschein, meta-avatar.ts). -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320">
   <g class="mm-heiligenschein">

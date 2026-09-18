@@ -1,5 +1,5 @@
-<!-- Kopf Piratenhut"  Overlay für den #accessoire-Slot der Affen-Puppen
-     (gemeinsame viewBox 0 0 240 320, Kopf-Mitte H 120/94, Hut-Zone y 2060).
+<!-- Kopf -Piratenhut" - Overlay für den #accessoire-Slot der Affen-Puppen
+     (gemeinsame viewBox 0 0 240 320, Kopf-Mitte H 120/94, Hut-Zone y 20-60).
      Wird vom Client (meta-avatar.ts) inline in die Puppe injiziert. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320">
   <g transform="rotate(-2 120 46)">

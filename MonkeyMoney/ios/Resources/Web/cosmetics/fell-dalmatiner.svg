@@ -1,4 +1,4 @@
-<!-- Fell Dalmatiner-Bananen"  nahtlose Pattern-Kachel (56×56): statt Punkten
+<!-- Fell -Dalmatiner-Bananen" - nahtlose Pattern-Kachel (56×56): statt Punkten
      regnet es Mini-Bananen aufs Fell. Alle Formen liegen komplett im Tile. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
   <rect width="56" height="56" fill="var(--fell, #6B4226)"/>

@@ -393,6 +393,7 @@ public struct BoardgameStageView: Codable, Equatable, Sendable {
     public var ergebnis: [BoardgameResult]?
     public var aktuellerSpieler: String?
     public var lokalerPrompt: String?
+    public var sitze: [String]
 }
 
 public struct StageView: Codable, Equatable, Sendable {
