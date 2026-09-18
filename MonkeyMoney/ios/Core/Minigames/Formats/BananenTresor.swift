@@ -39,7 +39,10 @@ public enum BananenTresor: MinigamePlugin {
     /// Slider granularity — whole numbers unless the range is tiny.
     static func step(_ spec: EstimateSpec) -> Double {
         let range = spec.max - spec.min
-        return range > 1000 ? 10.0 : (range > 100 ? 1.0 : (range > 10 ? 0.5 : 0.1))
+        // Whole-number questions (years, counts) never offer halves — "2016,5" is not a release year.
+        let integral = [spec.richtwert, spec.min, spec.max].allSatisfy { $0 == $0.rounded() }
+        if integral { return range > 1000 ? 10.0 : 1.0 }
+        return range > 100 ? 1.0 : (range > 10 ? 0.5 : 0.1)
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {

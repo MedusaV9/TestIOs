@@ -125,6 +125,7 @@
   // ---------- game ----------
   let view = null;
   let lastMomentId = 0;
+  let lastWhisper = null;
   let timerRaf = null;
   let orderState = null;
   let chipsState = null;
@@ -206,6 +207,17 @@
     $("timerChip").classList.toggle("hidden", !noTimer);
     if (view.flash) { const f = $("flash"); f.className = "flash"; requestAnimationFrame(() => { f.className = "flash " + view.flash; }); }
     if (view.haptic) haptic(view.haptic);
+    // Flüster-Tipp from the Show-Master: its own box above the prompt, so it shows up
+    // even when the prompt itself did not change.
+    const wbox = $("whisper");
+    wbox.classList.toggle("hidden", !view.whisper);
+    if (view.whisper && view.whisper !== lastWhisper) {
+      lastWhisper = view.whisper;
+      wbox.innerHTML = `<span class="w-label">Flüster-Tipp vom Show-Master</span><span class="w-text">${esc(view.whisper)}</span>`;
+      wbox.classList.remove("pop"); void wbox.offsetWidth; wbox.classList.add("pop");
+      haptic("success"); toast("🤫 Flüster-Tipp für dich!");
+    }
+    if (!view.whisper) lastWhisper = null;
     const newest = view.moments && view.moments.length ? view.moments[view.moments.length - 1] : null;
     if (newest && newest.id > lastMomentId) { lastMomentId = newest.id; if (newest.art !== "sound") toast(newest.text); }
 
@@ -277,7 +289,6 @@
     step();
   }
 
-  function whisperHtml() { return view.whisper ? `<div class="whisper">${esc(view.whisper)}</div>` : ""; }
 
   function renderPrompt(p) {
     const main = $("main");
@@ -299,7 +310,7 @@
       case "choice": {
         const locked = p.chosen !== null && p.chosen !== undefined && !p.secondTry;
         const EMO = ["🍌", "🥥", "🐒", "🌴", "💎", "🎩", "🌊", "🔥"];
-        html = `${timerHtml(p.deadline)}${p.deadline ? "" : `<div class="notimer">⏱️ Kein Timer — lasst euch Zeit, der Show-Master löst auf</div>`}${whisperHtml()}${p.hint ? `<div class="hint">${esc(p.hint)}</div>` : ""}<div class="question">${esc(p.question)}</div>
+        html = `${timerHtml(p.deadline)}${p.deadline ? "" : `<div class="notimer">⏱️ Kein Timer — lasst euch Zeit, der Show-Master löst auf</div>`}${p.hint ? `<div class="hint">${esc(p.hint)}</div>` : ""}<div class="question">${esc(p.question)}</div>
           <div class="options ${locked ? "locked" : ""}">${p.options.map((o, i) => `<button class="opt ${o.removed ? "removed" : ""} ${p.chosen === o.id ? "chosen" : ""}" data-i="${i}" data-id="${o.id}" style="--d:${i * 60}ms"><span class="letter">${"ABCDEFGH"[i]}</span><span class="emo">${EMO[i % 8]}</span><span>${esc(o.text)}</span>${o.count != null ? `<span class="count">${o.count}</span>` : ""}${p.chosen === o.id ? `<span class="tick">✓</span>` : ""}</button>`).join("")}</div>
           ${p.secondTry ? `<p class="hint">↩️ Rückgaberecht: wähle eine andere Antwort (50 % Gewinn)</p>` : ""}`;
         break;

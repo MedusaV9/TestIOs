@@ -27,10 +27,15 @@ public enum QuestionSets {
     public static let alleId = "alle"
     public static let eigenId = "eigen"
     public static let leagueId = "league"
+    /// The Runeterra pool: the six League of Legends sub-categories (Allgemein, Champions,
+    /// Lore, Esports, Mechanik, Kultur) — multiple subs so the category vote has options.
+    public static let leaguePool = ["league_of_legends", "lol_champions", "lol_lore", "lol_esports", "lol_mechanik", "lol_kultur"]
+    /// Emoji for the League sub-categories (instead of the parent's 🎮).
+    public static let leagueEmoji: [String: String] = ["league_of_legends": "⚔️", "lol_champions": "🧙", "lol_lore": "📜", "lol_esports": "🏆", "lol_mechanik": "🗺️", "lol_kultur": "🎤"]
 
     public static let all: [QuestionSet] = [
         QuestionSet(id: alleId, name: "Alles", emoji: "🌍", beschreibung: "Alle 14 Kategorien, bunt gemischt", pool: []),
-        QuestionSet(id: leagueId, name: "League of Legends", emoji: "⚔️", beschreibung: "Nur Runeterra: Champions, Lore, Items, Esports", pool: ["league_of_legends"]),
+        QuestionSet(id: leagueId, name: "League of Legends", emoji: "⚔️", beschreibung: "Nur Runeterra: Champions & Fähigkeiten, Lore, Esports, Mechanik, Skins & Arcane — von leicht bis ULTRAHARD", pool: leaguePool),
         QuestionSet(id: "gaming", name: "Gaming", emoji: "🎮", beschreibung: "LoL, Minecraft, Nintendo, Pokémon, Fortnite, Retro, Esport", pool: ["gaming"]),
         QuestionSet(id: "popkultur", name: "Popkultur", emoji: "🎬", beschreibung: "Filme & Serien, Musik, Internet & Memes", pool: ["filme_serien", "musik", "internet_memes"]),
         QuestionSet(id: "wissen", name: "Wissen", emoji: "🔬", beschreibung: "Wissenschaft, Geschichte, Geographie, Tiere, Technik", pool: ["wissenschaft", "geschichte", "geographie", "tiere_natur", "technik_autos"]),
@@ -110,6 +115,7 @@ public extension ContentCatalog {
     /// Emoji of a top-level id, or of a sub-category's parent.
     func categoryDisplayEmoji(_ id: String) -> String {
         if let c = categories.first(where: { $0.id == id }) { return c.emoji }
+        if let e = QuestionSets.leagueEmoji[id] { return e }
         if let s = taxonomy.subcategory(id), let c = categories.first(where: { $0.id == s.ober }) { return c.emoji }
         return "❓"
     }
@@ -150,7 +156,7 @@ public extension ContentCatalog {
             guard let n = perKat[c.id], n > 0 else { return nil }
             let subs = subcategories(of: c.id).compactMap { s -> CategoryInfo? in
                 guard let m = perSub[s.id], m > 0 else { return nil }
-                return CategoryInfo(id: s.id, name: s.name, emoji: c.emoji, farbe: c.farbe, anzahl: m, gewaehlt: activePool.contains(s.id) || activePool.contains(c.id))
+                return CategoryInfo(id: s.id, name: s.name, emoji: QuestionSets.leagueEmoji[s.id] ?? c.emoji, farbe: c.farbe, anzahl: m, gewaehlt: activePool.contains(s.id) || activePool.contains(c.id))
             }
             return CategoryInfo(id: c.id, name: c.name, emoji: c.emoji, farbe: c.farbe, anzahl: n, gewaehlt: activePool.isEmpty || activePool.contains(c.id), unter: subs)
         }

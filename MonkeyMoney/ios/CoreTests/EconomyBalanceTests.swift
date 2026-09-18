@@ -145,4 +145,14 @@ final class EconomyBalanceTests: XCTestCase {
             print("BALANCE Quick seed \(seed): rounds paid \(roundsPaid), winner \(winner), all \(s.ranking.map { $0.balance })")
         }
     }
+    func testEstimateSliderNeverOffersHalfYears() {
+        let years = EstimateSpec(richtwert: 2013, einheit: "", toleranz: 1, min: 2009, max: 2025, skala: "linear")
+        XCTAssertEqual(BananenTresor.step(years), 1)
+        let count = EstimateSpec(richtwert: 14, einheit: "Feiertage", toleranz: 8, min: 5, max: 18, skala: "linear")
+        XCTAssertEqual(BananenTresor.step(count), 1)
+        let metres = EstimateSpec(richtwert: 5.6, einheit: "Meter", toleranz: 30, min: 1, max: 20, skala: "linear")
+        XCTAssertEqual(BananenTresor.step(metres), 0.5)
+        let big = EstimateSpec(richtwert: 100_000, einheit: "US-Dollar", toleranz: 30_000, min: 10_000, max: 1_000_000, skala: "linear")
+        XCTAssertEqual(BananenTresor.step(big), 10)
+    }
 }

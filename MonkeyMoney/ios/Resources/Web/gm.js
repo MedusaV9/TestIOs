@@ -211,10 +211,14 @@
           body => { const p = needPlayer(body); if (!p) return false; const d = Number($("sheetAmount").value) || 0; const g = $("sheetGrund").value.trim() || picked(body, "grund")[0] || "Regie"; if (!d) { toast("Betrag ≠ 0"); return false; } cmd({ scoreAdjust: { playerId: p, delta: d, grund: g } }); }, "Buchen");
         if (pid) $("sheetBody").querySelector(`.pick.players button[data-v="${pid}"]`)?.classList.add("on");
         break;
-      case "whisper":
-        openSheet("🤫 Flüster-Tipp", `${playerPick()}<label class="f">Tipp</label><input type="text" id="sheetText" placeholder="Nur dieser Spieler sieht das …">`, body => { const p = needPlayer(body); if (!p) return false; const t = $("sheetText").value.trim(); if (!t) { toast("Tipp eingeben"); return false; } cmd({ whisper: { playerId: p, text: t } }); }, "Flüstern");
+      case "whisper": {
+        const q = view.spickzettel;
+        const quick = q ? [...q.tipps.map((t, i) => [t, `💡 Tipp ${i + 1}: ${t.length > 38 ? t.slice(0, 36) + "…" : t}`]), [`Die Antwort ist: ${q.korrekt}`, `✔ Antwort verraten (${q.korrekt})`]] : [];
+        openSheet("🤫 Flüster-Tipp", `${playerPick()}<label class="f">Tipp</label>${quick.length ? chips("quick", quick) : ""}<input type="text" id="sheetText" placeholder="… oder eigenen Text tippen">`,
+          body => { const p = needPlayer(body); if (!p) return false; const t = $("sheetText").value.trim() || picked(body, "quick")[0] || ""; if (!t) { toast("Tipp wählen oder eingeben"); return false; } cmd({ whisper: { playerId: p, text: t } }); toast(`Geflüstert an ${view.players.find(x => x.id === p)?.name || ""}`); }, "Flüstern");
         if (pid) $("sheetBody").querySelector(`.pick.players button[data-v="${pid}"]`)?.classList.add("on");
         break;
+      }
       case "boost":
         openSheet("🐒 Aufholjagd-Boost", `<p class="muted">Nie für Platz 1–2, einmal pro Spieler und Runde.</p>${playerPick(p => rank(p.id) > 2)}<label class="f">Art</label>${chips("art", [["x2", "×2 nächste Frage"], ["plus300", "+300 MM"], ["joker", "Gratis-Joker"]], "x2")}<label class="f">Begründung</label>${chips("grund", [["Mut-Buzzer", "Mut-Buzzer"], ["Comeback-Bonus", "Comeback-Bonus"], ["Pech gehabt", "Pech gehabt"]], "Mut-Buzzer")}`,
           body => { const p = needPlayer(body); if (!p) return false; cmd({ boost: { playerId: p, art: picked(body, "art")[0] || "x2", grund: picked(body, "grund")[0] || "Regie" } }); }, "Boosten");

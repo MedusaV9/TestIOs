@@ -11,8 +11,17 @@ final class QuestionSetTests: XCTestCase {
         XCTAssertTrue(infos.contains { $0.id == "alle" && $0.aktiv && $0.anzahl == catalog.questions.count })
         let league = infos.first { $0.id == QuestionSets.leagueId }
         XCTAssertNotNil(league)
-        XCTAssertGreaterThan(league?.anzahl ?? 0, 150)
-        for q in catalog.questions(inPool: ["league_of_legends"]) { XCTAssertEqual(q.sub, "league_of_legends") }
+        XCTAssertGreaterThanOrEqual(league?.anzahl ?? 0, 2500, "the League pack promises at least 2500 questions")
+        let lol = catalog.questions(inPool: QuestionSets.leaguePool)
+        for q in lol { XCTAssertTrue(QuestionSets.leaguePool.contains(q.sub), q.id) }
+        // Every difficulty is well stocked — von leicht bis ULTRAHARD.
+        for d in Difficulty.allCases { XCTAssertGreaterThanOrEqual(lol.filter { $0.schw == d }.count, 300, "\(d)") }
+        // Every sub-category and the main formats are represented.
+        for sub in QuestionSets.leaguePool { XCTAssertGreaterThan(lol.filter { $0.sub == sub }.count, 50, sub) }
+        for t in [QuestionType.choice, .wahrFalsch, .schaetz, .sortier, .mehrfach] { XCTAssertGreaterThan(lol.filter { $0.typ == t }.count, 10, "\(t)") }
+        // No duplicate texts, every choice has exactly one correct option inside range.
+        XCTAssertEqual(Set(lol.map { $0.text }).count, lol.count)
+        for q in lol where q.typ == .choice { XCTAssertTrue(q.choiceOptions.indices.contains(q.correctIndex ?? -1), q.id); XCTAssertEqual(Set(q.choiceOptions).count, q.choiceOptions.count, q.id) }
         // Every listed preset can actually be played (has questions).
         for i in infos where i.id != QuestionSets.eigenId { XCTAssertGreaterThan(i.anzahl, 0, i.id) }
     }
@@ -20,7 +29,7 @@ final class QuestionSetTests: XCTestCase {
     func testSettingsPatchAppliesPresetAndDetectsCustomPool() {
         var s = MatchSettings(modus: .klassik)
         s.apply(patch: ["fragenSet": .string("league")])
-        XCTAssertEqual(s.kategorienPool, ["league_of_legends"])
+        XCTAssertEqual(s.kategorienPool, QuestionSets.leaguePool)
         XCTAssertEqual(s.fragenSet, "league")
         s.apply(patch: ["kategorienPool": .array([.string("sport"), .string("musik")])])
         XCTAssertEqual(s.fragenSet, QuestionSets.eigenId)
@@ -31,7 +40,7 @@ final class QuestionSetTests: XCTestCase {
         // Mode switch keeps the pool.
         s.apply(patch: ["fragenSet": .string("league")])
         s.apply(patch: ["modus": .string("quick")])
-        XCTAssertEqual(s.kategorienPool, ["league_of_legends"])
+        XCTAssertEqual(s.kategorienPool, QuestionSets.leaguePool)
         XCTAssertEqual(s.modus, .quick)
     }
 
@@ -47,8 +56,12 @@ final class QuestionSetTests: XCTestCase {
         // A single sub-category: nothing to vote on → the engine skips the vote.
         let lol = catalog.categoriesWithSupply(schwierigkeiten: [], used: [], minimum: 4, pool: ["league_of_legends"])
         XCTAssertEqual(lol, ["league_of_legends"])
-        XCTAssertEqual(catalog.categoryName("league_of_legends"), "League of Legends")
-        XCTAssertEqual(catalog.categoryEmoji("league_of_legends"), "🎮")
+        XCTAssertEqual(catalog.categoryName("league_of_legends"), "LoL · Allgemein")
+        XCTAssertEqual(catalog.categoryEmoji("league_of_legends"), "⚔️")
+        // The League pool has six subs → a real vote (Champions vs. Lore vs. Esports …).
+        let league = catalog.categoriesWithSupply(schwierigkeiten: [.easy, .medium], used: [], minimum: 4, pool: QuestionSets.leaguePool)
+        XCTAssertEqual(Set(league), Set(QuestionSets.leaguePool))
+        XCTAssertEqual(catalog.categoryName("lol_champions"), "LoL · Champions & Fähigkeiten")
     }
 
     func testPlanFallsBackToFormatsThePoolCanServe() {
@@ -60,8 +73,8 @@ final class QuestionSetTests: XCTestCase {
         XCTAssertTrue(ids.contains("bananen-tresor"), "LoL has estimate questions")
         XCTAssertTrue(ids.contains("affenbank"))
         // The League Edition catalogue: only LoL questions, no songs → music formats fall back too.
-        let edition = catalog.filtered(pool: ["league_of_legends"])
-        XCTAssertEqual(edition.questions.count, catalog.questions(inPool: ["league_of_legends"]).count)
+        let edition = catalog.filtered(pool: QuestionSets.leaguePool)
+        XCTAssertEqual(edition.questions.count, catalog.questions(inPool: QuestionSets.leaguePool).count)
         XCTAssertTrue(edition.songs.isEmpty)
         var marathon = MatchSettings(modus: .marathon)
         marathon.applyQuestionSet("league")
@@ -75,7 +88,7 @@ final class QuestionSetTests: XCTestCase {
         XCTAssertEqual(r.state.phase, .ende)
         for id in r.state.usedQuestionIds {
             let q = catalog.question(id)
-            XCTAssertEqual(q?.sub, "league_of_legends", "\(id) is not a League question")
+            XCTAssertTrue(QuestionSets.leaguePool.contains(q?.sub ?? ""), "\(id) is not a League question")
         }
         XCTAssertGreaterThan(r.state.usedQuestionIds.count, 8)
     }

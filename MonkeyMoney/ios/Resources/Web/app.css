@@ -383,3 +383,10 @@ a.chip { text-decoration: none; }
   .gm .top .brand { font-size: 13px; white-space: nowrap; }
   .gm-tabs button { padding: 8px 10px; font-size: 13px; flex: 1 1 0; }
 }
+
+/* Flüster-Tipp box (own element, independent of the prompt) */
+.whisper-box { margin: 10px 0 0; padding: 10px 14px; border-radius: 14px; background: rgba(142,91,255,.22); border: 2px dashed var(--lila); display: flex; flex-direction: column; gap: 2px; }
+.whisper-box .w-label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #c9b3ff; font-weight: 700; }
+.whisper-box .w-text { font-weight: 700; font-size: 16px; }
+.whisper-box.pop { animation: whisperPop .6s cubic-bezier(.2,1.4,.4,1); }
+@keyframes whisperPop { 0% { transform: scale(.9); opacity: 0; box-shadow: 0 0 0 0 rgba(142,91,255,.6) } 60% { transform: scale(1.03); opacity: 1 } 100% { transform: scale(1); box-shadow: 0 0 0 14px rgba(142,91,255,0) } }

@@ -23,6 +23,8 @@ nur League-of-Legends-Fragen, eigene Bundle-ID — beide Apps passen nebeneinand
 | Fragen-Set | Der Show-Master wählt den Fragen-Pool per Tipp: **Alles · League of Legends · Gaming · Popkultur · Wissen · Deutschland · Sport · Kinder & Familie · Eigene Auswahl** (Kategorien + Unterkategorien mit Fragenzahl). Gilt sofort für die nächste Runde; die Kategorien-Wahl läuft innerhalb des Sets, Schätz-/Sortier-/Pixel-Runden fallen auf Vier Lianen zurück, wenn das Set sie nicht bedienen kann |
 | Regiepult | Browser-Cockpit mit Tabs (Regie · Fragen · Werkzeuge · Einstellungen), alle Werkzeuge als Bottom-Sheets (Spieler-Chips, Betrag-Stepper, Begründungen), jede Match-Einstellung erreichbar — Ablauf-Einstellungen (Modus, Runden, Teams, Special Rules …) nur in der Lobby, alles andere live |
 | League Edition | Zweites Target `MonkeyMoneyLeague` (Compile-Flag `LEAGUE_EDITION`, Bundle `de.monkeymoney.league`, eigenes Icon): Katalog beim Start auf Runeterra gefiltert, Fragen-Set fest auf League, Beitreten-Seite mit Edition-Badge |
+| League-Fragenpaket | **3100+ League-of-Legends-Fragen** in sechs Unterkategorien — ⚔️ Allgemein · 🧙 Champions & Fähigkeiten · 📜 Lore & Runeterra · 🏆 Esports & Pro-Szene · 🗺️ Spielmechanik & Items · 🎤 Skins, Musik & Arcane — von leicht bis ULTRAHARD (je 600+ pro Stufe), alle Formate (Choice, Wahr/Falsch, Schätzen, Sortieren, Mehrfach). Damit hat auch die League Edition eine echte Kategorien-Wahl. Generator: `tools/content/league_questions.py` (deterministisch, aus strukturierten Champion-/Esports-/Lore-Daten) |
+| Flüster-Tipp | Show-Master flüstert einem einzelnen Spieler (Sheet mit Spickzettel-Tipps, „Antwort verraten“ oder Freitext) — erscheint auf genau diesem Handy als eigene Box über der Frage, mit Toast + Vibration |
 | Übungsmodus | Solo-Quiz auf dem Handy gegen die iPad-Fragenbank (`/uebung`): Kategorie/Schwierigkeit/kindgerecht, Erklärungen, Serien-Statistik |
 | Meta | Profile (PIN/Geräte-Erkennung), 85-Item-Shop, 4 Bestenlisten, Daily-/Monats-Quests, Bananen-Pass, Meilensteine |
 | Audio | 22 eigene Musik-Tracks (Sonauto/Treblo v3), CC0/CC-BY-SFX, 50 Song-Snippets für die Musik-Formate; **Sound-Regie**: Stinger pro Phase, Auflösungs-Dreiklang (Zap → Trommelwirbel → Stille → Fanfare + Applaus-Stufe nach Gewinn), Siegerehrungs-Wirbel, Rad-Ticks |
@@ -98,6 +100,9 @@ MonkeyMoney/ios/scripts/typecheck/typecheck.sh
 swift run --package-path MonkeyMoney/ios mm-dev-server 8080 quick
 #  → http://<ip>:8080/j/CODE (Spieler), /gm?code=CODE (Regie), /api/dev/next (Bühnen-„Weiter“)
 swift run --package-path MonkeyMoney/ios mm-dev-server 8081 klassik normal league   # League-Edition-Katalog
+
+# League-Fragenpaket neu erzeugen (schreibt fragen.json + taxonomie.json)
+python3 tools/content/league_questions.py            # --dry-run zeigt nur die Statistik
 
 # Xcode-Projekt erzeugen (Schemes MonkeyMoney + MonkeyMoneyLeague)
 cd MonkeyMoney/ios && xcodegen generate
