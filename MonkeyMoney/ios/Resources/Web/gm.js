@@ -45,7 +45,9 @@
     $("mainAction").textContent = st.advanceLabel || "Weiter";
     $("mainAction").disabled = !st.canAdvance && !st.paused;
     $("pauseBtn").textContent = st.paused ? "▶ Weiter" : "⏸ Bananen-Pause";
-    const scene = st.scene, kind = Object.keys(scene)[0], payload = scene[kind] || {};
+    const scene = st.scene, kind = Object.keys(scene)[0];
+    // Single-value enum cases (lobby, erklaerkarte, rad, brettspiel) encode as {"_0": {...}}.
+    let payload = scene[kind] || {}; if (payload._0 && Object.keys(payload).length === 1) payload = payload._0;
     let info = kind;
     let deadline = null;
     if (kind === "frage" && payload.wall) { info = `Frage ${payload.wall.nummer}/${payload.wall.gesamt || "?"} · ${payload.wall.kategorieName} · ${payload.wall.schwierigkeit} · ${payload.wall.answered.length} Antworten`; deadline = payload.wall.deadline; }

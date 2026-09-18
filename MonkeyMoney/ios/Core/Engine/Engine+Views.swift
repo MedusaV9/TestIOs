@@ -245,7 +245,7 @@ extension Engine {
                     if correct == true, delta > plain, s.nextMods.gewinnFaktor > 1 { notes.append("🎡 Doppelter Zaster") }
                     if correct == true, delta > plain, s.leader?.id != id, Economy.tailwindFactor(own: p.balance - delta, leader: s.leader?.balance ?? 0) > 1 { notes.append("🌬️ Rückenwind") }
                     if !notes.isEmpty { detail = ([detail].compactMap { $0 } + notes).joined(separator: " · ") }
-                    prompt = .reveal(title: title, correct: correct, delta: delta, detail: detail, streak: p.streak, speedBonus: nil)
+                    prompt = .reveal(title: title, correct: correct, delta: delta, detail: detail, streak: plugin.meta.streak ? p.streak : 0, speedBonus: nil)
                     haptic = correct == true ? "success" : (correct == false ? "error" : nil)
                     flash = correct == true ? "richtig" : (correct == false ? "falsch" : nil)
                 }
