@@ -68,7 +68,8 @@ public struct Engine: Sendable {
         static let intro = 12_000
         static let kategorie = 15_000
         static let erklaer = 12_000
-        static let aufloesung = 6000
+        // Reveal = 2.4 s three-beat (zap, drum roll, silence) + time to read the result.
+        static let aufloesung = 7500
         static let aufloesungErklaerung = 10_000
         static let aufloesungRunde = 8000
         static let zwischenstand = 8000
@@ -510,7 +511,7 @@ public struct Engine: Sendable {
         s.questionsSinceWheel += 1
         let hasExplanation = (plugin.stage(box.data, true, ctx).wall?.erklaerung?.isEmpty == false)
         var dur = plugin.meta.roundBased ? Dur.aufloesungRunde : (hasExplanation ? Dur.aufloesungErklaerung : Dur.aufloesung)
-        if s.settings.kurzeShow { dur = min(dur, 6000) }
+        if s.settings.kurzeShow { dur = min(dur, 7000) }
         enter(&s, .aufloesung, duration: dur, now: now)
         s.lastDeltas = deltas
         if let best = deltas.max(by: { $0.value < $1.value }), best.value >= 750, let p = s.player(best.key) {

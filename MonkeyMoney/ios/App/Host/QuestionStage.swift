@@ -8,8 +8,15 @@ struct QuestionStage: View {
     var kind: SectionKind
     var title: String
     var players: [PlayerRef]
+    /// Engine says the question is resolved (the phones already show their result).
     var revealed: Bool
     var deltas: [PlayerId: Int]
+
+    /// The wall unveils in sync with the regie's fanfare (zap → drum roll →
+    /// silence → fanfare): until then the wall keeps its poker face — no spoiler
+    /// before the sound lands. State resets per question (the scene is re-keyed).
+    @State private var unveiled = false
+    var showResult: Bool { revealed && unveiled }
 
     /// Wall width on the 1180-pt stage canvas (wings are 150 pt each side).
     static let wallWidth: CGFloat = 860
@@ -18,21 +25,62 @@ struct QuestionStage: View {
         VStack(spacing: 12) {
             Spacer(minLength: 0).frame(maxHeight: 26)
             if let w = wall, !w.blackout {
-                wallView(w)
+                wallView(revealed && !unveiled ? pokerFace(w) : w)
             } else if let w = wall, w.blackout {
                 blackout(w)
             }
-            extraView
-                .frame(maxWidth: Self.wallWidth)
+            if revealed && !unveiled {
+                drumroll
+            } else {
+                extraView
+                    .frame(maxWidth: Self.wallWidth)
+            }
             Spacer(minLength: 0)
             podiums
         }
         .padding(.horizontal, 8)
         .overlay(alignment: .top) {
-            if revealed, deltas.values.contains(where: { $0 > 0 }) { ParticleRain(kind: .money, count: deltas.values.contains(where: { $0 >= 750 }) ? 90 : 36, duration: 3.5) }
-            if revealed, deltas.values.contains(where: { $0 >= 750 }) { ParticleRain(kind: .coins, count: 40, duration: 3) }
-            if revealed, case .bomb(_, _, _, let exploded, _) = extra, exploded != nil { ParticleRain(kind: .mud, count: 40, duration: 2.5) }
+            if showResult, deltas.values.contains(where: { $0 > 0 }) { ParticleRain(kind: .money, count: deltas.values.contains(where: { $0 >= 750 }) ? 90 : 36, duration: 3.5) }
+            if showResult, deltas.values.contains(where: { $0 >= 750 }) { ParticleRain(kind: .coins, count: 40, duration: 3) }
+            if case .bomb(_, _, _, let exploded, _) = extra, exploded != nil {
+                // The banana bursts: mud splatter from the top plus a flash burst in the centre.
+                ParticleRain(kind: .mud, count: 60, duration: 2.8)
+                Burst(color: MM.orange).frame(width: 300, height: 300).padding(.top, 180)
+            }
         }
+        .onAppear {
+            guard revealed else { return }
+            // Round-based formats (Affenbank, Stinkbanane) book without a question wall — no beat to wait for.
+            let wait = wall == nil ? 0.0 : Double(SoundRegie.revealFanfareMs) / 1000
+            DispatchQueue.main.asyncAfter(deadline: .now() + wait) {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { unveiled = true }
+            }
+        }
+    }
+
+    /// The wall before the fanfare: answered dots, no correct answer, no explanation.
+    func pokerFace(_ w: QuestionWall) -> QuestionWall {
+        var p = w
+        p.revealed = false
+        p.correctIndex = nil
+        p.answersByPlayer = [:]
+        p.erklaerung = nil
+        p.deadline = nil
+        return p
+    }
+
+    var drumroll: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { timeline in
+            let t = timeline.date.timeIntervalSince1970
+            HStack(spacing: 14) {
+                Text("🥁").font(.system(size: 34)).rotationEffect(.degrees(sin(t * 18) * 10))
+                Text("AUFLÖSUNG …").font(.outfit(28, .black)).foregroundStyle(MM.gold).tracking(3).opacity(0.7 + 0.3 * sin(t * 6))
+                Text("🥁").font(.system(size: 34)).rotationEffect(.degrees(-sin(t * 18) * 10))
+            }
+            .padding(.horizontal, 30).padding(.vertical, 12)
+            .background(Capsule().fill(Color.black.opacity(0.35)).overlay(Capsule().strokeBorder(MM.gold.opacity(0.4))))
+        }
+        .transition(.opacity)
     }
 
     var correctCount: Int {
@@ -94,13 +142,13 @@ struct QuestionStage: View {
             if let opts = w.options {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     ForEach(Array(opts.enumerated()), id: \.element.id) { i, o in
-                        OptionTile(index: i, option: o, correct: w.correctIndex == o.id, revealed: w.revealed, count: o.count, players: revealed ? players.filter { w.answersByPlayer[$0.id] == o.id } : [])
+                        OptionTile(index: i, option: o, correct: w.correctIndex == o.id, revealed: w.revealed, count: o.count, players: showResult ? players.filter { w.answersByPlayer[$0.id] == o.id } : [])
                             .bouncy(delay: revealed ? 0 : 0.08 + Double(i) * 0.07)
                     }
                 }
                 .frame(maxWidth: Self.wallWidth)
             }
-            if revealed, let e = w.erklaerung, !e.isEmpty {
+            if showResult, let e = w.erklaerung, !e.isEmpty {
                 HStack(alignment: .center, spacing: 14) {
                     Text(w.kategorieEmoji).font(.system(size: 26)).frame(width: 48, height: 48).background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.35)))
                     Text(e).font(.poppins(18)).foregroundStyle(MM.cream).lineSpacing(3).frame(maxWidth: .infinity, alignment: .leading)
@@ -111,7 +159,7 @@ struct QuestionStage: View {
             } else if let t = w.tipp {
                 Text("💡 \(t)").font(.poppins(17, .semibold)).foregroundStyle(MM.gold)
             }
-            if !revealed, w.options != nil {
+            if !showResult, w.options != nil {
                 HStack(spacing: 8) {
                     ForEach(players) { p in
                         Circle().fill(w.answered.contains(p.id) ? MM.green : Color.black.opacity(0.4)).frame(width: 16, height: 16)
@@ -127,14 +175,14 @@ struct QuestionStage: View {
         .background(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .fill(LinearGradient(colors: [MM.panelDark.opacity(0.95), MM.bgDeep.opacity(0.95)], startPoint: .top, endPoint: .bottom))
-                .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(revealed ? MM.green.opacity(0.7) : MM.gold.opacity(0.35), lineWidth: 2.5))
+                .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(showResult ? MM.green.opacity(0.7) : MM.gold.opacity(0.35), lineWidth: 2.5))
                 .shadow(color: .black.opacity(0.45), radius: 22, y: 14)
         )
         .overlay(alignment: .topTrailing) {
-            if revealed, let ci = w.correctIndex, let opts = w.options, opts.contains(where: { $0.id == ci }) {
+            if showResult, let ci = w.correctIndex, let opts = w.options, opts.contains(where: { $0.id == ci }) {
                 let n = correctCount
-                StampView(text: n == 0 ? "FALSCH!" : (n == players.count ? "ALLE RICHTIG!" : "RICHTIG!"), color: n == 0 ? MM.red : MM.green).offset(x: 24, y: -18)
-            } else if revealed, w.options == nil {
+                StampView(text: n == 0 ? "ALLE FALSCH!" : (n == players.count ? "ALLE RICHTIG!" : "RICHTIG!"), color: n == 0 ? MM.red : MM.green).offset(x: 24, y: -18)
+            } else if showResult, w.options == nil {
                 StampView(text: "AUFGELÖST", color: MM.gold).offset(x: 24, y: -18)
             }
         }
@@ -245,42 +293,90 @@ struct QuestionStage: View {
 
     @ViewBuilder
     func bombView(_ holder: PlayerId?, _ tension: Double, _ passes: Int, _ exploded: PlayerId?, _ durchgang: Int) -> some View {
-
-            HStack(spacing: 24) {
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
+            let t = timeline.date.timeIntervalSince1970
+            let boom = exploded != nil
+            HStack(spacing: 26) {
                 if let h = holder, let p = players.first(where: { $0.id == h }) {
-                    VStack(spacing: 4) {
-                        Text(exploded != nil ? "💥" : "💣").font(.system(size: 80 + CGFloat(tension) * 30)).scaleEffect(1 + CGFloat(sin(Date().timeIntervalSince1970 * (4 + tension * 8))) * 0.05 * CGFloat(tension))
-                        Text(exploded != nil ? "\(p.name) IST MATSCHIG!" : "\(p.name) hält die Stinkbanane").font(.outfit(26, .black)).foregroundStyle(exploded != nil ? MM.red : MM.cream)
-                        Text("Durchgang \(durchgang)/2 · \(passes) Weitergaben").font(.poppins(13)).foregroundStyle(MM.cream.opacity(0.7))
-                    }
-                }
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.black.opacity(0.35))
-                        Capsule().fill(LinearGradient(colors: [MM.green, MM.gold, MM.red], startPoint: .leading, endPoint: .trailing)).frame(width: geo.size.width * tension)
-                    }
-                }.frame(height: 14).frame(maxWidth: 400)
-            }
-    }
-
-    @ViewBuilder
-    func betsView(_ bets: [Bet], _ teaser: String?, _ phase: String) -> some View {
-
-            VStack(spacing: 10) {
-                if let t = teaser, phase == "setzen" || phase == "reveal" { Text(t).font(.outfit(34, .black)).foregroundStyle(MM.gold) }
-                Text(phase == "setzen" ? "Alle setzen GEHEIM …" : (phase == "reveal" ? "EINSÄTZE WERDEN AUFGEDECKT" : "Einsätze")).font(.poppins(16, .bold)).foregroundStyle(MM.cream.opacity(0.8))
-                HStack(spacing: 18) {
-                    ForEach(bets, id: \.playerId) { b in
-                        if let p = players.first(where: { $0.id == b.playerId }) {
-                            VStack(spacing: 4) {
-                                Text(b.revealed ? "💰" : "❓").font(.system(size: 40)).rotation3DEffect(.degrees(b.revealed ? 0 : 180), axis: (x: 0, y: 1, z: 0)).animation(.spring(response: 0.4, dampingFraction: 0.75), value: b.revealed)
-                                Text(p.name).font(.poppins(13, .bold)).foregroundStyle(MM.cream)
-                                Text(b.revealed ? Money.format(b.betrag) : "· · ·").font(.outfit(20, .black)).foregroundStyle(MM.gold)
+                    HStack(spacing: 16) {
+                        ZStack {
+                            if boom {
+                                Text("💥").font(.system(size: 110)).scaleEffect(1 + CGFloat(sin(t * 12)) * 0.08)
+                            } else {
+                                // The banana shakes harder as the fuse burns down.
+                                Text("💣").font(.system(size: 78 + CGFloat(tension) * 26))
+                                    .rotationEffect(.degrees(sin(t * (5 + tension * 14)) * (4 + tension * 14)))
+                                    .offset(x: CGFloat(sin(t * (7 + tension * 20))) * tension * 5)
+                                Text("🔥").font(.system(size: 22 + CGFloat(tension) * 14)).offset(x: 34, y: -46).opacity(0.7 + 0.3 * sin(t * 20))
+                            }
+                        }.frame(width: 130, height: 120)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(boom ? "\(p.name.uppercased()) IST MATSCHIG!" : "\(p.name) hält die Stinkbanane").font(.outfit(28, .black)).foregroundStyle(boom ? MM.red : MM.cream)
+                            Text(boom ? "−500 MM ins Jackpot-Glas · Matsch bis zum Ende" : "Nur \(p.name) sieht die Frage — richtig = weitergeben (+100)").font(.poppins(15)).foregroundStyle(MM.cream.opacity(0.8))
+                            HStack(spacing: 8) {
+                                Chip(text: "Durchgang \(durchgang)/2")
+                                Chip(text: "\(passes) Weitergaben", gold: passes > 0)
                             }
                         }
                     }
                 }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(boom ? "GEPLATZT" : "ZÜNDSCHNUR").font(.poppins(11, .bold)).tracking(2).foregroundStyle(boom ? MM.red : MM.gold)
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.black.opacity(0.35))
+                            Capsule().fill(LinearGradient(colors: [MM.green, MM.gold, MM.red], startPoint: .leading, endPoint: .trailing)).frame(width: geo.size.width * (boom ? 1 : tension))
+                            Text("✨").font(.system(size: 18)).offset(x: max(0, geo.size.width * tension - 10), y: -2).opacity(boom ? 0 : 1)
+                        }
+                    }.frame(height: 14).frame(maxWidth: 300)
+                    Text("Der Zünder ist geheim …").font(.poppins(11)).foregroundStyle(MM.cream.opacity(0.6))
+                }
             }
+            .padding(18)
+            .background(RoundedRectangle(cornerRadius: 20).fill(Color.black.opacity(boom ? 0.5 : 0.3)).overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(boom ? MM.red.opacity(0.7) : MM.gold.opacity(0.25), lineWidth: boom ? 3 : 1)))
+        }
+    }
+
+    @ViewBuilder
+    func betsView(_ bets: [Bet], _ teaser: String?, _ phase: String) -> some View {
+        let setting = phase == "setzen", revealing = phase == "reveal"
+        VStack(spacing: 14) {
+            if setting || revealing {
+                VStack(spacing: 6) {
+                    Text("🎰").font(.system(size: 54)).bouncy()
+                    Text(teaser ?? "").font(.outfit(38, .black)).foregroundStyle(MM.gold).shadow(color: .black.opacity(0.5), radius: 6, y: 3)
+                    Text(setting ? "Alle setzen GEHEIM auf den Handys …" : "EINSÄTZE WERDEN AUFGEDECKT").font(.poppins(18, .bold)).foregroundStyle(MM.cream.opacity(0.85))
+                    Text("Richtig: Einsatz verdoppelt · Falsch: Einsatz weg").font(.poppins(14, .semibold)).foregroundStyle(MM.cream.opacity(0.65))
+                }
+                .padding(.vertical, 18).padding(.horizontal, 30).frame(maxWidth: Self.wallWidth)
+                .background(RoundedRectangle(cornerRadius: 24).fill(LinearGradient(colors: [MM.panelDark.opacity(0.95), MM.bgDeep.opacity(0.95)], startPoint: .top, endPoint: .bottom))
+                    .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(MM.gold.opacity(0.35), lineWidth: 2)).shadow(color: .black.opacity(0.45), radius: 22, y: 14))
+            } else {
+                Text("EINSÄTZE").font(.poppins(12, .bold)).tracking(2).foregroundStyle(MM.gold)
+            }
+            HStack(spacing: setting || revealing ? 26 : 16) {
+                ForEach(Array(bets.enumerated()), id: \.element.playerId) { i, b in
+                    if let p = players.first(where: { $0.id == b.playerId }) {
+                        VStack(spacing: 4) {
+                            if setting || revealing { MonkeyImage(avatar: Avatar(wire: p.avatar), face: b.revealed ? "neutral" : "denk").frame(height: 88) }
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 14).fill(b.revealed ? MM.gold : Color.black.opacity(0.35))
+                                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(b.revealed ? MM.goldDark : MM.gold.opacity(0.4), lineWidth: 2))
+                                    .frame(width: setting || revealing ? 150 : 110, height: setting || revealing ? 62 : 46)
+                                VStack(spacing: 0) {
+                                    Text(b.revealed ? Money.format(b.betrag) : (setting && b.betrag > 0 ? "gesetzt ✓" : "· · ·")).font(.outfit(b.revealed ? 24 : 16, .black)).foregroundStyle(b.revealed ? MM.ink : MM.cream)
+                                    if setting || revealing { Text(p.name).font(.poppins(12, .bold)).foregroundStyle(b.revealed ? MM.ink.opacity(0.8) : MM.cream.opacity(0.7)) }
+                                }
+                            }
+                            .rotation3DEffect(.degrees(b.revealed ? 0 : 180), axis: (x: 0, y: 1, z: 0))
+                            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: b.revealed)
+                            if !(setting || revealing) { Text(p.name).font(.poppins(12, .bold)).foregroundStyle(MM.cream) }
+                        }
+                        .bouncy(delay: Double(i) * 0.1)
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -319,7 +415,7 @@ struct QuestionStage: View {
                         VStack { MonkeyImage(avatar: Avatar(wire: vp.avatar), face: betrag > 0 ? "frust" : "jubel").frame(height: 90); Text(vp.name).font(.outfit(20, .bold)).foregroundStyle(MM.cream) }
                     }
                 }
-            } else if !revealed { Text("Die SCHNELLSTE richtige Antwort darf klauen!").font(.poppins(16, .bold)).foregroundStyle(MM.gold) }
+            } else if !showResult { Text("Die SCHNELLSTE richtige Antwort darf klauen!").font(.poppins(16, .bold)).foregroundStyle(MM.gold) }
     }
 
     @ViewBuilder
@@ -457,18 +553,18 @@ struct QuestionStage: View {
         return HStack(alignment: .bottom, spacing: players.count > 6 ? 8 : (players.count > 4 ? 14 : 28)) {
             ForEach(players) { p in
                 let d = deltas[p.id] ?? 0
-                PodiumPlayer(player: p, face: revealed ? (d > 0 ? "jubel" : (d < 0 ? "frust" : "neutral")) : (wall?.answered.contains(p.id) == true ? "neutral" : "denk"),
-                             delta: revealed ? deltas[p.id] : nil, size: size, morph: true)
+                PodiumPlayer(player: p, face: showResult ? (d > 0 ? "jubel" : (d < 0 ? "frust" : "neutral")) : (wall?.answered.contains(p.id) == true ? "neutral" : "denk"),
+                             delta: showResult ? deltas[p.id] : nil, size: size, morph: true)
                     .overlay(alignment: .top) {
-                        if !revealed, wall?.answered.contains(p.id) == true {
+                        if !showResult, wall?.answered.contains(p.id) == true {
                             Text("✓").font(.outfit(size * 0.18, .black)).foregroundStyle(MM.ink).frame(width: size * 0.24, height: size * 0.24)
                                 .background(Circle().fill(MM.green).shadow(color: .black.opacity(0.4), radius: 4, y: 2)).offset(y: -size * 0.12)
                                 .transition(.scale.combined(with: .opacity))
                         }
                     }
                     .animation(.spring(response: 0.35, dampingFraction: 0.6), value: wall?.answered.contains(p.id) == true)
-                    .scaleEffect(revealed && d > 0 ? 1.04 : 1)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.65), value: revealed)
+                    .scaleEffect(showResult && d > 0 ? 1.04 : 1)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.65), value: showResult)
             }
         }
         .padding(.bottom, 4)

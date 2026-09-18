@@ -486,14 +486,27 @@ struct CeremonyScene: View {
                 HStack(alignment: .bottom, spacing: 26) {
                     ForEach(podiumOrder(), id: \.player.id) { e in
                         VStack(spacing: 8) {
-                            PodiumPlayer(player: e.player, face: e.platz == 1 ? "jubel" : (e.platz == podium.count ? "frust" : "neutral"), size: e.platz == 1 ? 170 : 130, showBalance: false, morph: true)
+                            PodiumPlayer(player: e.player, face: e.platz == 1 ? "jubel" : (e.platz == podium.count ? "frust" : "neutral"), size: e.platz == 1 ? 176 : 132, showBalance: false, morph: true)
+                                .background {
+                                    if e.platz == 1 {
+                                        // Spotlight pool on the winner.
+                                        Ellipse().fill(RadialGradient(colors: [MM.gold.opacity(0.45), .clear], center: .center, startRadius: 10, endRadius: 150)).frame(width: 300, height: 220).offset(y: 30)
+                                    }
+                                }
                             VStack(spacing: 2) {
-                                Text("\(e.platz)").font(.outfit(44, .black)).foregroundStyle(e.platz == 1 ? MM.ink : MM.cream)
-                                Text(Money.format(e.mm)).font(.outfit(20, .bold)).foregroundStyle(e.platz == 1 ? MM.ink : MM.gold)
+                                Text("\(e.platz)").font(.outfit(46, .black)).foregroundStyle(e.platz == 1 ? MM.ink : MM.cream)
+                                Text(Money.format(e.mm)).font(.outfit(22, .bold)).foregroundStyle(e.platz == 1 ? MM.ink : MM.gold)
                                 Text("+\(e.at) All-Time").font(.poppins(12, .semibold)).foregroundStyle(e.platz == 1 ? MM.ink.opacity(0.8) : MM.cream.opacity(0.8))
                             }
-                            .frame(width: e.platz == 1 ? 170 : 130, height: CGFloat(e.platz == 1 ? 150 : (e.platz == 2 ? 115 : 90)))
-                            .background(RoundedRectangle(cornerRadius: 10).fill(e.platz == 1 ? MM.gold : (e.platz == 2 ? Color(hex: "#C0C0C0").opacity(0.7) : MM.wood)))
+                            .frame(width: e.platz == 1 ? 176 : 132, height: CGFloat(e.platz == 1 ? 156 : (e.platz == 2 ? 118 : 92)))
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(e.platz == 1 ? LinearGradient(colors: [MM.gold, MM.goldDark], startPoint: .top, endPoint: .bottom)
+                                                       : (e.platz == 2 ? LinearGradient(colors: [Color(hex: "#D8D8D8"), Color(hex: "#9A9A9A")], startPoint: .top, endPoint: .bottom)
+                                                                        : LinearGradient(colors: [Color(hex: "#A97441"), MM.wood], startPoint: .top, endPoint: .bottom)))
+                                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.18), lineWidth: 2))
+                                    .shadow(color: .black.opacity(0.45), radius: 12, y: 8)
+                            )
                         }
                         .bouncy(delay: 0.3 + Double(e.platz) * 0.15)
                     }
