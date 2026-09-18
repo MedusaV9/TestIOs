@@ -78,7 +78,7 @@ final class HubAndMetaTests: XCTestCase {
                 case .number(_, let lo, let hi, _, _, _, let cur, _, _): if cur == nil { action = .number(lo + (hi - lo) * rng.next()) }
                 case .wager(_, _, let lo, _, _, let cur, _, _): if cur == nil { action = .wager(lo) }
                 case .vote(_, let opts, let chosen, _): if chosen == nil, let o = rng.pick(opts) { action = .vote(o.id) }
-                case .explain(_, _, let ready, _, _): if !ready { action = .ready("bereit") }
+                case .explain(_, _, _, _, let ready, _, _): if !ready { action = .ready("bereit") }
                 case .order(_, let items, _, let locked, _): if !locked { _ = hub.handle(c, .action(.order(rng.shuffled(items.map { $0.id })), idem: nil), now: now); action = .confirm }
                 case .pickPlayer(_, _, let cands, let chosen, _): if chosen == nil, let o = rng.pick(cands) { action = .pickPlayer(o.id) }
                 case .binary(_, _, let a, _, let chosen, _): if chosen == nil { action = .binary(a) }

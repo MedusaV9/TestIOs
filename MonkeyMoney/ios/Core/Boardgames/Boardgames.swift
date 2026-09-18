@@ -326,7 +326,7 @@ public enum Boardgames {
     public static func playerPrompt(_ s: EngineState, _ id: PlayerId, catalog: ContentCatalog, now: Millis) -> PlayerPrompt {
         guard let box = s.boardgame, let plugin = BoardgameRegistry.plugin(box.id) else { return .idle(title: "Spiele-Abend", subtitle: nil) }
         switch box.subphase {
-        case "howto": return .explain(title: "\(plugin.meta.emoji) \(plugin.meta.name)", text: plugin.meta.howto.joined(separator: "\n"), ready: false, streik: false, deadline: box.howtoEndsAt)
+        case "howto": return .explain(title: "\(plugin.meta.emoji) \(plugin.meta.name)", text: plugin.meta.untertitel, regeln: plugin.meta.howto, gewinn: nil, ready: false, streik: false, deadline: box.howtoEndsAt)
         case "ergebnis":
             let mine = box.ergebnis?.first { $0.sitz == id }
             return .reveal(title: mine.map { "Platz \($0.platz)" } ?? "Ergebnis", correct: mine.map { $0.platz == 1 }, delta: mine?.mm ?? 0, detail: mine?.detail, streak: 0, speedBonus: nil)

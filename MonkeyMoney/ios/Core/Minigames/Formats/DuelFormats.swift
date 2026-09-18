@@ -68,6 +68,11 @@ public enum LianenstegDuell: MinigamePlugin {
         id: "lianensteg-duell", name: "Duell am Lianensteg", emoji: "⚔️",
         kurz: "1v1 Best-of-5 auf dem Hängesteg — die Zuschauer wetten 50 MM auf den Sieger.",
         erklaerung: "Zwei Affen treffen sich auf dem wackligen Lianensteg: Best-of-5, wer eine Frage zuerst richtig beantwortet, holt den Punkt. Alle anderen wetten vorher 50 MM auf ihren Favoriten. Der Sieger bekommt 300 MM aus der Bank plus 100 MM vom Verlierer, die richtigen Wetter teilen sich den Wett-Topf.",
+        regeln: ["Zwei Affen duellieren sich auf dem Steg: Best-of-5",
+                 "Wer eine Frage zuerst richtig beantwortet, holt den Punkt",
+                 "Alle anderen wetten vorher 50 MM auf den Sieger",
+                 "Sieger: 300 MM + 100 MM vom Verlierer · richtige Wetter teilen den Topf"],
+        gewinn: "Sieger +300 MM (+100 vom Verlierer) · Wette: 50 MM Einsatz",
         contentKind: .choiceLike, roundBased: true, streak: false, jokerAktionen: [], isMc: true, musik: "duel_showdown", v2: true
     )
 
@@ -206,6 +211,11 @@ public enum BananenBoxkampf: MinigamePlugin {
         id: "bananen-boxkampf", name: "Bananen-Boxkampf", emoji: "🥊",
         kurz: "1v1 im Ring: richtig und schneller = Treffer, drei Treffer = K.O.",
         erklaerung: "Ring frei! Zwei Affen boxen: Pro Frage landet der schnellere Richtige einen Treffer. Jeder hat 3 Herzen — wer zuerst dreimal getroffen wird, geht K.O. Acht Runden, sonst Punktsieg nach Herzen. Sieg zahlt 400 MM.",
+        regeln: ["Ring frei: 1 gegen 1, jeder hat 3 Herzen",
+                 "Pro Frage landet der schnellere Richtige einen Treffer",
+                 "Drei Treffer = K.O.",
+                 "Nach 8 Runden entscheiden die Herzen"],
+        gewinn: "Sieg +400 MM",
         contentKind: .choiceLike, roundBased: true, streak: false, jokerAktionen: [], isMc: true, musik: "duel_showdown", v2: true
     )
 
@@ -292,6 +302,11 @@ public enum KonterQuiz: MinigamePlugin {
         id: "konter-quiz", name: "Konter-Quiz", emoji: "🔁",
         kurz: "Paare: richtig zahlt die Bank, falsch schenkt dem Partner die Konter-Gutschrift.",
         erklaerung: "Das freundliche Duell: Alle spielen paarweise gegeneinander. Acht kurze Fragen — richtig zahlt die Bank den Fragenwert, falsch schenkt deinem Partner eine Konter-Gutschrift in gleicher Höhe. Wer nicht antwortet, verschenkt nichts, gewinnt aber auch nichts.",
+        regeln: ["Ihr spielt paarweise gegeneinander — 8 kurze Fragen",
+                 "Richtig: die Bank zahlt den Fragenwert",
+                 "Falsch: dein Partner bekommt eine Konter-Gutschrift",
+                 "Keine Antwort: nichts gewonnen, nichts verschenkt"],
+        gewinn: "Richtig +Fragenwert · Falsch: Fragenwert an den Partner",
         contentKind: .choiceLike, roundBased: true, streak: false, jokerAktionen: [], isMc: true, musik: "question_bed_easy", v2: true
     )
 
@@ -372,6 +387,11 @@ public enum EinerGegenAlle: MinigamePlugin {
         id: "einer-gegen-alle", name: "Einer gegen alle", emoji: "👑",
         kurz: "Der Führende allein gegen die Mehrheit der Menge — Rollenumkehr!",
         erklaerung: "Der Führende steigt auf den Thron und spielt allein gegen alle anderen. Sechs Fragen: Liegt der Solist richtig und die Mehrheit falsch, kassiert er den vollen Fragenwert. Liegt die Mehrheit richtig, bekommt jeder Richtige der Menge den halben Fragenwert — und der Solist geht leer aus.",
+        regeln: ["Der Führende spielt allein gegen alle anderen — 6 Fragen",
+                 "Solist richtig + Mehrheit falsch: voller Fragenwert für den Solisten",
+                 "Mehrheit richtig: jeder Richtige der Menge bekommt die Hälfte",
+                 "Der Solist geht dann leer aus"],
+        gewinn: "Solist: voller Fragenwert · Menge: ½ Fragenwert pro Richtigem",
         contentKind: .choiceLike, roundBased: true, streak: false, jokerAktionen: [], isMc: true, musik: "question_bed_hard", v2: true
     )
 
@@ -445,6 +465,11 @@ public enum BananenTortenschlacht: MinigamePlugin {
         id: "bananen-tortenschlacht", name: "Bananen-Tortenschlacht", emoji: "🥧",
         kurz: "Jede falsche Antwort ist eine Torte ins Gesicht — drei Torten und du bist raus.",
         erklaerung: "Der Rauswurf-Beat: Acht Fragen, jede falsche oder fehlende Antwort ist eine Sahnetorte ins Gesicht. Drei Torten = raus aus der Runde. Wer als Letzter (oder Sauberster) übrig bleibt, gewinnt 500 MM, Platz zwei 250.",
+        regeln: ["8 Fragen — jede falsche oder fehlende Antwort ist eine Torte",
+                 "Drei Torten im Gesicht = raus",
+                 "Wer sauber bleibt, bleibt drin",
+                 "Der Letzte (oder Sauberste) gewinnt"],
+        gewinn: "Sieger +500 MM · Platz 2 +250 MM",
         minPlayers: 3, contentKind: .choiceLike, roundBased: true, streak: false, jokerAktionen: [], isMc: true, musik: "bomb_pass", v2: true
     )
 
@@ -542,6 +567,11 @@ public enum RisikoLeiter: MinigamePlugin {
         id: "risiko-leiter", name: "Risiko-Leiter", emoji: "🪜",
         kurz: "8 Stufen von leicht bis ULTRAHARD — weiterklettern oder sichern?",
         erklaerung: "Die Leiter beginnt leicht und endet ULTRAHARD. Jede richtige Stufe legt Geld auf deinen ungesicherten Stapel. Vor jeder Stufe entscheidest du: weiterklettern oder SICHERN? Wer sichert, steigt aus und behält alles. Wer weiterklettert und falsch liegt, verliert den ungesicherten Stapel.",
+        regeln: ["8 Stufen von leicht bis ULTRAHARD",
+                 "Jede richtige Stufe legt Geld auf deinen ungesicherten Stapel",
+                 "Vor jeder Stufe: weiterklettern oder SICHERN?",
+                 "Falsch beim Klettern: der ungesicherte Stapel ist weg"],
+        gewinn: "Gesichert = deins · ungesichert = Risiko",
         contentKind: .choiceLike, roundBased: true, streak: false, jokerAktionen: [], isMc: true, musik: "question_bed_hard", v2: true
     )
 
@@ -662,6 +692,10 @@ public enum GoldenerAffe: MinigamePlugin {
         id: "goldener-affe", name: "Der Goldene Affe", emoji: "🏆",
         kurz: "Vier Fragen um die Krone: wer die meisten Buzzer-Duelle gewinnt, wird zum Goldenen Affen.",
         erklaerung: "Der Goldene Affe wartet auf dem Podest. Vier Fragen — richtig zahlt den Fragenwert. Wer am Ende die meisten richtigen Antworten (schnellste zuerst) hat, wird gekrönt und bekommt 500 MM Gold obendrauf.",
+        regeln: ["Vier Fragen um die Krone — richtig zahlt den Fragenwert",
+                 "Bei Gleichstand zählt die schnellere Antwort",
+                 "Die meisten Richtigen werden zum Goldenen Affen gekrönt"],
+        gewinn: "Pro Frage Fragenwert · Krone +500 MM",
         contentKind: .choiceLike, roundBased: true, streak: false, jokerAktionen: [], isMc: true, musik: "jackpot_drama", v2: true
     )
 

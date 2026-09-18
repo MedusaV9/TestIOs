@@ -1,7 +1,8 @@
 import Foundation
 
-/// Bananen-Tresor — the estimate round, the great equaliser. Fixed payouts
-/// by closeness: 400/250/150, everyone else 50; exact hit 1.000 (hard 2.000).
+/// Bananen-Tresor — the estimate round, the great equaliser. Payouts by
+/// closeness relative to the question value F: 1.5 F / 1 F / 0.6 F, everyone
+/// else 0.2 F; an exact hit pays 3 F (the RISIKO variant ×1.5).
 public enum BananenTresor: MinigamePlugin {
     public struct State: Codable, Equatable, Sendable {
         public var question: Question
@@ -17,8 +18,13 @@ public enum BananenTresor: MinigamePlugin {
 
     public static let meta = MinigameMeta(
         id: "bananen-tresor", name: "Bananen-Tresor", emoji: "🔐",
-        kurz: "Schätzfrage: wer am nächsten dran ist, knackt den Tresor — Volltreffer = 1.000 MM.",
-        erklaerung: "Der große Gleichmacher: eine Schätzfrage mit Zahl. Schiebe den Regler, tippe deinen Wert und logge ein. Platz 1 = 400 MM, Platz 2 = 250, Platz 3 = 150 — alle anderen bekommen 50 MM, schätzen lohnt sich also immer. Ein exakter Volltreffer knackt den Tresor: 1.000 MM und die „Nagel auf den Kopf“-Fanfare!",
+        kurz: "Schätzfrage: wer am nächsten dran ist, knackt den Tresor — Volltreffer = 3× Fragenwert.",
+        erklaerung: "Der große Gleichmacher: eine Schätzfrage mit Zahl. Schiebe den Regler, tippe deinen Wert und logge ein. Platz 1 = 1,5× Fragenwert, Platz 2 = 1×, Platz 3 = 0,6× — alle anderen bekommen ein Trostgeld, schätzen lohnt sich also immer. Ein exakter Volltreffer knackt den Tresor: 3× Fragenwert und die „Nagel auf den Kopf“-Fanfare!",
+        regeln: ["Eine Schätzfrage mit Zahl — alle schätzen gleichzeitig",
+                 "Regler schieben oder Zahl tippen, dann EINLOGGEN",
+                 "Wer am nächsten dran ist, gewinnt — jeder bekommt etwas",
+                 "Exakter Volltreffer knackt den Tresor: 3× Fragenwert"],
+        gewinn: "Platz 1: 1,5× · Platz 2: 1× · Platz 3: 0,6× Fragenwert · Rest: Trostgeld",
         contentKind: .fragen([.schaetz]), streak: false, jokerAktionen: [], isMc: false, musik: "estimate_think"
     )
 
@@ -30,15 +36,27 @@ public enum BananenTresor: MinigamePlugin {
         return State(question: q, spec: spec, startedAt: ctx.now, deadline: ctx.now + t, timerMs: t, guesses: [:], moved: [:], finishedAt: nil, hard: hard)
     }
 
+    /// Slider granularity — whole numbers unless the range is tiny.
+    static func step(_ spec: EstimateSpec) -> Double {
+        let range = spec.max - spec.min
+        return range > 1000 ? 10.0 : (range > 100 ? 1.0 : (range > 10 ? 0.5 : 0.1))
+    }
+
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
         guard state.guesses[player] == nil, ctx.now <= state.deadline + ChoiceCore.graceMs else { return }
         switch action {
         case .number(let v):
-            state.guesses[player] = min(state.spec.max, max(state.spec.min, v))
-        case .button(let b) where b == "move":
-            break
+            guard v.isFinite else { return }
+            let st = step(state.spec)
+            let snapped = (v / st).rounded() * st
+            state.guesses[player] = min(state.spec.max, max(state.spec.min, snapped))
         default: break
         }
+    }
+
+    /// Payout ladder anchored to the question value (RISIKO variant ×1.5).
+    static func payout(_ state: State) -> (ladder: [Int], rest: Int, bullseye: Int) {
+        Economy.estimateLadder(value: Money.value(state.question.schw), hard: state.hard)
     }
 
     public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) {
@@ -73,12 +91,10 @@ public enum BananenTresor: MinigamePlugin {
 
     public static func scores(_ state: State, ctx: MinigameContext) -> [PlayerId: Int] {
         var s: [PlayerId: Int] = [:]
-        let ladder = state.hard ? [800, 500, 300] : [400, 250, 150]
-        let rest = state.hard ? 100 : 50
-        let bullseye = state.hard ? 2000 : 1000
+        let pay = payout(state)
         for (p, dist, place) in ranking(state, ctx: ctx) {
-            if dist < 1e-9 { s[p] = bullseye; continue }
-            s[p] = place - 1 < ladder.count ? ladder[place - 1] : rest
+            if dist < 1e-9 { s[p] = pay.bullseye; continue }
+            s[p] = place - 1 < pay.ladder.count ? pay.ladder[place - 1] : pay.rest
         }
         for p in ctx.players where s[p] == nil { s[p] = 0 }
         return s
@@ -87,9 +103,10 @@ public enum BananenTresor: MinigamePlugin {
     public static func outcomes(_ state: State, ctx: MinigameContext) -> [PlayerId: Outcome] {
         var out: [PlayerId: Outcome] = [:]
         let r = ranking(state, ctx: ctx)
+        let inTheMoney = payout(state).ladder.count
         for p in ctx.players {
             if let e = r.first(where: { $0.0 == p }) {
-                out[p] = Outcome(correct: e.2 == 1, countsForStreak: false, detail: e.1 < 1e-9 ? "Volltreffer!" : "Platz \(e.2)")
+                out[p] = Outcome(correct: e.2 <= inTheMoney, countsForStreak: false, detail: e.1 < 1e-9 ? "Volltreffer!" : "Platz \(e.2)")
             } else {
                 out[p] = Outcome(correct: nil, countsForStreak: false)
             }
@@ -100,7 +117,7 @@ public enum BananenTresor: MinigamePlugin {
     public static func stage(_ state: State, revealed: Bool, ctx: MinigameContext) -> MinigameStageOutput {
         let kat = ctx.catalog.categories.first { $0.id == state.question.kat }
         let wall = QuestionWall(text: state.question.text, kategorie: state.question.kat, kategorieName: kat?.name ?? "", kategorieEmoji: kat?.emoji ?? "❓",
-                                schwierigkeit: state.question.schw, wert: state.hard ? 800 : 400, options: nil,
+                                schwierigkeit: state.question.schw, wert: payout(state).ladder.first ?? 0, options: nil,
                                 answered: Array(state.guesses.keys), deadline: revealed ? nil : ctx.visible(state.deadline), timerMs: state.timerMs,
                                 revealed: revealed, correctIndex: nil, answersByPlayer: [:], erklaerung: revealed ? state.question.erkl : nil,
                                 nummer: ctx.fragenNummer, gesamt: ctx.fragenGesamt)
@@ -115,12 +132,18 @@ public enum BananenTresor: MinigamePlugin {
     public static func prompt(_ state: State, player: PlayerId, revealed: Bool, ctx: MinigameContext) -> PlayerPrompt {
         if revealed {
             let s = scores(state, ctx: ctx)[player] ?? 0
-            let detail = "Richtig: \(format(state.spec.richtwert)) \(state.spec.einheit)" + (state.guesses[player].map { " · dein Tipp: \(format($0))" } ?? "")
-            return .reveal(title: s >= 1000 ? "NAGEL AUF DEN KOPF!" : (s >= 150 ? "Gut geschätzt!" : "Trostpreis"), correct: s >= 150, delta: s, detail: detail, streak: 0, speedBonus: nil)
+            let pay = payout(state)
+            let place = ranking(state, ctx: ctx).first { $0.0 == player }?.2
+            let detail = "Richtig: \(format(state.spec.richtwert)) \(state.spec.einheit)" + (state.guesses[player].map { " · dein Tipp: \(format($0))" } ?? " · kein Tipp")
+            let title: String
+            if s >= pay.bullseye { title = "NAGEL AUF DEN KOPF!" }
+            else if let pl = place, pl <= pay.ladder.count { title = pl == 1 ? "AM NÄCHSTEN DRAN!" : "Platz \(pl) — gut geschätzt!" }
+            else if s > 0 { title = "Trostgeld" }
+            else { title = "Kein Tipp" }
+            // In the money (top 3) feels like "richtig"; a consolation is neutral, never a red buzz.
+            return .reveal(title: title, correct: (place ?? 99) <= pay.ladder.count ? true : nil, delta: s, detail: detail, streak: 0, speedBonus: nil)
         }
-        let range = state.spec.max - state.spec.min
-        let step = range > 1000 ? 10.0 : (range > 100 ? 1.0 : (range > 10 ? 0.5 : 0.1))
-        return .number(question: state.question.text, min: state.spec.min, max: state.spec.max, step: step, log: state.spec.skala == "log",
+        return .number(question: state.question.text, min: state.spec.min, max: state.spec.max, step: step(state.spec), log: state.spec.skala == "log",
                        unit: state.spec.einheit, current: state.guesses[player], locked: state.guesses[player] != nil, deadline: ctx.visible(state.deadline))
     }
 
@@ -157,6 +180,11 @@ public enum Affenleiter: MinigamePlugin {
         id: "affenleiter", name: "Affenleiter", emoji: "🪜",
         kurz: "Vier Dinge in die richtige Reihenfolge — jede richtige Sprosse zahlt, alles richtig gibt den Perfekt-Bonus.",
         erklaerung: "Vier Begriffe, eine Ordnung: größer, älter, teurer, früher. Sortiere die Karten per Tippen oder Ziehen und logge ein. Jede richtig platzierte Sprosse bringt ein Viertel des Fragenwerts; die komplett richtige Leiter gibt +50 % Perfekt-Bonus, den Speed-Bonus und zählt für die Streak.",
+        regeln: ["Vier Begriffe in die richtige Reihenfolge bringen",
+                 "Sortieren per ▲ ▼, dann EINLOGGEN",
+                 "Jede richtige Sprosse zahlt ein Viertel des Fragenwerts",
+                 "Alles richtig: +50 % Perfekt-Bonus und Speed-Bonus"],
+        gewinn: "Pro richtiger Sprosse ¼ Fragenwert · perfekte Leiter ×1,5 + Speed",
         contentKind: .fragen([.sortier]), jokerAktionen: [], isMc: false, musik: "question_bed_easy"
     )
 

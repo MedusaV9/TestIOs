@@ -106,8 +106,8 @@ public indirect enum PlayerPrompt: Codable, Equatable, Sendable {
     case vote(title: String, options: [VoteOption], chosen: String?, deadline: Millis?)
     /// Result card after a question.
     case reveal(title: String, correct: Bool?, delta: Int, detail: String?, streak: Int, speedBonus: Int?)
-    /// Explain card readiness with strike option.
-    case explain(title: String, text: String, ready: Bool, streik: Bool, deadline: Millis?)
+    /// Explain card (rules as bullets + payout line) with readiness and strike option.
+    case explain(title: String, text: String, regeln: [String], gewinn: String?, ready: Bool, streik: Bool, deadline: Millis?)
     /// Free-form status list (e.g. Bananopoly portfolio) with action buttons.
     case actions(title: String, lines: [String], buttons: [ActionButton], deadline: Millis?)
     /// Feedback form (Abspann).
@@ -262,8 +262,10 @@ public indirect enum StageExtra: Codable, Equatable, Sendable {
     case none
     /// Kokosnuss-Uhr: shrinking money sack with frozen amounts per player.
     case sack(current: Int, start: Int, frozen: [PlayerId: Int])
-    /// Affenbank: chain pot, banked amounts, last bank event.
-    case bankPot(pot: Int, chain: Int, banked: [PlayerId: Int], lastBanker: PlayerId?, majorityCorrect: Bool?, durchgang: Int)
+    /// Affenbank: chain ladder + pot, banked amounts, last bank event, beat verdict
+    /// ("waechst" | "haelt" | "verbrennt"), run clock and the closing-gong winners.
+    case bankPot(pot: Int, chain: [Int], chainStep: Int, banked: [PlayerId: Int], lastBanker: PlayerId?, verdict: String?,
+                 durchgang: Int, durchgaenge: Int, runEndsAt: Millis, letzteFrage: Bool, gongFor: [PlayerId])
     /// Stinkbanane: who holds the bomb, fuse tension 0…1, passes so far.
     case bomb(holder: PlayerId?, tension: Double, passes: Int, exploded: PlayerId?, durchgang: Int)
     /// Alles oder Banane: bets (revealed one by one), teaser.
@@ -356,7 +358,13 @@ public struct ExplainCardView: Codable, Equatable, Sendable {
     public var minigameId: String
     public var name: String
     public var emoji: String
+    /// One-line hook ("Was passiert hier?").
+    public var kurz: String
+    /// Long prose (GM cheat sheet, fallback).
     public var text: String
+    /// 3–5 short rules and the payout line — what the stage shows big.
+    public var regeln: [String]
+    public var gewinn: String
     public var slot: SlotTag
     public var rundenNummer: Int
     public var rundenGesamt: Int

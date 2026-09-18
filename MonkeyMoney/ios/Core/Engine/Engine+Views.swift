@@ -41,49 +41,81 @@ extension Engine {
         }
     }
 
+    /// Value of the jackpot question once it is drawn (hard 1.000 / ULTRAHARD 1.500).
+    func jackpotValue(_ s: EngineState) -> Int {
+        let d = s.currentQuestionIds.first.flatMap { catalog.question($0) }?.schw ?? .hard
+        return Economy.jackpotQuestionValue(d)
+    }
+
     func explainCard(_ s: EngineState) -> ExplainCardView {
         let section = s.currentSection!
         let plugin = resolvedPlugin(s, section)
         var text = plugin.meta.erklaerung
+        var kurz = plugin.meta.kurz
+        var regeln = plugin.meta.regeln
+        var gewinn = plugin.meta.gewinn
         var name = plugin.meta.name
         var emoji = plugin.meta.emoji
         if section.typ == .jackpot {
+            let value = jackpotValue(s)
             name = "Die Jackpot-Frage"
             emoji = "💰"
-            text = "EINE Frage für alle: \(Money.format(Economy.jackpotQuestionValue)) plus der komplette Inhalt des Jackpot-Glases (\(Money.format(s.jackpotGlas))). Wer richtig liegt, teilt sich den Schatz. Keine Joker — nur Wissen."
+            kurz = "EINE Frage für alle — und das Glas geht mit."
+            regeln = ["Eine einzige Frage — alle antworten gleichzeitig",
+                      "Richtig: \(Money.format(value)) plus das komplette Jackpot-Glas",
+                      "Mehrere Richtige teilen sich das Glas",
+                      "Keine Joker — nur Wissen"]
+            gewinn = "\(Money.format(value)) + Glas (\(Money.format(s.jackpotGlas))) · Falsch: 0"
+            text = "EINE Frage für alle: \(Money.format(value)) plus der komplette Inhalt des Jackpot-Glases (\(Money.format(s.jackpotGlas))). Wer richtig liegt, teilt sich den Schatz. Keine Joker — nur Wissen."
         }
         if section.typ == .finale {
+            let w = s.wFinal ?? 500
             name = section.minigameId == "alles-oder-banane" ? "Vabanque-Finale" : "Das große Lianen-Finale"
             emoji = "🐊"
-            text = "Jede der \(section.fragen) Finalfragen ist heute \(Money.format(s.wFinal ?? 500)) wert: richtig +\(Money.format(s.wFinal ?? 500)), falsch −\(Money.format((s.wFinal ?? 500) / 2)). Keine Joker, keine Streaks, kein Speed-Bonus. " + plugin.meta.erklaerung
+            kurz = "\(section.fragen) Fragen, jede \(Money.format(w)) wert — der Letzte kann noch gewinnen."
+            if section.minigameId != "alles-oder-banane" {
+                regeln = ["\(section.fragen) Finalfragen — jede ist \(Money.format(w)) wert",
+                          "Richtig: +\(Money.format(w)) · falsch: −\(Money.format(w / 2)) · keine Antwort: ±0",
+                          "Deine Liane hängt über dem Krokodil-Fluss — so lang wie dein Konto",
+                          "Keine Joker, keine Streaks, kein Speed-Bonus"]
+                gewinn = "Richtig +\(Money.format(w)) · Falsch −\(Money.format(w / 2))"
+            }
+            text = "Jede der \(section.fragen) Finalfragen ist heute \(Money.format(w)) wert: richtig +\(Money.format(w)), falsch −\(Money.format(w / 2)). Keine Joker, keine Streaks, kein Speed-Bonus. " + plugin.meta.erklaerung
         }
-        if section.notariat { text = "🤫 NOTARIATS-RUNDE: keine Joker, keine Tipps — dafür +25 % auf alle Fragenwerte. " + text }
-        return ExplainCardView(minigameId: plugin.meta.id, name: name, emoji: emoji, text: text, slot: section.slot, rundenNummer: section.rundenNummer,
+        if section.notariat {
+            text = "🤫 NOTARIATS-RUNDE: keine Joker, keine Tipps — dafür +25 % auf alle Fragenwerte. " + text
+            regeln.insert("🤫 Notariats-Runde: keine Joker, keine Tipps — alle Fragenwerte +25 %", at: 0)
+        }
+        return ExplainCardView(minigameId: plugin.meta.id, name: name, emoji: emoji, kurz: kurz, text: text, regeln: regeln, gewinn: gewinn,
+                               slot: section.slot, rundenNummer: section.rundenNummer,
                                rundenGesamt: s.plan.filter { $0.typ == .runde }.count, bereit: s.bereit, streik: s.streik,
                                kategorie: section.kategorie.map { catalog.categoryName($0) }, deadline: s.phaseEndsAt)
     }
 
+    /// Music bed per phase. The cue only names the bed — one-shot effects
+    /// (stingers, the reveal beat, applause) are the stage regie's job, so
+    /// they fire exactly once per event instead of once per state update.
     func audioCue(_ s: EngineState, stage: MinigameStageOutput?) -> AudioCue {
         switch s.phase {
         case .lobby: return AudioCue(music: "lobby_loop")
         case .intro: return AudioCue(music: "intro_stinger")
         case .kategorieWahl, .erklaerkarte: return AudioCue(music: "standings_groove")
-        case .frage:
-            if let a = stage?.audio, a.music != nil { return a }
+        case .frage, .aufloesung:
+            // The question bed keeps running through the reveal (the regie ducks it).
+            if let a = stage?.audio, a.music != nil { return AudioCue(music: a.music) }
             if s.isFinale { return AudioCue(music: "finale_showdown") }
             if s.isJackpot { return AudioCue(music: "jackpot_drama") }
             if let box = s.minigame, let p = MinigameRegistry.plugin(box.id) {
                 if s.currentQuestionIds.indices.contains(s.questionIndex), let q = catalog.question(s.currentQuestionIds[s.questionIndex]), q.schw >= .hard, p.meta.musik == "question_bed_easy" {
-                    return AudioCue(music: "question_bed_hard", sfx: stage?.audio?.sfx ?? [])
+                    return AudioCue(music: "question_bed_hard")
                 }
-                return AudioCue(music: p.meta.musik, sfx: stage?.audio?.sfx ?? [])
+                return AudioCue(music: p.meta.musik)
             }
             return AudioCue(music: "question_bed_easy")
-        case .aufloesung: return AudioCue(music: nil, sfx: ["reveal"])
         case .zwischenstand, .halbzeit: return AudioCue(music: "standings_groove")
         case .rad: return AudioCue(music: "wheel_spin")
         case .highlights: return AudioCue(music: "credits_outro")
-        case .siegerehrung: return AudioCue(music: "victory_podium", sfx: ["applaus_gross"])
+        case .siegerehrung: return AudioCue(music: "victory_podium")
         case .ende: return AudioCue(music: "credits_outro")
         case .pause: return AudioCue(music: "lobby_loop")
         case .brettspiel: return AudioCue(music: s.boardgame?.id == "werwolf" ? "werwolf_night" : "boardgame_bed")
@@ -198,13 +230,21 @@ extension Engine {
                              : .idle(title: "🎯 \(s.player(s.kategorie.letzterWaehlt ?? "")?.name ?? "") wählt die Kategorie", subtitle: "Comeback-Regel")
         case .erklaerkarte:
             let card = explainCard(s)
-            prompt = .explain(title: "\(card.emoji) \(card.name)", text: card.text, ready: s.bereit.contains(id), streik: s.streik.contains(id), deadline: s.phaseEndsAt)
+            prompt = .explain(title: "\(card.emoji) \(card.name)", text: card.kurz, regeln: card.regeln, gewinn: card.gewinn.isEmpty ? nil : card.gewinn,
+                              ready: s.bereit.contains(id), streik: s.streik.contains(id), deadline: s.phaseEndsAt)
         case .frage, .aufloesung:
             let revealed = s.phase == .aufloesung
             if let box = s.minigame, let plugin = MinigameRegistry.plugin(box.id) {
                 prompt = plugin.prompt(box.data, id, revealed, context(s, now: now))
-                if revealed, case .reveal(let title, let correct, _, let detail, _, _) = prompt {
+                if revealed, case .reveal(let title, let correct, let plain, var detail, _, _) = prompt {
+                    // The card shows the BOOKED delta (streak, wheel, Rückenwind, alms …), and says why it differs.
                     let delta = s.lastDeltas[id] ?? 0
+                    var notes: [String] = []
+                    if correct == false, delta > 0 { notes.append("🍌 Applaus-Almosen: als Einzige/r daneben — \(Money.format(delta)) Trost") }
+                    if correct == true, plugin.meta.streak, p.streak >= 3, !s.isFinale { notes.append("🔥 Streak ×\(p.streak >= 5 ? "2" : "1,5")") }
+                    if correct == true, delta > plain, s.nextMods.gewinnFaktor > 1 { notes.append("🎡 Doppelter Zaster") }
+                    if correct == true, delta > plain, s.leader?.id != id, Economy.tailwindFactor(own: p.balance - delta, leader: s.leader?.balance ?? 0) > 1 { notes.append("🌬️ Rückenwind") }
+                    if !notes.isEmpty { detail = ([detail].compactMap { $0 } + notes).joined(separator: " · ") }
                     prompt = .reveal(title: title, correct: correct, delta: delta, detail: detail, streak: p.streak, speedBonus: nil)
                     haptic = correct == true ? "success" : (correct == false ? "error" : nil)
                     flash = correct == true ? "richtig" : (correct == false ? "falsch" : nil)

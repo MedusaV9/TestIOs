@@ -12,6 +12,11 @@ public enum VierLianen: MinigamePlugin {
         id: "vier-lianen", name: "Vier Lianen", emoji: "🌿",
         kurz: "Alle antworten gleichzeitig — schnell UND richtig bringt den Speed-Bonus.",
         erklaerung: "Vier Lianen hängen von der Decke. Nur eine hält! Alle antworten gleichzeitig auf dieselbe Frage. Richtig = Grundwert der Frage, wer in den ersten Sekunden richtig liegt, kassiert bis zu +50 % Speed-Bonus. Drei richtige in Folge zünden die Streak-Lunte (×1,5), fünf sogar ×2.",
+        regeln: ["Alle bekommen dieselbe Frage — 4 Antworten, eine stimmt",
+                 "Antippen = eingeloggt. Wechseln geht nicht mehr",
+                 "Schnell UND richtig bringt bis zu +50 % Speed-Bonus",
+                 "3 Richtige in Folge: Streak ×1,5 · ab 5 sogar ×2"],
+        gewinn: "Richtig: Fragenwert + Speed-Bonus · Falsch: 0",
         musik: "question_bed_easy"
     )
 
@@ -57,6 +62,11 @@ public enum BananenBasics: MinigamePlugin {
         id: "bananen-basics", name: "Bananen-Basics", emoji: "🍌",
         kurz: "Warm-up: 4 Farb-Buttons, alle antworten gleichzeitig, falsch kostet nichts.",
         erklaerung: "Das Warm-up der Show. Vier bunte Lianen — 🍌 Gelb, 🥥 Braun, 🐒 Rot, 🌴 Grün — eine hält. Alle antworten gleichzeitig; falsch kostet NICHTS, richtig bringt den Fragenwert plus Speed-Bonus. Wer eingerastet ist, kann nicht mehr wechseln — außer mit dem Rückgaberecht-Joker.",
+        regeln: ["Das Warm-up: alle antworten gleichzeitig auf dieselbe Frage",
+                 "Antippen = eingeloggt, kein Wechseln mehr",
+                 "Schnell UND richtig bringt bis zu +50 % Speed-Bonus",
+                 "Falsch kostet nichts"],
+        gewinn: "Richtig: Fragenwert + Speed-Bonus · Falsch: 0",
         musik: "question_bed_easy"
     )
 
@@ -90,36 +100,41 @@ public enum KokosnussUhr: MinigamePlugin {
         public var startSack: Int
         public var ticks: Int
         public var frozen: [PlayerId: Int]
+        /// Melting pace — the nominal answer window, so the sack keeps shrinking
+        /// at show tempo even when the Show-Master switched the timer off.
+        public var tickMs: Int
     }
 
     public static let meta = MinigameMeta(
         id: "kokosnuss-uhr", name: "Kokosnuss-Uhr", emoji: "🥥",
-        kurz: "Der Geldsack schrumpft in 50er-Ticks — deine Antwort friert DEINEN Sack ein.",
-        erklaerung: "Über der Frage hängt ein prall gefüllter Geldsack, der Tick für Tick um 50 MM schrumpft. Sobald du antwortest, friert DEIN Sack ein: richtig = eingefrorener Betrag, falsch = nichts. Zu lange grübeln kostet also Geld — zu schnell raten auch.",
+        kurz: "Der Geldsack schrumpft Tick für Tick — deine Antwort friert DEINEN Sack ein.",
+        erklaerung: "Über der Frage hängt ein prall gefüllter Geldsack (1,5× Fragenwert), der Tick für Tick schrumpft. Sobald du antwortest, friert DEIN Sack ein: richtig = eingefrorener Betrag, falsch = nichts. Zu lange grübeln kostet also Geld — zu schnell raten auch.",
+        regeln: ["Über der Frage hängt ein Geldsack — er schrumpft Tick für Tick",
+                 "Deine Antwort friert DEINEN Sack ein",
+                 "Richtig = eingefrorener Betrag · falsch = nichts",
+                 "Zu lange grübeln kostet, zu schnell raten auch"],
+        gewinn: "Start: 1,5× Fragenwert, dann immer weniger",
         musik: "question_bed_easy"
     )
 
-    static func startAmount(_ d: Difficulty) -> Int {
-        switch d {
-        case .easy: return 200
-        case .medium: return 400
-        case .hard: return 750
-        case .ultrahard: return 1500
-        }
-    }
+    /// Sack start (1.5 F) and tick size — ten ticks over the answer window.
+    static func sack(_ d: Difficulty) -> (start: Int, tick: Int) { Economy.sackStart(value: Money.value(d)) }
 
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         let q = FormatHelpers.first(questions, kind: meta.contentKind)
         let core = ChoiceCore(question: q, ctx: ctx)
-        let start = startAmount(q.schw)
-        return State(core: core, startSack: start, ticks: start / 50, frozen: [:])
+        let s = sack(q.schw)
+        let ticks = max(1, s.start / s.tick)
+        let window = Int(Double(ctx.ms(Money.timerMs(q.schw))) * ctx.mods.timerFaktor)
+        return State(core: core, startSack: s.start, ticks: ticks, frozen: [:], tickMs: max(500, window / ticks))
     }
 
     static func currentAmount(_ s: State, now: Millis) -> Int {
         let elapsed = max(0, now - s.core.startedAt)
-        let tickMs = max(1, s.core.timerMs / max(1, s.ticks))
-        let gone = elapsed / tickMs
-        return max(0, s.startSack - gone * 50)
+        let gone = elapsed / max(1, s.tickMs)
+        let tick = max(10, s.startSack / max(1, s.ticks))
+        // The sack never runs completely dry — a late correct answer keeps one tick.
+        return max(tick, s.startSack - gone * tick)
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {

@@ -13,116 +13,14 @@ enum TestContent {
 /// Headless bots play complete matches against the pure engine — the same
 /// E2E gate the original project had (tools/bots), now inside `swift test`.
 final class MatchSimulationTests: XCTestCase {
-    struct Bot {
-        var id: PlayerId
-        var skill: Double
-        var delayMs: Int
-    }
-
     func runMatch(modus: Modus, players: Int, seed: UInt32, settingsPatch: ((inout MatchSettings) -> Void)? = nil, maxTicks: Int = 200_000) -> EngineState {
-        let engine = Engine(catalog: TestContent.catalog)
-        var settings = MatchSettings(modus: modus)
-        settings.tempo = .zackig
-        settings.gmLos = true
-        settingsPatch?(&settings)
-        var s = EngineState(matchId: "test", roomCode: "TEST", seed: seed, settings: settings, now: 1_000_000, gmPin: "1234")
-        var now: Millis = 1_000_000
-        var bots: [Bot] = []
-        var rng = SeededRandom(seed: seed &+ 7)
-        for i in 0..<players {
-            let id = "p\(i)"
-            bots.append(Bot(id: id, skill: 0.35 + Double(i) * 0.12, delayMs: 800 + i * 900))
-            engine.reduce(&s, .join(playerId: id, name: "Affe \(i)", avatar: Avatar(affe: "don-bananas", farbe: "gelb"), profileId: nil, isBot: true), now: now)
-        }
-        engine.reduce(&s, .screenPresence(true), now: now)
-        engine.reduce(&s, .gm(.flowNext), now: now)
-        XCTAssertEqual(s.phase, .intro)
-        var answeredKey: Set<String> = []
-        var phasesSeen: Set<Phase> = []
-        var ticks = 0
-        while s.phase != .ende && ticks < maxTicks {
-            ticks += 1
-            now += 250
-            engine.tick(&s, now: now)
-            phasesSeen.insert(s.phase)
-            for bot in bots {
-                guard let view = engine.playerView(s, player: bot.id, now: now) else { continue }
-                let key = "\(s.phase.rawValue)-\(s.sectionIndex)-\(s.questionIndex)-\(view.prompt.kind)-\(s.minigame?.startedAt ?? 0)-\(s.rad.subphase)"
-                switch view.prompt {
-                case .choice(_, let options, let chosen, _, _, _):
-                    guard chosen == nil else { continue }
-                    let elapsed = now - (s.minigame?.startedAt ?? s.phaseStartedAt)
-                    guard elapsed >= bot.delayMs else { continue }
-                    let open = options.filter { !$0.removed }
-                    guard !open.isEmpty else { continue }
-                    let pick = rng.chance(bot.skill) ? correctIndex(s, engine: engine, options: open) ?? open[rng.below(open.count)].id : open[rng.below(open.count)].id
-                    engine.reduce(&s, .player(bot.id, .choose(pick)), now: now)
-                case .bank(_, let options, let chosen, let pot, _, _):
-                    if pot >= 400, rng.chance(0.3) { engine.reduce(&s, .player(bot.id, .bank), now: now) }
-                    guard chosen == nil, !answeredKey.contains(key + "\(s.minigame?.data.count ?? 0)") else { continue }
-                    let open = options.filter { !$0.removed }
-                    if !open.isEmpty { engine.reduce(&s, .player(bot.id, .choose(open[rng.below(open.count)].id)), now: now) }
-                case .number(_, let min, let max, _, _, _, let current, let locked, _):
-                    guard current == nil, !locked else { continue }
-                    engine.reduce(&s, .player(bot.id, .number(min + (max - min) * rng.next())), now: now)
-                case .order(_, let items, _, let locked, _):
-                    guard !locked, !answeredKey.contains(key) else { continue }
-                    answeredKey.insert(key)
-                    engine.reduce(&s, .player(bot.id, .order(rng.shuffled(items.map { $0.id }))), now: now)
-                    engine.reduce(&s, .player(bot.id, .confirm), now: now)
-                case .wager(_, _, let min, let max, let step, let current, let locked, _):
-                    guard current == nil, !locked else { continue }
-                    let w = min + step * rng.below(Swift.max(1, (max - min) / Swift.max(1, step) + 1))
-                    engine.reduce(&s, .player(bot.id, .wager(w)), now: now)
-                case .vote(_, let options, let chosen, _):
-                    guard chosen == nil, let o = rng.pick(options) else { continue }
-                    engine.reduce(&s, .player(bot.id, .vote(o.id)), now: now)
-                case .explain(_, _, let ready, _, _):
-                    if !ready { engine.reduce(&s, .player(bot.id, .ready("bereit")), now: now) }
-                case .pickPlayer(_, _, let candidates, let chosen, _):
-                    guard chosen == nil, let c = rng.pick(candidates) else { continue }
-                    engine.reduce(&s, .player(bot.id, .pickPlayer(c.id)), now: now)
-                case .binary(_, _, let a, let b, let chosen, _):
-                    guard chosen == nil else { continue }
-                    engine.reduce(&s, .player(bot.id, .binary(rng.chance(0.5) ? a : b)), now: now)
-                case .confirm(_, _, _, let done, _):
-                    if !done { engine.reduce(&s, .player(bot.id, .confirm), now: now) }
-                case .chips(_, let options, let total, _, let locked, _):
-                    guard !locked, !answeredKey.contains(key) else { continue }
-                    answeredKey.insert(key)
-                    var placed = Array(repeating: 0, count: options.count)
-                    for _ in 0..<total { placed[rng.below(options.count)] += 1 }
-                    engine.reduce(&s, .player(bot.id, .chips(placed)), now: now)
-                    engine.reduce(&s, .player(bot.id, .confirm), now: now)
-                case .text(_, _, _, let submitted, _):
-                    guard submitted == nil, !answeredKey.contains(key) else { continue }
-                    answeredKey.insert(key)
-                    engine.reduce(&s, .player(bot.id, .text("Lüge \(bot.id) \(rng.below(999))")), now: now)
-                case .buzzer(_, let armed, _, _, _):
-                    if armed, rng.chance(0.15) { engine.reduce(&s, .player(bot.id, .buzz(at: now)), now: now) }
-                case .feedback(_, let done):
-                    if !done { engine.reduce(&s, .player(bot.id, .feedback(["gut", "ok", "alles"])), now: now) }
-                case .actions(_, _, let buttons, _):
-                    if let b = buttons.first(where: { $0.enabled }) { engine.reduce(&s, .player(bot.id, .button(b.id)), now: now) }
-                default:
-                    break
-                }
-            }
-            // Stage advances the ceremony like a real host would.
-            if s.phase == .ende { break }
-        }
+        let r = SimHarness.run(modus: modus, players: players, seed: seed, settingsPatch: settingsPatch, maxTicks: maxTicks)
+        let s = r.state
         XCTAssertEqual(s.phase, .ende, "match (\(modus)) did not reach the end within \(maxTicks) ticks — stuck in \(s.phase) section \(s.sectionIndex) q \(s.questionIndex) minigame \(s.minigame?.id ?? "-")")
-        XCTAssertTrue(phasesSeen.contains(.frage))
-        XCTAssertTrue(phasesSeen.contains(.aufloesung))
-        XCTAssertTrue(phasesSeen.contains(.siegerehrung))
+        XCTAssertTrue(r.phasesSeen.contains(.frage))
+        XCTAssertTrue(r.phasesSeen.contains(.aufloesung))
+        XCTAssertTrue(r.phasesSeen.contains(.siegerehrung))
         return s
-    }
-
-    func correctIndex(_ s: EngineState, engine: Engine, options: [ChoiceOption]) -> Int? {
-        guard let box = s.minigame, let plugin = MinigameRegistry.plugin(box.id) else { return nil }
-        let info = plugin.gmInfo(box.data, engine.context(s, now: 0))
-        guard let k = info.question?.korrekt else { return nil }
-        return options.first { $0.text == k || $0.text.hasPrefix(k) }?.id
     }
 
     func testQuickMatchRunsToTheEnd() {

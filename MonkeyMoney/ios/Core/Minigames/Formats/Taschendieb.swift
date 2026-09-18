@@ -19,6 +19,11 @@ public enum Taschendieb: MinigamePlugin {
         id: "taschendieb", name: "Taschendieb-Affe", emoji: "🦝",
         kurz: "Die schnellste richtige Antwort darf klauen — 300/500 MM vom Opfer deiner Wahl.",
         erklaerung: "Alle antworten — aber nur die SCHNELLSTE richtige Antwort gewinnt das Klau-Recht: geheime Opferwahl auf dem Handy, dann flitzt der Dieb-Affe mit Maske los. 300 MM (mittel) bzw. 500 MM (schwer), gedeckelt auf ein Viertel des Opfer-Kontos. Alle anderen Richtigen bekommen den halben Fragenwert aus der Bank. Der Bananentresor-Joker blockt den Klau.",
+        regeln: ["Alle antworten — die SCHNELLSTE richtige Antwort darf klauen",
+                 "Der Dieb wählt geheim ein Opfer auf dem Handy",
+                 "Beute: 300 MM (mittel) / 500 MM (schwer), max. ¼ vom Opfer-Konto",
+                 "Alle anderen Richtigen: halber Fragenwert aus der Bank"],
+        gewinn: "Dieb: 300/500 MM vom Opfer · andere Richtige: ½ Fragenwert",
         contentKind: .choiceLike, streak: false, jokerAktionen: ["fiftyFifty", "removeOne"], isMc: true, musik: "steal_sneak"
     )
 
@@ -164,9 +169,16 @@ public enum AllesOderBanane: MinigamePlugin {
     public static let meta = MinigameMeta(
         id: "alles-oder-banane", name: "Alles oder Banane", emoji: "🎰",
         kurz: "Nur Kategorie + Schwierigkeit sind bekannt — setz geheim, dann wird aufgedeckt und gefragt.",
-        erklaerung: "Die Risiko-Runde. Du erfährst nur Kategorie und Schwierigkeit — dann setzt jeder GEHEIM 100 bis 1.000 MM (höchstens die Hälfte des Kontos). Erst werden alle Einsätze mit Trommelwirbel aufgedeckt, DANN kommt die Frage. Richtig = Einsatz verdoppelt, falsch = Einsatz weg. Wer pleite ist, bekommt 100 MM Kredit der Affenbank.",
+        erklaerung: "Die Risiko-Runde. Du erfährst nur Kategorie und Schwierigkeit — dann setzt jeder GEHEIM: ab 50 MM, höchstens die Hälfte des Kontos und nie mehr als das 1,5-Fache des Fragenwerts. Erst werden alle Einsätze mit Trommelwirbel aufgedeckt, DANN kommt die Frage. Richtig = Einsatz verdoppelt, falsch = Einsatz weg. Wer pleite ist, bekommt 100 MM Kredit der Affenbank.",
+        regeln: ["Du siehst nur Kategorie und Schwierigkeit",
+                 "Setze GEHEIM: 50 MM bis zur Hälfte deines Kontos",
+                 "Erst werden alle Einsätze aufgedeckt, DANN kommt die Frage",
+                 "Richtig: Einsatz verdoppelt · falsch: Einsatz weg"],
+        gewinn: "Richtig +Einsatz · Falsch −Einsatz · Pleite? 100 MM Kredit gratis",
         contentKind: .choiceLike, streak: false, jokerAktionen: ["fiftyFifty"], isMc: true, musik: "jackpot_drama"
     )
+
+    static let creditStake = 100
 
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         let q = FormatHelpers.first(questions, kind: meta.contentKind)
@@ -174,9 +186,8 @@ public enum AllesOderBanane: MinigamePlugin {
         var credit: [PlayerId] = []
         for p in ctx.players {
             let bal = ctx.balances[p] ?? 0
-            if bal < 100 { caps[p] = 100; credit.append(p) } else {
-                let cap = ctx.settings.allInErlaubt ? bal : bal / 2
-                caps[p] = max(100, min(1000, cap / 50 * 50))
+            if bal < Economy.minWager { caps[p] = creditStake; credit.append(p) } else {
+                caps[p] = Economy.wagerCap(balance: bal, value: q.value, allIn: ctx.settings.allInErlaubt)
             }
         }
         var core = ChoiceCore(question: q, ctx: ctx, timerMs: Int(Double(ctx.answerWindow(20_000)) * ctx.mods.timerFaktor))
@@ -184,12 +195,14 @@ public enum AllesOderBanane: MinigamePlugin {
         return State(core: core, phase: "setzen", bets: [:], caps: caps, credit: credit, betUntil: ctx.now + ctx.answerWindow(12_000), revealUntil: nil, revealedCount: 0)
     }
 
+    static func minBet(_ state: State, _ p: PlayerId) -> Int { state.credit.contains(p) ? creditStake : Economy.minWager }
+
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
         switch (state.phase, action) {
         case ("setzen", .wager(let w)):
             guard state.bets[player] == nil else { return }
-            let cap = state.caps[player] ?? 100
-            state.bets[player] = max(100, min(cap, w / 50 * 50))
+            let cap = state.caps[player] ?? creditStake
+            state.bets[player] = max(minBet(state, player), min(cap, w / 50 * 50))
         case ("frage", .choose(let i)):
             _ = state.core.answer(player, index: i, now: ctx.now)
         default: break
@@ -213,7 +226,7 @@ public enum AllesOderBanane: MinigamePlugin {
             let active = ctx.players.filter { ctx.connected.contains($0) }
             let all = active.allSatisfy { state.bets[$0] != nil }
             if ctx.now >= state.betUntil || (all && !active.isEmpty) {
-                for p in ctx.players where state.bets[p] == nil { state.bets[p] = 100 }
+                for p in ctx.players where state.bets[p] == nil { state.bets[p] = minBet(state, p) }
                 state.phase = "reveal"
                 state.revealUntil = ctx.now + ctx.ms(6000)
             }
@@ -235,7 +248,7 @@ public enum AllesOderBanane: MinigamePlugin {
     public static func scores(_ state: State, ctx: MinigameContext) -> [PlayerId: Int] {
         var s: [PlayerId: Int] = [:]
         for p in ctx.players {
-            let bet = state.bets[p] ?? 100
+            let bet = state.bets[p] ?? minBet(state, p)
             switch state.core.isCorrect(p) {
             case .some(true): s[p] = bet
             case .some(false): s[p] = state.credit.contains(p) ? 0 : -bet
@@ -271,19 +284,23 @@ public enum AllesOderBanane: MinigamePlugin {
     public static func prompt(_ state: State, player: PlayerId, revealed: Bool, ctx: MinigameContext) -> PlayerPrompt {
         if revealed {
             let s = scores(state, ctx: ctx)[player] ?? 0
-            return .reveal(title: s > 0 ? "EINSATZ VERDOPPELT!" : (s < 0 ? "Einsatz weg!" : "±0"), correct: state.core.isCorrect(player), delta: s,
-                           detail: "Richtig war: \(state.core.options[state.core.correctIndex])", streak: 0, speedBonus: nil)
+            let c = state.core.isCorrect(player)
+            let title = s > 0 ? "EINSATZ VERDOPPELT!" : (s < 0 ? (c == nil ? "⏰ Zu langsam — Einsatz weg" : "Einsatz weg!") : (state.credit.contains(player) ? "Kredit verspielt — kostet nichts" : "±0"))
+            return .reveal(title: title, correct: c ?? (s < 0 ? false : nil), delta: s,
+                           detail: "Richtig war: \(state.core.options[state.core.correctIndex]) · Einsatz \(Money.format(state.bets[player] ?? 0))", streak: 0, speedBonus: nil)
         }
         let kat = ctx.catalog.categoryName(state.core.question.kat)
         switch state.phase {
         case "setzen":
-            let cap = state.caps[player] ?? 100
-            return .wager(title: "Gleich: \(kat) · \(state.core.question.schw.label)", subtitle: state.credit.contains(player) ? "Kredit der Affenbank: 100 MM gratis" : "Max. \(Money.format(cap))",
-                          min: 100, max: cap, step: 50, current: state.bets[player], locked: state.bets[player] != nil, deadline: ctx.visible(state.betUntil))
+            let cap = state.caps[player] ?? creditStake
+            let lo = minBet(state, player)
+            return .wager(title: "Gleich: \(kat) · \(state.core.question.schw.label)",
+                          subtitle: state.credit.contains(player) ? "Kredit der Affenbank: 100 MM gratis — verlieren kostet nichts" : "Setze \(Money.format(lo)) bis \(Money.format(cap)) — falsch ist der Einsatz weg",
+                          min: lo, max: max(lo, cap), step: 50, current: state.bets[player], locked: state.bets[player] != nil, deadline: ctx.visible(state.betUntil))
         case "reveal":
-            return .idle(title: "Einsätze werden aufgedeckt …", subtitle: "Dein Einsatz: \(Money.format(state.bets[player] ?? 100))")
+            return .idle(title: "Einsätze werden aufgedeckt …", subtitle: "Dein Einsatz: \(Money.format(state.bets[player] ?? minBet(state, player)))")
         default:
-            return state.core.prompt(for: player, ctx: ctx, revealed: false, hint: "🎰 Einsatz: \(Money.format(state.bets[player] ?? 100))")
+            return state.core.prompt(for: player, ctx: ctx, revealed: false, hint: "🎰 Dein Einsatz: \(Money.format(state.bets[player] ?? minBet(state, player))) — richtig verdoppelt, falsch weg")
         }
     }
 
@@ -305,6 +322,11 @@ public enum LianenFinale: MinigamePlugin {
         id: "lianen-finale", name: "Lianen-Finale", emoji: "🐊",
         kurz: "Jede Frage ist W_final wert: richtig hoch, falsch runter — das Krokodil wartet.",
         erklaerung: "Das große Finale über dem Krokodil-Fluss. Deine Liane ist so lang wie dein Kontostand. Jede Frage ist heute W_final wert: richtig = Ruck nach oben, falsch = die Hälfte runter, keine Antwort = nichts. Keine Joker, keine Streaks, kein Speed-Bonus — die Formel hält: der Letzte kann noch gewinnen, wenn er perfekt spielt.",
+        regeln: ["Deine Liane hängt über dem Krokodil-Fluss — so lang wie dein Konto",
+                 "Jede Finalfrage ist gleich viel wert (steht oben)",
+                 "Richtig: voller Wert nach oben · falsch: die Hälfte runter",
+                 "Keine Joker, keine Streaks, kein Speed-Bonus"],
+        gewinn: "Richtig +W · Falsch −W/2 · Keine Antwort ±0",
         contentKind: .choiceLike, streak: false, jokerAktionen: [], isMc: true, musik: "finale_showdown"
     )
 

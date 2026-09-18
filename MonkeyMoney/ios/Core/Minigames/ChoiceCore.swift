@@ -181,9 +181,12 @@ public struct ChoiceCore: Codable, Equatable, Sendable {
     public func prompt(for p: PlayerId, ctx: MinigameContext, revealed: Bool, delta: Int? = nil, hint: String? = nil) -> PlayerPrompt {
         if revealed {
             let correct = isCorrect(p)
-            let title = correct == true ? "RICHTIG!" : (correct == false ? "FALSCH!" : "ZU LANGSAM")
-            return .reveal(title: title, correct: correct, delta: delta ?? 0,
-                           detail: "Richtig war: \(options[correctIndex])", streak: 0, speedBonus: nil)
+            let title = correct == true ? "RICHTIG!" : (correct == false ? "FALSCH!" : "⏰ ZEIT ABGELAUFEN")
+            let mine = answers[p].flatMap { options.indices.contains($0.index) ? options[$0.index] : nil }
+            var detail = "Richtig war: \(options[correctIndex])"
+            if correct == false, let m = mine { detail = "Du: \(m) · " + detail }
+            if correct == nil { detail = "Keine Antwort · " + detail }
+            return .reveal(title: title, correct: correct, delta: delta ?? 0, detail: detail, streak: 0, speedBonus: nil)
         }
         guard visible(for: p, now: ctx.now) else {
             return .idle(title: "Gleich geht's los …", subtitle: "Jemand hat einen Insider-Tipp …")

@@ -15,6 +15,11 @@ public enum MonkeyMarket: MinigamePlugin {
         id: "monkey-market", name: "Monkey Market", emoji: "🏪",
         kurz: "10 Chips auf 4 Antwort-Türen verteilen — die richtige Tür zahlt doppelt.",
         erklaerung: "Handel am Markt: Du bekommst 10 Gratis-Chips und verteilst sie auf die vier Antwort-Türen. Chips auf der richtigen Tür kommen doppelt zurück, alle anderen verfallen. Wer ALLES auf eine Tür setzt und richtig liegt, bekommt den Mut-Bonus obendrauf.",
+        regeln: ["10 Gratis-Chips auf die 4 Antwort-Türen verteilen",
+                 "Chips auf der richtigen Tür kommen doppelt zurück",
+                 "Alle anderen Chips verfallen",
+                 "Alles auf eine Tür und richtig? Mut-Bonus obendrauf"],
+        gewinn: "Richtige Tür: Chips ×2 · All-in richtig: Mut-Bonus",
         contentKind: .choiceLike, streak: false, jokerAktionen: [], isMc: false, musik: "market_trade", v2: true
     )
 
@@ -106,6 +111,11 @@ public enum BananenBoerse: MinigamePlugin {
         id: "bananen-boerse", name: "Bananen-Börse", emoji: "📈",
         kurz: "Investiere in eine Antwort — je mehr Affen dieselbe kaufen, desto schlechter die Quote.",
         erklaerung: "Live-Börse: Jeder investiert einen festen Einsatz in eine Antwort-Aktie. Die Quote sinkt, je mehr Affen dieselbe Antwort kaufen (Herdentrieb!). Richtig = Einsatz × Quote, falsch = Einsatz weg. Einmal umschichten ist erlaubt — kostet aber 25 % Spread.",
+        regeln: ["Investiere einen festen Einsatz in eine Antwort-Aktie",
+                 "Je mehr Affen dieselbe kaufen, desto schlechter die Quote",
+                 "Richtig: Einsatz × Quote · falsch: Einsatz weg",
+                 "Einmal umschichten erlaubt — kostet 25 % Spread"],
+        gewinn: "Richtig: Einsatz × Quote · Falsch: −Einsatz",
         contentKind: .choiceLike, streak: false, jokerAktionen: [], isMc: true, musik: "bank_round", v2: true
     )
 
@@ -197,6 +207,11 @@ public enum AffenAuktion: MinigamePlugin {
         id: "affen-auktion", name: "Affen-Auktion", emoji: "🔨",
         kurz: "Biete verdeckt um das exklusive Antwortrecht — richtig verdoppelt, falsch zahlt an alle.",
         erklaerung: "Zum Ersten, zum Zweiten … Nur Kategorie und Schwierigkeit sind bekannt. Jeder bietet verdeckt (25er-Schritte bis 1.000 MM) um das EXKLUSIVE Antwortrecht. Das höchste Gebot gewinnt und antwortet allein: richtig = Gebot als Gewinn, falsch = das Gebot wird an alle anderen verteilt.",
+        regeln: ["Nur Kategorie und Schwierigkeit sind bekannt",
+                 "Alle bieten VERDECKT um das alleinige Antwortrecht",
+                 "Das höchste Gebot gewinnt und antwortet allein",
+                 "Richtig: Gebot als Gewinn · falsch: Gebot geht an alle anderen"],
+        gewinn: "Richtig +Gebot · Falsch: Gebot wird an die anderen verteilt",
         contentKind: .choiceLike, streak: false, jokerAktionen: [], isMc: true, musik: "market_trade", v2: true
     )
 
@@ -324,6 +339,11 @@ public enum BananenBluff: MinigamePlugin {
         id: "bananen-bluff", name: "Bananen-Bluff", emoji: "🤥",
         kurz: "Erfinde eine glaubwürdige Lüge — wer darauf hereinfällt, zahlt dir.",
         erklaerung: "Fibbage im Dschungel: Zu einer obskuren Frage erfindet jeder eine falsche, aber glaubwürdige Antwort. Dann werden alle Lügen zusammen mit der Wahrheit gemischt. Wer die Wahrheit findet, kassiert den halben Fragenwert; wer auf DEINE Lüge fällt, zahlt dir den halben Fragenwert. Lügen ist Diebstahl!",
+        regeln: ["Erfinde zu einer obskuren Frage eine glaubwürdige Lüge",
+                 "Alle Lügen werden mit der Wahrheit gemischt",
+                 "Wer die Wahrheit findet: halber Fragenwert",
+                 "Wer auf DEINE Lüge fällt, zahlt dir den halben Fragenwert"],
+        gewinn: "Wahrheit gefunden: ½ Fragenwert · pro Opfer deiner Lüge: +½ Fragenwert",
         minPlayers: 3, contentKind: .fragen([.choice]), streak: false, jokerAktionen: [], isMc: false, musik: "estimate_think", v2: true
     )
 

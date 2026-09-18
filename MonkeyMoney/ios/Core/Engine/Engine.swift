@@ -293,7 +293,7 @@ public struct Engine: Sendable {
             return
         }
         if section.typ == .finale, section.minigameId != "kokosnuss-shake" { prepareFinale(&s, now: now) }
-        if section.typ == .jackpot { s.addMoment("jackpot", "💰 DIE JACKPOT-FRAGE! \(Money.format(Economy.jackpotQuestionValue)) + Glas (\(Money.format(s.jackpotGlas)))", at: now) }
+        if section.typ == .jackpot { s.addMoment("jackpot", "💰 DIE JACKPOT-FRAGE! Doppelter Fragenwert + das Glas (\(Money.format(s.jackpotGlas)))", at: now) }
         if section.notariat { s.roundMods.notariat = true }
         let wantsVote = section.typ == .runde && section.kategorieWahl != .keine && s.settings.kategorienWahl != "aus"
         if wantsVote {

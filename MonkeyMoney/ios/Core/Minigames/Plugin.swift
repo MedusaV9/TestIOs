@@ -73,6 +73,10 @@ public struct MinigameMeta: Sendable {
     public var emoji: String
     public var kurz: String
     public var erklaerung: String
+    /// Explain card as a checklist: 3–5 short rules, one payout line —
+    /// what the iPad shows big and the phones show as bullets.
+    public var regeln: [String]
+    public var gewinn: String
     public var minPlayers: Int
     public var maxPlayers: Int
     public var contentKind: ContentKind
@@ -89,7 +93,8 @@ public struct MinigameMeta: Sendable {
     public var v2: Bool
     public var minVideoSongs: Int
 
-    public init(id: String, name: String, emoji: String, kurz: String, erklaerung: String, minPlayers: Int = 2, maxPlayers: Int = 8,
+    public init(id: String, name: String, emoji: String, kurz: String, erklaerung: String, regeln: [String] = [], gewinn: String = "",
+                minPlayers: Int = 2, maxPlayers: Int = 8,
                 contentKind: ContentKind = .choiceLike, roundBased: Bool = false, streak: Bool = true, strafenInsGlas: Bool = false,
                 jokerAktionen: Set<String> = ["fiftyFifty", "removeOne", "secondTry"], isMc: Bool = true, musik: String = "question_bed_easy",
                 v2: Bool = false, minVideoSongs: Int = 0) {
@@ -98,6 +103,8 @@ public struct MinigameMeta: Sendable {
         self.emoji = emoji
         self.kurz = kurz
         self.erklaerung = erklaerung
+        self.regeln = regeln.isEmpty ? [erklaerung] : regeln
+        self.gewinn = gewinn
         self.minPlayers = minPlayers
         self.maxPlayers = maxPlayers
         self.contentKind = contentKind

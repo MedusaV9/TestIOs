@@ -18,6 +18,11 @@ public enum KokosnussShake: MinigamePlugin {
         id: "kokosnuss-shake", name: "Kokosnuss-Shake", emoji: "🥥",
         kurz: "Gleichstand! 10 Sekunden Kokosnuss-Schütteln entscheiden.",
         erklaerung: "Gleichstand an der Spitze! Die Kokosnuss entscheidet: Nach dem 3-Sekunden-Countdown schüttelt ihr zehn Sekunden lang so schnell ihr könnt. Wer mehr schafft, gewinnt den Gleichstand (+50 MM). Erneuter Gleichstand = 3 Sekunden Sudden Death.",
+        regeln: ["Gleichstand an der Spitze — die Kokosnuss entscheidet",
+                 "Nach dem 3-Sekunden-Countdown: 10 Sekunden schütteln, so schnell ihr könnt",
+                 "Wer mehr schafft, gewinnt",
+                 "Erneuter Gleichstand: 3 Sekunden Sudden Death"],
+        gewinn: "Sieger +50 MM und der Titel",
         contentKind: .none, roundBased: true, streak: false, jokerAktionen: [], isMc: false, musik: "bomb_pass"
     )
 

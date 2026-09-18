@@ -38,6 +38,10 @@ public enum SongRueckwaerts: MinigamePlugin {
         id: "song-rueckwaerts", name: "Rückwärts-Banane", emoji: "⏪",
         kurz: "Der Song läuft rückwärts — erkennst du ihn trotzdem?",
         erklaerung: "Der DJ dreht die Platte falsch herum: Fünf Sekunden Song rückwärts, dann vier Titel zur Auswahl. Alle antworten gleichzeitig, richtig zahlt den Songwert plus Speed-Bonus.",
+        regeln: ["5 Sekunden Song — rückwärts!",
+                 "Dann 4 Titel zur Auswahl, alle antworten gleichzeitig",
+                 "Richtig zahlt den Songwert plus Speed-Bonus"],
+        gewinn: "Richtig: Songwert + Speed-Bonus",
         contentKind: .songs(video: false), jokerAktionen: ["fiftyFifty", "removeOne"], musik: "music_round_dj", v2: true
     )
 
@@ -81,6 +85,10 @@ public enum WerSingts: MinigamePlugin {
         id: "wer-singts", name: "Wer singt's?", emoji: "🎤",
         kurz: "Zehn Sekunden Song — welcher Künstler ist das?",
         erklaerung: "Zehn Sekunden aus der Mitte eines Songs. Wer singt das? Vier Namen zur Auswahl, alle antworten gleichzeitig. Richtig zahlt den Songwert plus Speed-Bonus.",
+        regeln: ["10 Sekunden aus der Mitte eines Songs",
+                 "Wer singt das? 4 Namen zur Auswahl",
+                 "Alle antworten gleichzeitig"],
+        gewinn: "Richtig: Songwert + Speed-Bonus",
         contentKind: .songs(video: false), jokerAktionen: ["fiftyFifty", "removeOne"], musik: "music_round_dj", v2: true
     )
 
@@ -119,6 +127,10 @@ public enum MusikvideoRaten: MinigamePlugin {
         id: "musikvideo-raten", name: "Stummfilm-Studio", emoji: "🎬",
         kurz: "Drei Sekunden Video ohne Ton — welcher Song gehört dazu?",
         erklaerung: "Der Ton ist weg! Drei Sekunden Musikvideo-Vignette ohne Sound, danach vier Titel zur Auswahl. Wer die Bilder lesen kann, gewinnt den Songwert plus Speed-Bonus.",
+        regeln: ["3 Sekunden Musikvideo — ohne Ton",
+                 "Dann 4 Titel zur Auswahl",
+                 "Wer die Bilder lesen kann, gewinnt"],
+        gewinn: "Richtig: Songwert + Speed-Bonus",
         contentKind: .songs(video: true), jokerAktionen: ["fiftyFifty", "removeOne"], musik: "music_round_dj", v2: true, minVideoSongs: 3
     )
 
@@ -187,6 +199,11 @@ public enum SongSnippet: MinigamePlugin {
         id: "song-snippet", name: "Blitz-DJ", emoji: "🎧",
         kurz: "Buzz-Treppe: je kürzer das Schnipsel, desto mehr Geld — Fehlbuzz kostet.",
         erklaerung: "Der Blitz-DJ spielt winzige Song-Schnipsel: erst 0,1 Sekunden, dann 0,2, 0,3, 0,5 und 1 Sekunde. Mit jeder Stufe sinkt der Gewinn. Wer buzzert, muss den Titel aus vier Optionen treffen: richtig = die aktuelle Stufe, falsch = 25 % Strafe ins Jackpot-Glas und Sperre für diesen Song. Drei Songs pro Runde.",
+        regeln: ["Winzige Song-Schnipsel: 0,1 s → 0,2 → 0,3 → 0,5 → 1 s",
+                 "Mit jeder Stufe sinkt der Gewinn",
+                 "Buzzern, dann den Titel aus 4 Optionen treffen",
+                 "Falsch: 25 % Strafe ins Glas und Sperre für diesen Song"],
+        gewinn: "Richtig: aktuelle Stufe · Fehlbuzz: −25 % ins Glas",
         contentKind: .songs(video: false), roundBased: true, streak: false, strafenInsGlas: true, jokerAktionen: [], isMc: true, musik: "music_round_dj", v2: true
     )
 
@@ -344,6 +361,11 @@ public enum BuchstabenTelegramm: MinigamePlugin {
         id: "buchstaben-telegramm", name: "7-Buchstaben-Telegramm", emoji: "📨",
         kurz: "Koop-Paare: Buchstabe für Buchstabe erscheint ein Wort — wer es zuerst tippt, kassiert.",
         erklaerung: "Koop-Geld! Ihr spielt in Zweier-Paaren. Auf dem Bildschirm erscheint alle zweieinhalb Sekunden ein weiterer Buchstabe eines Wortes. Sobald ein Partner das richtige Wort tippt, kassiert das Paar je 250 MM. Vier Wörter pro Runde — je früher, desto stolzer.",
+        regeln: ["Ihr spielt in Zweier-Paaren",
+                 "Alle 2,5 s erscheint ein weiterer Buchstabe eines Wortes",
+                 "Tippt ein Partner das Wort zuerst, kassiert das Paar",
+                 "Vier Wörter pro Runde"],
+        gewinn: "Pro gelöstem Wort je 250 MM fürs Paar",
         contentKind: .none, roundBased: true, streak: false, jokerAktionen: [], isMc: false, musik: "market_trade", v2: true
     )
 

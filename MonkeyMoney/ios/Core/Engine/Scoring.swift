@@ -16,6 +16,7 @@ public enum Scoring {
         let wrongOnes = outcomes.filter { $0.value.correct == false }.map { $0.key }
         let answered = outcomes.filter { $0.value.correct != nil }.count
         var jackpotWon = false
+        let currentQuestion = s.currentQuestionIds.indices.contains(s.questionIndex) ? catalog.question(s.currentQuestionIds[s.questionIndex]) : nil
 
         for i in s.players.indices {
             let id = s.players[i].id
@@ -24,9 +25,9 @@ public enum Scoring {
             let o = outcomes[id] ?? Outcome(correct: nil)
             var p = s.players[i]
 
-            // Jackpot question: base value 2.000 + jar for the correct ones.
+            // Jackpot question: twice the question value + the jar for the correct ones.
             if isJackpot, o.correct == true, delta > 0 {
-                delta = Economy.jackpotQuestionValue
+                delta = Economy.jackpotQuestionValue(currentQuestion?.schw ?? .hard)
                 jackpotWon = true
             }
 
@@ -44,9 +45,7 @@ public enum Scoring {
                     if !isFinale, delta > 0 { delta = Economy.roundTo10(Int(Double(delta) * Economy.streakFactor(p.streak))) }
                 }
                 p.wrongStreak = 0
-                if s.currentQuestionIds.indices.contains(s.questionIndex), let q = catalog.question(s.currentQuestionIds[s.questionIndex]), q.schw == .ultrahard {
-                    p.stats.ultrahardRichtig += 1
-                }
+                if currentQuestion?.schw == .ultrahard { p.stats.ultrahardRichtig += 1 }
             } else if o.correct == false {
                 korrekt[id] = false
                 p.stats.falsch += 1

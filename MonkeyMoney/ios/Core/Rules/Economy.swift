@@ -61,9 +61,53 @@ public enum Economy {
     // MARK: Jackpot jar (§3.1/§3.2)
 
     public static let jackpotJarStart = 500
-    public static let jackpotQuestionValue = 2000
     public static let complaintFee = 100
     public static let bananaTax = 100
+
+    /// The jackpot question pays twice its question value (hard 1.000, ULTRAHARD 1.500)
+    /// plus the jar — a big beat, not a match decider.
+    public static func jackpotQuestionValue(_ d: Difficulty) -> Int { min(1500, 2 * Money.value(d)) }
+
+    // MARK: Format anchors (§3.1b)
+    //
+    // Every format pays relative to the question value F (100/250/500/1.000):
+    // a special round is worth roughly as much as a normal one, escalating
+    // gently with the difficulty of its slot — never 5–10× out of scale.
+
+    /// Bananen-Tresor: closeness ladder (1st/2nd/3rd), consolation, exact hit.
+    public static func estimateLadder(value f: Int, hard: Bool = false) -> (ladder: [Int], rest: Int, bullseye: Int) {
+        let k = hard ? 1.5 : 1.0
+        let ladder = [1.5, 1.0, 0.6].map { roundTo10(Int(Double(f) * $0 * k)) }
+        return (ladder, max(20, roundTo10(Int(Double(f) * 0.2 * k))), roundTo10(Int(Double(f) * 3 * k)))
+    }
+
+    /// Pixel-Dschungel: the jackpot starts at 1.5 F and shrinks to a 0.25 F floor.
+    public static func pixelLadder(value f: Int, steps: Int) -> (start: Int, floor: Int, step: Int) {
+        let start = roundTo10(Int(Double(f) * 1.5))
+        let floor = max(10, roundTo10(Int(Double(f) * 0.25)))
+        return (start, floor, max(5, (start - floor) / max(1, steps)))
+    }
+
+    /// Affenbank chain: five doublings from 0.2 F to 3.2 F (medium: 50 → 800).
+    public static func bankChain(value f: Int) -> [Int] {
+        [0.2, 0.4, 0.8, 1.6, 3.2].map { max(10, roundTo10(Int(Double(f) * $0))) }
+    }
+
+    /// Kokosnuss-Uhr: the sack starts at 1.5 F and melts in ten ticks.
+    public static func sackStart(value f: Int) -> (start: Int, tick: Int) {
+        let start = roundTo10(Int(Double(f) * 1.5))
+        return (start, max(10, roundTo10(start / 10)))
+    }
+
+    /// Alles oder Banane: minimum stake, and the cap per question —
+    /// half the balance, never more than 1.5 F and never above 750 (all-in lifts the cap).
+    public static let minWager = 50
+    public static let maxWager = 750
+    public static func wagerCap(balance: Int, value f: Int, allIn: Bool) -> Int {
+        if allIn { return max(minWager, balance / 50 * 50) }
+        let byValue = min(maxWager, roundTo50(Int(Double(f) * 1.5)))
+        return max(minWager, min(byValue, balance / 2) / 50 * 50)
+    }
 
     // MARK: Underdog constants (§3.4)
 
