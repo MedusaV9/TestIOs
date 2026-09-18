@@ -33,7 +33,7 @@ public enum PixelDschungel: MinigamePlugin {
         let q = pool.first ?? FormatHelpers.first(questions, kind: meta.contentKind)
         let stepMs = Int(Double(ctx.ms(3000)) * ctx.mods.timerFaktor)
         let maxLevel = 8
-        let core = ChoiceCore(question: q, ctx: ctx, timerMs: stepMs * maxLevel + ctx.ms(4000))
+        let core = ChoiceCore(question: q, ctx: ctx, timerMs: stepMs * maxLevel + ctx.answerWindow(4000))
         let l = ladder(q.schw)
         return State(core: core, levelAt: [:], startJackpot: l.start, stepDown: l.step, stepMs: stepMs, maxLevel: maxLevel)
     }

@@ -207,3 +207,5 @@ input[type=range] { width: 100%; margin: 18px 0; accent-color: var(--gold); heig
 .gm select, .gm input { padding: 10px; font-size: 14px; }
 .gm .players div { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,.1); font-size: 14px; }
 .gm .players button { padding: 4px 8px; font-size: 12px; border-radius: 8px; border: 0; background: var(--panel); color: var(--cream); }
+.pulse { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { box-shadow: 0 6px 0 var(--gold-dark), 0 0 0 0 rgba(255,211,78,.5) } 50% { box-shadow: 0 6px 0 var(--gold-dark), 0 0 0 12px rgba(255,211,78,0) } }

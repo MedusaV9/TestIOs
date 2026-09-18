@@ -142,14 +142,16 @@ extension Engine {
             return StageView(roomCode: s.roomCode, phase: .pause, scene: .pause(text: s.pauseText ?? "Pause", endsAt: s.pauseEndsAt, standings: standings(s)), players: refs(s), teams: s.teams,
                              jackpotGlas: s.jackpotGlas, jackpotAktiv: s.plan.contains { $0.typ == .jackpot }, moments: s.moments, serverTime: now, paused: true,
                              sectionLabel: sectionLabel(s), progress: progress(s), gmOnline: s.gmOnline, gmLos: s.settings.gmLos, canAdvance: true, advanceLabel: "Weiter",
-                             audio: AudioCue(music: "lobby_loop"), modus: s.settings.modus, seq: s.seq, specialRules: s.settings.specialRules.map { $0.name }, affensteuerKiste: s.affensteuerKiste)
+                             audio: AudioCue(music: "lobby_loop"), modus: s.settings.modus, seq: s.seq, specialRules: s.settings.specialRules.map { $0.name }, affensteuerKiste: s.affensteuerKiste,
+                             timerAus: s.settings.timerAus, fragenZeit: s.settings.fragenZeit)
         }
         let advance = advanceLabel(s)
         return StageView(roomCode: s.roomCode, phase: s.phase, scene: scene, players: refs(s), teams: s.teams, jackpotGlas: s.jackpotGlas,
                          jackpotAktiv: s.plan.contains { $0.typ == .jackpot } && s.sectionIndex <= (s.plan.firstIndex { $0.typ == .jackpot } ?? 0),
                          moments: s.moments, serverTime: now, paused: s.paused, sectionLabel: sectionLabel(s), progress: progress(s), gmOnline: s.gmOnline,
                          gmLos: s.settings.gmLos, canAdvance: advance != nil, advanceLabel: advance, audio: audioCue(s, stage: stageOut), modus: s.settings.modus,
-                         seq: s.seq, specialRules: s.settings.specialRules.map { $0.name }, affensteuerKiste: s.affensteuerKiste)
+                         seq: s.seq, specialRules: s.settings.specialRules.map { $0.name }, affensteuerKiste: s.affensteuerKiste,
+                         timerAus: s.settings.timerAus, fragenZeit: s.settings.fragenZeit)
     }
 
     /// Label of the stage "Weiter" button (nil = nothing to advance right now).

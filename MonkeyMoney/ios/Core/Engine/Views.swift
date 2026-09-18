@@ -418,6 +418,8 @@ public struct StageView: Codable, Equatable, Sendable {
     public var seq: Int
     public var specialRules: [String]
     public var affensteuerKiste: Int
+    public var timerAus: Bool
+    public var fragenZeit: Int?
 }
 
 /// Music/SFX hint for the stage (the stage decides what to actually play).

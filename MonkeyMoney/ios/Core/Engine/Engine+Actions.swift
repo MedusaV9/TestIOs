@@ -221,7 +221,11 @@ extension Engine {
         case .flowSkipOpening:
             if s.phase == .intro { s.openingSkipped = true; s.phaseEndsAt = now }
         case .settingsSet(let patch):
-            guard s.phase == .lobby || s.phase == .ende || patch.keys.allSatisfy({ ["tempo", "fragenMix", "autoGm", "autoTipp", "musik", "musikVolume", "kurzeShow", "gmLos", "jokerAn", "radAn"].contains($0) }) else { return }
+            guard s.phase == .lobby || s.phase == .ende || patch.keys.allSatisfy({ ["tempo", "fragenMix", "autoGm", "autoTipp", "musik", "musikVolume", "kurzeShow", "gmLos", "jokerAn", "radAn", "timerAus", "fragenZeit"].contains($0) }) else { return }
+            if let b = patch["timerAus"]?.boolValue, b != s.settings.timerAus {
+                s.addMoment("regie", b ? "⏱️ Timer aus — antwortet in Ruhe, der Show-Master löst auf" : "⏱️ Timer wieder an", at: now)
+            }
+            if let n = patch["fragenZeit"]?.intValue { s.addMoment("regie", n <= 0 ? "⏱️ Zeit pro Frage: nach Schwierigkeit" : "⏱️ Zeit pro Frage: \(n) s", at: now) }
             s.settings.apply(patch: patch)
             s.addLog("settings", "Einstellungen geändert: \(patch.keys.sorted().joined(separator: ", "))", at: now)
         case .scoreAdjust(let pid, let delta, let grund):

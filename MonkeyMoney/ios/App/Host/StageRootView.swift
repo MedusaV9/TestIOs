@@ -56,6 +56,7 @@ struct StageRootView: View {
                 }.frame(height: 6).frame(maxWidth: 260)
                 Text(stage.sectionLabel).font(.poppins(14, .bold)).foregroundStyle(MM.cream)
                 if !stage.specialRules.isEmpty { Chip(text: stage.specialRules.joined(separator: " · "), icon: "sparkles") }
+                if stage.timerAus { Chip(text: "Timer aus", icon: "timer") } else if let z = stage.fragenZeit { Chip(text: "\(z) s pro Frage", icon: "timer") }
                 Spacer()
                 if stage.jackpotAktiv {
                     HStack(spacing: 6) {

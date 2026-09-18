@@ -26,7 +26,7 @@ public enum BananenTresor: MinigamePlugin {
         let q = FormatHelpers.first(questions, kind: meta.contentKind)
         let spec = q.schaetz ?? EstimateSpec(richtwert: 42, einheit: "", toleranz: 10, min: 0, max: 100, skala: "linear")
         let hard = ctx.section.slot == .risiko || ctx.settings.modus == .marathon && ctx.section.rundenNummer > 5
-        let t = Int(Double(ctx.ms(20_000)) * ctx.mods.timerFaktor)
+        let t = Int(Double(ctx.answerWindow(20_000)) * ctx.mods.timerFaktor)
         return State(question: q, spec: spec, startedAt: ctx.now, deadline: ctx.now + t, timerMs: t, guesses: [:], moved: [:], finishedAt: nil, hard: hard)
     }
 
@@ -101,7 +101,7 @@ public enum BananenTresor: MinigamePlugin {
         let kat = ctx.catalog.categories.first { $0.id == state.question.kat }
         let wall = QuestionWall(text: state.question.text, kategorie: state.question.kat, kategorieName: kat?.name ?? "", kategorieEmoji: kat?.emoji ?? "❓",
                                 schwierigkeit: state.question.schw, wert: state.hard ? 800 : 400, options: nil,
-                                answered: Array(state.guesses.keys), deadline: revealed ? nil : state.deadline, timerMs: state.timerMs,
+                                answered: Array(state.guesses.keys), deadline: revealed ? nil : ctx.visible(state.deadline), timerMs: state.timerMs,
                                 revealed: revealed, correctIndex: nil, answersByPlayer: [:], erklaerung: revealed ? state.question.erkl : nil,
                                 nummer: ctx.fragenNummer, gesamt: ctx.fragenGesamt)
         let r = ranking(state, ctx: ctx)
@@ -121,7 +121,7 @@ public enum BananenTresor: MinigamePlugin {
         let range = state.spec.max - state.spec.min
         let step = range > 1000 ? 10.0 : (range > 100 ? 1.0 : (range > 10 ? 0.5 : 0.1))
         return .number(question: state.question.text, min: state.spec.min, max: state.spec.max, step: step, log: state.spec.skala == "log",
-                       unit: state.spec.einheit, current: state.guesses[player], locked: state.guesses[player] != nil, deadline: state.deadline)
+                       unit: state.spec.einheit, current: state.guesses[player], locked: state.guesses[player] != nil, deadline: ctx.visible(state.deadline))
     }
 
     static func format(_ v: Double) -> String {
@@ -170,7 +170,7 @@ public enum Affenleiter: MinigamePlugin {
             if order == correct { order.reverse() }
             starts[p] = order
         }
-        let t = Int(Double(ctx.ms(30_000)) * ctx.mods.timerFaktor)
+        let t = Int(Double(ctx.answerWindow(30_000)) * ctx.mods.timerFaktor)
         return State(question: q, items: items, correct: correct, startOrders: starts, orders: starts, lockedAt: [:],
                      startedAt: ctx.now, deadline: ctx.now + t, timerMs: t, finishedAt: nil, werte: q.werte ?? [])
     }
@@ -243,7 +243,7 @@ public enum Affenleiter: MinigamePlugin {
         let kat = ctx.catalog.categories.first { $0.id == state.question.kat }
         let wall = QuestionWall(text: state.question.text, kategorie: state.question.kat, kategorieName: kat?.name ?? "", kategorieEmoji: kat?.emoji ?? "❓",
                                 schwierigkeit: state.question.schw, wert: state.question.value, options: nil, answered: Array(state.lockedAt.keys),
-                                deadline: revealed ? nil : state.deadline, timerMs: state.timerMs, revealed: revealed, correctIndex: nil,
+                                deadline: revealed ? nil : ctx.visible(state.deadline), timerMs: state.timerMs, revealed: revealed, correctIndex: nil,
                                 answersByPlayer: [:], erklaerung: revealed ? state.question.erkl : nil, nummer: ctx.fragenNummer, gesamt: ctx.fragenGesamt)
         return MinigameStageOutput(wall: wall,
                                    extra: .ladder(items: state.items, correctOrder: state.correct, revealedSteps: revealed ? state.correct.count : 0,
@@ -261,7 +261,7 @@ public enum Affenleiter: MinigamePlugin {
         }
         let order = state.orders[player] ?? state.startOrders[player] ?? Array(state.items.indices)
         return .order(question: state.question.text, items: state.items.enumerated().map { OrderItem(id: $0.offset, text: $0.element) },
-                      order: order, locked: state.lockedAt[player] != nil, deadline: state.deadline)
+                      order: order, locked: state.lockedAt[player] != nil, deadline: ctx.visible(state.deadline))
     }
 
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {

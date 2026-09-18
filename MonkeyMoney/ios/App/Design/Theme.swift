@@ -387,3 +387,42 @@ enum Haptics {
         #endif
     }
 }
+
+// MARK: - Settings controls (shared by host, phone GM and App Clip)
+
+struct SettingPicker: View {
+    var title: String
+    var options: [(String, String)]
+    @Binding var selection: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if !title.isEmpty { Text(title).font(.poppins(13, .bold)).foregroundStyle(MM.gold) }
+            HStack(spacing: 6) {
+                ForEach(options, id: \.0) { o in
+                    Button { selection = o.0 } label: {
+                        Text(o.1).font(.poppins(13, .semibold)).lineLimit(1)
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(Capsule().fill(selection == o.0 ? MM.gold : Color.black.opacity(0.3)))
+                            .foregroundStyle(selection == o.0 ? MM.ink : MM.cream)
+                    }.buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
+struct ToggleChip: View {
+    var title: String
+    @Binding var on: Bool
+    var body: some View {
+        Button { on.toggle(); Haptics.tap() } label: {
+            HStack(spacing: 8) {
+                Image(systemName: on ? "checkmark.circle.fill" : "circle").foregroundStyle(on ? MM.gold : MM.cream.opacity(0.5))
+                Text(title).font(.poppins(14, .semibold))
+            }
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            .background(Capsule().fill(Color.black.opacity(on ? 0.45 : 0.22)))
+            .foregroundStyle(MM.cream)
+        }.buttonStyle(.plain)
+    }
+}

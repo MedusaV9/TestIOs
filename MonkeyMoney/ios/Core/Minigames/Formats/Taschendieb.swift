@@ -75,7 +75,7 @@ public enum Taschendieb: MinigamePlugin {
                 state.phase = "fertig"
             } else {
                 state.phase = "opferwahl"
-                state.chooseUntil = ctx.now + ctx.ms(8000)
+                state.chooseUntil = ctx.now + ctx.answerWindow(8000)
             }
         case "opferwahl":
             if let u = state.chooseUntil, ctx.now >= u {
@@ -136,7 +136,7 @@ public enum Taschendieb: MinigamePlugin {
                 let refs = candidates(state, ctx: ctx).map { id in PlayerRef(Player(id: id, name: ctx.name(id), avatar: Avatar(), joinOrder: 0), platz: 0) }
                 var withBalance = refs
                 for i in withBalance.indices { withBalance[i].balance = ctx.balances[withBalance[i].id] ?? 0 }
-                return .pickPlayer(title: "Bei wem klaust du?", subtitle: "\(Money.format(stealBase(state.core.question.schw))) (max. 25 % des Kontos)", candidates: withBalance, chosen: nil, deadline: state.chooseUntil)
+                return .pickPlayer(title: "Bei wem klaust du?", subtitle: "\(Money.format(stealBase(state.core.question.schw))) (max. 25 % des Kontos)", candidates: withBalance, chosen: nil, deadline: ctx.visible(state.chooseUntil))
             }
             return .idle(title: "🦝 \(ctx.name(state.thief ?? "")) wählt ein Opfer …", subtitle: "Festhalten!")
         default:
@@ -179,9 +179,9 @@ public enum AllesOderBanane: MinigamePlugin {
                 caps[p] = max(100, min(1000, cap / 50 * 50))
             }
         }
-        var core = ChoiceCore(question: q, ctx: ctx, timerMs: Int(Double(ctx.ms(20_000)) * ctx.mods.timerFaktor))
+        var core = ChoiceCore(question: q, ctx: ctx, timerMs: Int(Double(ctx.answerWindow(20_000)) * ctx.mods.timerFaktor))
         core.startedAt = 0 // set when the question phase starts
-        return State(core: core, phase: "setzen", bets: [:], caps: caps, credit: credit, betUntil: ctx.now + ctx.ms(12_000), revealUntil: nil, revealedCount: 0)
+        return State(core: core, phase: "setzen", bets: [:], caps: caps, credit: credit, betUntil: ctx.now + ctx.answerWindow(12_000), revealUntil: nil, revealedCount: 0)
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
@@ -279,7 +279,7 @@ public enum AllesOderBanane: MinigamePlugin {
         case "setzen":
             let cap = state.caps[player] ?? 100
             return .wager(title: "Gleich: \(kat) · \(state.core.question.schw.label)", subtitle: state.credit.contains(player) ? "Kredit der Affenbank: 100 MM gratis" : "Max. \(Money.format(cap))",
-                          min: 100, max: cap, step: 50, current: state.bets[player], locked: state.bets[player] != nil, deadline: state.betUntil)
+                          min: 100, max: cap, step: 50, current: state.bets[player], locked: state.bets[player] != nil, deadline: ctx.visible(state.betUntil))
         case "reveal":
             return .idle(title: "Einsätze werden aufgedeckt …", subtitle: "Dein Einsatz: \(Money.format(state.bets[player] ?? 100))")
         default:
@@ -311,7 +311,7 @@ public enum LianenFinale: MinigamePlugin {
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         var qctx = ctx
         qctx.mods.timerFaktor = 1
-        var core = ChoiceCore(question: FormatHelpers.first(questions, kind: meta.contentKind), ctx: qctx, timerMs: ctx.ms(12_000))
+        var core = ChoiceCore(question: FormatHelpers.first(questions, kind: meta.contentKind), ctx: qctx, timerMs: ctx.answerWindow(12_000))
         core.insiderId = nil
         core.blackout = false
         return State(core: core)

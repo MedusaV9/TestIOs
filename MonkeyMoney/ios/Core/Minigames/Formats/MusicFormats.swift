@@ -45,7 +45,7 @@ public enum SongRueckwaerts: MinigamePlugin {
         let target = songs.first ?? Song(id: "s_none", titel: "Bananen-Boogie", artist: "Die Affen", jahr: nil, region: .global, schw: .medium, tags: [], hatVideo: false, videoHint: nil, komponist: nil)
         let (opts, correct) = SongHelpers.options(target: target, pool: songs + ctx.catalog.songs, artist: false, rng: &ctx.rng)
         let q = SongHelpers.asQuestion(target, options: opts, correct: correct, text: "Welcher Song läuft hier RÜCKWÄRTS?")
-        var core = ChoiceCore(question: q, ctx: ctx, timerMs: ctx.ms(20_000))
+        var core = ChoiceCore(question: q, ctx: ctx, timerMs: ctx.answerWindow(20_000))
         core.startedAt = ctx.now + 5000
         core.deadline = core.startedAt + core.timerMs
         return State(core: core, song: target, playAt: ctx.now)
@@ -88,7 +88,7 @@ public enum WerSingts: MinigamePlugin {
         let target = songs.first ?? Song(id: "s_none", titel: "Bananen-Boogie", artist: "Die Affen", jahr: nil, region: .global, schw: .medium, tags: [], hatVideo: false, videoHint: nil, komponist: nil)
         let (opts, correct) = SongHelpers.options(target: target, pool: songs + ctx.catalog.songs, artist: true, rng: &ctx.rng)
         let q = SongHelpers.asQuestion(target, options: opts, correct: correct, text: "Wer singt / spielt diesen Song?")
-        var core = ChoiceCore(question: q, ctx: ctx, timerMs: ctx.ms(20_000))
+        var core = ChoiceCore(question: q, ctx: ctx, timerMs: ctx.answerWindow(20_000))
         core.startedAt = ctx.now + 3000
         core.deadline = core.startedAt + core.timerMs
         return State(core: core, song: target, playAt: ctx.now)
@@ -126,7 +126,7 @@ public enum MusikvideoRaten: MinigamePlugin {
         let target = songs.first { $0.hatVideo } ?? songs.first ?? Song(id: "s_none", titel: "Bananen-Boogie", artist: "Die Affen", jahr: nil, region: .global, schw: .medium, tags: [], hatVideo: false, videoHint: nil, komponist: nil)
         let (opts, correct) = SongHelpers.options(target: target, pool: songs + ctx.catalog.songs, artist: false, rng: &ctx.rng)
         let q = SongHelpers.asQuestion(target, options: opts, correct: correct, text: "Welcher Song passt zu diesem stummen Clip?")
-        var core = ChoiceCore(question: q, ctx: ctx, timerMs: ctx.ms(20_000))
+        var core = ChoiceCore(question: q, ctx: ctx, timerMs: ctx.answerWindow(20_000))
         core.startedAt = ctx.now + 4000
         core.deadline = core.startedAt + core.timerMs
         return State(core: core, song: target, playAt: ctx.now)

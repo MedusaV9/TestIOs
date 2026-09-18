@@ -352,6 +352,10 @@ struct PhoneGmView: View {
                     Text(g.stage.sectionLabel).font(.outfit(22, .bold)).foregroundStyle(MM.cream)
                     GoldButton(title: g.stage.advanceLabel ?? "Weiter", icon: "play.fill") { player.gm(.flowNext) }.disabled(!g.stage.canAdvance && !g.stage.paused)
                     HStack { GoldButton(title: g.stage.paused ? "▶ Weiter" : "⏸ Pause", style: .green, compact: true) { player.gm(g.stage.paused ? .resume : .pause(text: "🍌 Bananen-Pause", dauerMs: nil)) }; GoldButton(title: "⏭ Opening", style: .green, compact: true) { player.gm(.flowSkipOpening) }; GoldButton(title: "⏳ +15 s", style: .green, compact: true) { player.gm(.timerExtend(ms: 15_000)) } }
+                    HStack {
+                        ToggleChip(title: "⏱️ Timer aus", on: Binding(get: { g.settings.timerAus }, set: { player.gm(.settingsSet(["timerAus": .bool($0)])) }))
+                        SettingPicker(title: "", options: [("0", "Auto"), ("20", "20 s"), ("30", "30 s"), ("60", "60 s"), ("120", "2 min")], selection: Binding(get: { String(g.settings.fragenZeit ?? 0) }, set: { player.gm(.settingsSet(["fragenZeit": .number(Double($0) ?? 0)])) }))
+                    }
                     if let q = g.spickzettel {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("🤫 Spickzettel").font(.poppins(12, .bold)).foregroundStyle(MM.gold)

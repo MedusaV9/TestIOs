@@ -159,10 +159,30 @@ public struct MinigameContext: Sendable {
     public func name(_ id: PlayerId) -> String { names[id] ?? "?" }
     public func ms(_ base: Int) -> Int { settings.ms(base) }
 
-    /// Timer for a question honouring difficulty, tempo and wheel modifiers.
+    /// Effectively "no timer" — an hour; the question ends when everyone answered or the GM resolves.
+    public static let unlimitedMs = 3_600_000
+
+    public var timerAus: Bool { settings.timerAus }
+
+    /// Timer for a question honouring difficulty, tempo, the Show-Master's
+    /// fixed time-per-question override, the timer-off switch and wheel modifiers.
     public func timerMs(for q: Question) -> Int {
-        Int(Double(settings.ms(Money.timerMs(q.schw))) * mods.timerFaktor)
+        if settings.timerAus { return MinigameContext.unlimitedMs }
+        let base = settings.fragenZeit.map { $0 * 1000 } ?? settings.ms(Money.timerMs(q.schw))
+        return max(3000, Int(Double(base) * mods.timerFaktor))
     }
+
+    /// Answer window for non-MC inputs (estimate, sort, bets, bids, lies…):
+    /// tempo-scaled, never shorter than the fixed override, unlimited when the timer is off.
+    public func answerWindow(_ base: Int) -> Int {
+        if settings.timerAus { return MinigameContext.unlimitedMs }
+        let scaled = settings.ms(base)
+        if let fixed = settings.fragenZeit { return max(scaled, fixed * 1000) }
+        return scaled
+    }
+
+    /// Deadline as shown to clients — hidden while the timer is off.
+    public func visible(_ deadline: Millis?) -> Millis? { settings.timerAus ? nil : deadline }
 
     public var richest: PlayerId? {
         players.max { (balances[$0] ?? 0) < (balances[$1] ?? 0) }

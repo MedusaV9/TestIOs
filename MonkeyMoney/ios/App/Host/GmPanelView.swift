@@ -95,9 +95,13 @@ struct GmPanelView: View {
                                 Text("Drama-Meter \(g.dramaScore)").font(.outfit(18, .bold)).foregroundStyle(MM.gold)
                                 GeometryReader { geo in ZStack(alignment: .leading) { Capsule().fill(Color.black.opacity(0.3)); Capsule().fill(LinearGradient(colors: [MM.blue, MM.gold, MM.red], startPoint: .leading, endPoint: .trailing)).frame(width: geo.size.width * Double(g.dramaScore) / 100) } }.frame(height: 10)
                                 Text(g.empfehlung).font(.poppins(12)).foregroundStyle(MM.cream.opacity(0.85))
+                                }
+                                Group {
                                 Text("Regie").font(.poppins(13, .bold)).foregroundStyle(MM.gold).padding(.top, 6)
                                 SettingPicker(title: "Tempo", options: Tempo.allCases.map { ($0.rawValue, $0.label) }, selection: Binding(get: { g.settings.tempo.rawValue }, set: { host.command(.settingsSet(["tempo": .string($0)])) }))
                                 SettingPicker(title: "Fragen-Mix", options: FragenMix.allCases.map { ($0.rawValue, $0.label) }, selection: Binding(get: { g.settings.fragenMix.rawValue }, set: { host.command(.settingsSet(["fragenMix": .string($0)])) }))
+                                ToggleChip(title: "⏱️ Timer aus", on: Binding(get: { g.settings.timerAus }, set: { host.command(.settingsSet(["timerAus": .bool($0)])) }))
+                                SettingPicker(title: "Zeit pro Frage", options: [("0", "Auto"), ("15", "15 s"), ("20", "20 s"), ("30", "30 s"), ("60", "60 s"), ("120", "2 min")], selection: Binding(get: { String(g.settings.fragenZeit ?? 0) }, set: { host.command(.settingsSet(["fragenZeit": .number(Double($0) ?? 0)])) }))
                                 ToggleChip(title: "Auto-Regie", on: Binding(get: { g.settings.autoGm }, set: { host.command(.autoGmSet($0)) }))
                                 ToggleChip(title: "Musik", on: Binding(get: { g.settings.musik }, set: { host.command(.settingsSet(["musik": .bool($0)])) }))
                                 HStack { Text("Lautstärke").font(.poppins(12)).foregroundStyle(MM.cream); Slider(value: $audio.volume, in: 0...1).tint(MM.gold) }

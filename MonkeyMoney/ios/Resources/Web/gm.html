@@ -27,7 +27,7 @@
   <div class="app hidden" id="cockpit">
     <div class="top">
       <div class="brand"><img src="/img/favicon.svg" alt=""> SHOW-MASTER · <span id="roomLbl"></span></div>
-      <div class="row" style="flex:0 0 auto"><span class="chip" id="phaseChip">—</span><span class="chip gold" id="jarChip">Glas 500 MM</span></div>
+      <div class="row" style="flex:0 0 auto"><span class="chip warn hidden" id="timerChip">⏱️ Timer aus</span><span class="chip" id="phaseChip">—</span><span class="chip gold" id="jarChip">Glas 500 MM</span></div>
     </div>
     <div class="cols">
       <!-- LEFT: live status -->
@@ -83,6 +83,8 @@
         <div class="card"><h3>⚙️ Regie-Einstellungen</h3>
           <label class="f">Tempo</label><select id="tempo"><option value="zackig">Zackig</option><option value="normal">Normal</option><option value="gemuetlich">Gemütlich</option></select>
           <label class="f">Fragen-Mix</label><select id="mix"><option value="locker">🍌 Locker</option><option value="ausgewogen">⚖️ Ausgewogen</option><option value="knifflig">🧠 Knifflig</option></select>
+          <label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="timerAus" style="width:22px;height:22px"> ⏱️ Timer AUS — Fragen warten, bis alle geantwortet haben oder du auflöst</label>
+          <label class="f">Zeit pro Frage</label><select id="fragenZeit"><option value="0">Nach Schwierigkeit (15/15/20/25 s × Tempo)</option><option value="10">10 s</option><option value="15">15 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="45">45 s</option><option value="60">Gemütlich · 60 s</option><option value="120">2 Minuten</option></select>
           <label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="autoGm"> Auto-Regie (Timer/Picks)</label>
           <label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="musik"> Musik an</label>
           <label class="f">Lobby-Modus</label><select id="modus"><option value="quick">Quick Cash</option><option value="klassik">Klassik-Show</option><option value="marathon">Marathon</option></select>

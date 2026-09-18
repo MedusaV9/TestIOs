@@ -241,6 +241,10 @@ struct LobbySettingsSheet: View {
             SettingPicker(title: "Fragen-Mix", options: FragenMix.allCases.map { ($0.rawValue, $0.label) }, selection: Binding(get: { settings.fragenMix.rawValue }, set: { host.command(.settingsSet(["fragenMix": .string($0)])) }))
             SettingPicker(title: "Teams", options: [("aus", "Einzeln"), ("2er", "2er-Teams"), ("2v2v2v2", "4 Lager")], selection: Binding(get: { settings.teams.rawValue }, set: { host.command(.settingsSet(["teams": .string($0)])); host.command(.teamsShuffle) }))
             HStack(spacing: 14) {
+                ToggleChip(title: "⏱️ Timer aus", on: Binding(get: { settings.timerAus }, set: { host.command(.settingsSet(["timerAus": .bool($0)])) }))
+                SettingPicker(title: "", options: [("0", "Zeit: Auto"), ("15", "15 s"), ("20", "20 s"), ("30", "30 s"), ("60", "60 s"), ("120", "2 min")], selection: Binding(get: { String(settings.fragenZeit ?? 0) }, set: { host.command(.settingsSet(["fragenZeit": .number(Double($0) ?? 0)])) }))
+            }
+            HStack(spacing: 14) {
                 ToggleChip(title: "Joker", on: Binding(get: { settings.jokerAn }, set: { host.command(.settingsSet(["jokerAn": .bool($0)])) }))
                 ToggleChip(title: "Glücksrad", on: Binding(get: { settings.radAn }, set: { host.command(.settingsSet(["radAn": .bool($0)])) }))
                 ToggleChip(title: "Musik", on: Binding(get: { settings.musik }, set: { host.command(.settingsSet(["musik": .bool($0)])) }))

@@ -19,7 +19,7 @@ public enum MonkeyMarket: MinigamePlugin {
     )
 
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
-        State(core: ChoiceCore(question: FormatHelpers.first(questions, kind: meta.contentKind), ctx: ctx, timerMs: ctx.ms(25_000)), placed: [:], locked: [:])
+        State(core: ChoiceCore(question: FormatHelpers.first(questions, kind: meta.contentKind), ctx: ctx, timerMs: ctx.answerWindow(25_000)), placed: [:], locked: [:])
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
@@ -82,7 +82,7 @@ public enum MonkeyMarket: MinigamePlugin {
         }
         let placed = state.placed[player] ?? Array(repeating: 0, count: state.core.options.count)
         return .chips(question: state.core.question.displayText, options: state.core.options(for: player), total: chips, placed: placed,
-                      locked: state.locked[player] != nil, deadline: state.core.deadline)
+                      locked: state.locked[player] != nil, deadline: ctx.visible(state.core.deadline))
     }
 
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
@@ -111,7 +111,7 @@ public enum BananenBoerse: MinigamePlugin {
 
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         let q = FormatHelpers.first(questions, kind: meta.contentKind)
-        return State(core: ChoiceCore(question: q, ctx: ctx, timerMs: ctx.ms(20_000)), positions: [:], switched: [], stake: q.value / 2)
+        return State(core: ChoiceCore(question: q, ctx: ctx, timerMs: ctx.answerWindow(20_000)), positions: [:], switched: [], stake: q.value / 2)
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
@@ -175,7 +175,7 @@ public enum BananenBoerse: MinigamePlugin {
         var opts = state.core.options(for: player)
         for i in opts.indices { opts[i].text += String(format: "  ·  ×%.2f", q[opts[i].id]) }
         let hint = "💵 Einsatz \(Money.format(state.stake))" + (state.positions[player] != nil && !state.switched.contains(player) ? " · 1× umschichten möglich" : "")
-        return .choice(question: state.core.question.displayText, options: opts, chosen: state.switched.contains(player) ? state.positions[player] : nil, deadline: state.core.deadline, secondTry: false, hint: hint)
+        return .choice(question: state.core.question.displayText, options: opts, chosen: state.switched.contains(player) ? state.positions[player] : nil, deadline: ctx.visible(state.core.deadline), secondTry: false, hint: hint)
     }
 
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) { state.core.gmInfo(ctx: ctx) }
@@ -203,7 +203,7 @@ public enum AffenAuktion: MinigamePlugin {
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         var core = ChoiceCore(question: FormatHelpers.first(questions, kind: meta.contentKind), ctx: ctx)
         core.startedAt = 0
-        return State(core: core, phase: "bieten", bids: [:], bidUntil: ctx.now + ctx.ms(20_000), winner: nil, winningBid: 0)
+        return State(core: core, phase: "bieten", bids: [:], bidUntil: ctx.now + ctx.answerWindow(20_000), winner: nil, winningBid: 0)
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
@@ -276,7 +276,7 @@ public enum AffenAuktion: MinigamePlugin {
     public static func stage(_ state: State, revealed: Bool, ctx: MinigameContext) -> MinigameStageOutput {
         let wall = state.phase == "bieten" ? nil : state.core.wall(ctx: ctx, revealed: revealed || state.phase == "fertig")
         let bidsShown = state.phase == "bieten" ? [:] : state.bids
-        return MinigameStageOutput(wall: wall, extra: .auction(bids: bidsShown, leader: state.winner, endsAt: state.phase == "bieten" ? state.bidUntil : nil, phase: revealed ? "fertig" : state.phase),
+        return MinigameStageOutput(wall: wall, extra: .auction(bids: bidsShown, leader: state.winner, endsAt: state.phase == "bieten" ? ctx.visible(state.bidUntil) : nil, phase: revealed ? "fertig" : state.phase),
                                    title: "\(meta.name) · \(ctx.catalog.categoryName(state.core.question.kat)) · \(state.core.question.schw.label)")
     }
 
@@ -290,7 +290,7 @@ public enum AffenAuktion: MinigamePlugin {
         case "bieten":
             let cap = min(1000, max(100, (ctx.balances[player] ?? 0) + 500))
             return .wager(title: "Gebot: \(ctx.catalog.categoryName(state.core.question.kat)) · \(state.core.question.schw.label)", subtitle: "Verdeckt bieten — 0 = passen", min: 0, max: cap, step: 25,
-                          current: state.bids[player], locked: state.bids[player] != nil, deadline: state.bidUntil)
+                          current: state.bids[player], locked: state.bids[player] != nil, deadline: ctx.visible(state.bidUntil))
         case "frage":
             if player == state.winner { return state.core.prompt(for: player, ctx: ctx, revealed: false, hint: "🔨 Dein Zuschlag: \(Money.format(state.winningBid))") }
             return .idle(title: "🔨 \(ctx.name(state.winner ?? "")) hat den Zuschlag", subtitle: "\(Money.format(state.winningBid)) — falsch wird an alle verteilt!")
@@ -330,7 +330,7 @@ public enum BananenBluff: MinigamePlugin {
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         let q = FormatHelpers.first(questions, kind: meta.contentKind)
         let truth = q.correctIndex.flatMap { i in (q.antworten ?? []).indices.contains(i) ? q.antworten![i] : nil } ?? "?"
-        return State(question: q, truth: truth, phase: "luegen", lies: [:], entries: [], authors: [:], truthIndex: 0, votes: [:], phaseUntil: ctx.now + ctx.ms(40_000), startedAt: ctx.now)
+        return State(question: q, truth: truth, phase: "luegen", lies: [:], entries: [], authors: [:], truthIndex: 0, votes: [:], phaseUntil: ctx.now + ctx.answerWindow(40_000), startedAt: ctx.now)
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
@@ -364,7 +364,7 @@ public enum BananenBluff: MinigamePlugin {
             if let a = e.1 { state.authors[i] = a } else { state.truthIndex = i }
         }
         state.phase = "raten"
-        state.phaseUntil = ctx.now + ctx.ms(20_000)
+        state.phaseUntil = ctx.now + ctx.answerWindow(20_000)
     }
 
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {
@@ -404,7 +404,7 @@ public enum BananenBluff: MinigamePlugin {
         let kat = ctx.catalog.categories.first { $0.id == state.question.kat }
         let wall = QuestionWall(text: state.question.text, kategorie: state.question.kat, kategorieName: kat?.name ?? "", kategorieEmoji: kat?.emoji ?? "❓",
                                 schwierigkeit: state.question.schw, wert: state.question.value / 2, options: nil,
-                                answered: state.phase == "luegen" ? Array(state.lies.keys) : Array(state.votes.keys), deadline: state.phase == "fertig" ? nil : state.phaseUntil,
+                                answered: state.phase == "luegen" ? Array(state.lies.keys) : Array(state.votes.keys), deadline: state.phase == "fertig" ? nil : ctx.visible(state.phaseUntil),
                                 timerMs: 40_000, revealed: revealed, correctIndex: nil, answersByPlayer: [:], erklaerung: revealed ? state.question.erkl : nil,
                                 nummer: ctx.fragenNummer, gesamt: ctx.fragenGesamt)
         let entries = state.entries.enumerated().map { (i, text) in ChoiceOption(id: i, text: text, count: revealed ? state.votes.values.filter { v in v == i }.count : nil) }
@@ -420,10 +420,10 @@ public enum BananenBluff: MinigamePlugin {
         }
         switch state.phase {
         case "luegen":
-            return .text(question: state.question.text, placeholder: "Deine glaubwürdige Lüge …", maxLength: 40, submitted: state.lies[player], deadline: state.phaseUntil)
+            return .text(question: state.question.text, placeholder: "Deine glaubwürdige Lüge …", maxLength: 40, submitted: state.lies[player], deadline: ctx.visible(state.phaseUntil))
         case "raten":
             let opts = state.entries.enumerated().map { ChoiceOption(id: $0.offset, text: $0.element, removed: state.authors[$0.offset] == player) }
-            return .choice(question: "Was ist die Wahrheit?", options: opts, chosen: state.votes[player], deadline: state.phaseUntil, secondTry: false, hint: "Deine eigene Lüge ist gesperrt.")
+            return .choice(question: "Was ist die Wahrheit?", options: opts, chosen: state.votes[player], deadline: ctx.visible(state.phaseUntil), secondTry: false, hint: "Deine eigene Lüge ist gesperrt.")
         default: return .idle(title: "Auflösung …", subtitle: nil)
         }
     }

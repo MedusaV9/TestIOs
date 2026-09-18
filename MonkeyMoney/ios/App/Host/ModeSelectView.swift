@@ -46,6 +46,10 @@ struct ModeSelectView: View {
                                 ToggleChip(title: "Kurze Show", on: s.kurzeShow)
                             }
                             HStack(spacing: 18) {
+                                ToggleChip(title: "⏱️ Timer aus (Show-Master löst auf)", on: s.timerAus)
+                                SettingPicker(title: "", options: [("0", "Zeit: Auto"), ("15", "15 s"), ("20", "20 s"), ("30", "30 s"), ("60", "60 s"), ("120", "2 min")], selection: Binding(get: { String(host.settingsDraft.fragenZeit ?? 0) }, set: { host.settingsDraft.fragenZeit = (Int($0) ?? 0) <= 0 ? nil : Int($0) }))
+                            }
+                            HStack(spacing: 18) {
                                 ToggleChip(title: "👨‍👩‍👧 Familien-Modus", on: s.familienModus)
                                 ToggleChip(title: "🥃 18+ Zinsen & Shots", on: s.alkoholEdition)
                                 ToggleChip(title: "All-in erlaubt", on: s.allInErlaubt)
@@ -145,42 +149,5 @@ struct ModeCard: View {
             .background(RoundedRectangle(cornerRadius: 22).fill(selected ? MM.gold : MM.panelDark.opacity(0.9)).overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(selected ? MM.goldDark : MM.gold.opacity(0.3), lineWidth: 2)))
             .shadow(color: .black.opacity(0.35), radius: 14, y: 10)
         }.buttonStyle(PressStyle())
-    }
-}
-
-struct SettingPicker: View {
-    var title: String
-    var options: [(String, String)]
-    @Binding var selection: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if !title.isEmpty { Text(title).font(.poppins(13, .bold)).foregroundStyle(MM.gold) }
-            HStack(spacing: 6) {
-                ForEach(options, id: \.0) { o in
-                    Button { selection = o.0 } label: {
-                        Text(o.1).font(.poppins(13, .semibold)).lineLimit(1)
-                            .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background(Capsule().fill(selection == o.0 ? MM.gold : Color.black.opacity(0.3)))
-                            .foregroundStyle(selection == o.0 ? MM.ink : MM.cream)
-                    }.buttonStyle(.plain)
-                }
-            }
-        }
-    }
-}
-
-struct ToggleChip: View {
-    var title: String
-    @Binding var on: Bool
-    var body: some View {
-        Button { on.toggle(); Haptics.tap() } label: {
-            HStack(spacing: 8) {
-                Image(systemName: on ? "checkmark.circle.fill" : "circle").foregroundStyle(on ? MM.gold : MM.cream.opacity(0.5))
-                Text(title).font(.poppins(14, .semibold))
-            }
-            .padding(.horizontal, 12).padding(.vertical, 9)
-            .background(Capsule().fill(Color.black.opacity(on ? 0.45 : 0.22)))
-            .foregroundStyle(MM.cream)
-        }.buttonStyle(.plain)
     }
 }

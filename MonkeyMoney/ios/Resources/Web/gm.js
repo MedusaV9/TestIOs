@@ -77,6 +77,10 @@
     const s = view.settings;
     if (document.activeElement.tagName !== "SELECT") { $("tempo").value = s.tempo; $("mix").value = s.fragenMix; $("modus").value = s.modus; }
     $("autoGm").checked = s.autoGm; $("musik").checked = s.musik;
+    $("timerAus").checked = !!s.timerAus;
+    if (document.activeElement.id !== "fragenZeit") $("fragenZeit").value = String(s.fragenZeit || 0);
+    $("timerChip").classList.toggle("hidden", !s.timerAus);
+    $("mainAction").classList.toggle("pulse", !!s.timerAus && st.phase === "frage");
     $("modus").disabled = st.phase !== "lobby";
     // Board games
     if (kind === "lobby" && payload.boardgames) {
@@ -104,6 +108,8 @@
   $("mix").onchange = () => cmd({ settingsSet: { _0: { fragenMix: $("mix").value } } });
   $("modus").onchange = () => cmd({ settingsSet: { _0: { modus: $("modus").value } } });
   $("autoGm").onchange = () => cmd({ autoGmSet: { _0: $("autoGm").checked } });
+  $("timerAus").onchange = () => { cmd({ settingsSet: { _0: { timerAus: $("timerAus").checked } } }); toast($("timerAus").checked ? "Timer aus — du löst die Fragen selbst auf" : "Timer wieder an"); };
+  $("fragenZeit").onchange = () => cmd({ settingsSet: { _0: { fragenZeit: Number($("fragenZeit").value) } } });
   $("musik").onchange = () => cmd({ settingsSet: { _0: { musik: $("musik").checked } } });
 
   function pickPlayer(title) {

@@ -81,8 +81,8 @@ public enum LianenstegDuell: MinigamePlugin {
 
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         let (a, b) = pickDuelists(ctx: &ctx)
-        let series = SeriesCore(questions: FormatHelpers.fitting(questions, kind: meta.contentKind), maxQuestions: 7, ctx: &ctx, timerMs: ctx.ms(12_000))
-        var s = State(series: series, a: a, b: b, scoreA: 0, scoreB: 0, bets: [:], phase: ctx.players.count > 2 ? "wetten" : "duell", betUntil: ctx.now + ctx.ms(10_000), lastPoint: nil)
+        let series = SeriesCore(questions: FormatHelpers.fitting(questions, kind: meta.contentKind), maxQuestions: 7, ctx: &ctx, timerMs: ctx.answerWindow(12_000))
+        var s = State(series: series, a: a, b: b, scoreA: 0, scoreB: 0, bets: [:], phase: ctx.players.count > 2 ? "wetten" : "duell", betUntil: ctx.now + ctx.answerWindow(10_000), lastPoint: nil)
         if s.phase == "wetten" { s.series.core?.startedAt = 0 }
         return s
     }
@@ -120,7 +120,7 @@ public enum LianenstegDuell: MinigamePlugin {
         case "duell":
             var dctx = ctx
             dctx.players = [state.a, state.b]
-            if state.series.advance(ctx: &dctx, revealMs: 2500, timerMs: ctx.ms(12_000)), let c = state.series.core {
+            if state.series.advance(ctx: &dctx, revealMs: 2500, timerMs: ctx.answerWindow(12_000)), let c = state.series.core {
                 let correct = [state.a, state.b].filter { c.isCorrect($0) == true }.sorted { c.answers[$0]!.at < c.answers[$1]!.at }
                 if let w = correct.first { if w == state.a { state.scoreA += 1 } else { state.scoreB += 1 }; state.lastPoint = w } else { state.lastPoint = nil }
                 if state.scoreA >= 3 || state.scoreB >= 3 { state.series.finished = true }
@@ -177,7 +177,7 @@ public enum LianenstegDuell: MinigamePlugin {
         if state.phase == "wetten" {
             if player == state.a || player == state.b { return .idle(title: "⚔️ Du stehst auf dem Steg!", subtitle: "Gegner: \(ctx.name(player == state.a ? state.b : state.a))") }
             let refs = [state.a, state.b].map { PlayerRef(Player(id: $0, name: ctx.name($0), avatar: Avatar(), joinOrder: 0), platz: 0) }
-            return .pickPlayer(title: "Wer gewinnt das Duell?", subtitle: "Wette: 50 MM", candidates: refs, chosen: state.bets[player], deadline: state.betUntil)
+            return .pickPlayer(title: "Wer gewinnt das Duell?", subtitle: "Wette: 50 MM", candidates: refs, chosen: state.bets[player], deadline: ctx.visible(state.betUntil))
         }
         guard let c = state.series.core else { return .idle(title: "Duell", subtitle: nil) }
         if player == state.a || player == state.b {
@@ -211,7 +211,7 @@ public enum BananenBoxkampf: MinigamePlugin {
 
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         let (a, b) = LianenstegDuell.pickDuelists(ctx: &ctx)
-        return State(series: SeriesCore(questions: FormatHelpers.fitting(questions, kind: meta.contentKind), maxQuestions: 8, ctx: &ctx, timerMs: ctx.ms(10_000)), a: a, b: b, hpA: 3, hpB: 3, lastHit: nil)
+        return State(series: SeriesCore(questions: FormatHelpers.fitting(questions, kind: meta.contentKind), maxQuestions: 8, ctx: &ctx, timerMs: ctx.answerWindow(10_000)), a: a, b: b, hpA: 3, hpB: 3, lastHit: nil)
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
@@ -227,7 +227,7 @@ public enum BananenBoxkampf: MinigamePlugin {
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {
         var dctx = ctx
         dctx.players = [state.a, state.b]
-        if state.series.advance(ctx: &dctx, revealMs: 2000, timerMs: ctx.ms(10_000)), let c = state.series.core {
+        if state.series.advance(ctx: &dctx, revealMs: 2000, timerMs: ctx.answerWindow(10_000)), let c = state.series.core {
             let correct = [state.a, state.b].filter { c.isCorrect($0) == true }.sorted { c.answers[$0]!.at < c.answers[$1]!.at }
             if let w = correct.first { if w == state.a { state.hpB -= 1 } else { state.hpA -= 1 }; state.lastHit = w } else { state.lastHit = nil }
             if state.hpA <= 0 || state.hpB <= 0 { state.series.finished = true }
@@ -301,7 +301,7 @@ public enum KonterQuiz: MinigamePlugin {
         var i = 0
         while i < shuffled.count { pairs.append(Array(shuffled[i..<min(shuffled.count, i + 2)])); i += 2 }
         if pairs.count > 1, pairs.last?.count == 1 { let solo = pairs.removeLast()[0]; pairs[pairs.count - 1].append(solo) }
-        return State(series: SeriesCore(questions: FormatHelpers.fitting(questions, kind: meta.contentKind), maxQuestions: 8, ctx: &ctx, timerMs: ctx.ms(10_000)), pairs: pairs, earned: [:])
+        return State(series: SeriesCore(questions: FormatHelpers.fitting(questions, kind: meta.contentKind), maxQuestions: 8, ctx: &ctx, timerMs: ctx.answerWindow(10_000)), pairs: pairs, earned: [:])
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
@@ -319,7 +319,7 @@ public enum KonterQuiz: MinigamePlugin {
     }
 
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {
-        if state.series.advance(ctx: &ctx, revealMs: 2500, timerMs: ctx.ms(10_000)), let c = state.series.core {
+        if state.series.advance(ctx: &ctx, revealMs: 2500, timerMs: ctx.answerWindow(10_000)), let c = state.series.core {
             let w = c.question.value
             for p in ctx.players {
                 switch c.isCorrect(p) {
@@ -377,7 +377,7 @@ public enum EinerGegenAlle: MinigamePlugin {
 
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         let solist = ctx.players.max { (ctx.balances[$0] ?? 0) < (ctx.balances[$1] ?? 0) } ?? ctx.players[0]
-        return State(series: SeriesCore(questions: FormatHelpers.fitting(questions, kind: meta.contentKind), maxQuestions: 6, ctx: &ctx, timerMs: ctx.ms(12_000)), solist: solist, solistPoints: 0, crowdPoints: 0, earned: [:], lastSolist: nil, lastCrowd: 0)
+        return State(series: SeriesCore(questions: FormatHelpers.fitting(questions, kind: meta.contentKind), maxQuestions: 6, ctx: &ctx, timerMs: ctx.answerWindow(12_000)), solist: solist, solistPoints: 0, crowdPoints: 0, earned: [:], lastSolist: nil, lastCrowd: 0)
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
@@ -391,7 +391,7 @@ public enum EinerGegenAlle: MinigamePlugin {
     }
 
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {
-        if state.series.advance(ctx: &ctx, revealMs: 2500, timerMs: ctx.ms(12_000)), let c = state.series.core {
+        if state.series.advance(ctx: &ctx, revealMs: 2500, timerMs: ctx.answerWindow(12_000)), let c = state.series.core {
             let crowd = ctx.players.filter { $0 != state.solist }
             let crowdRight = crowd.filter { c.isCorrect($0) == true }
             let majority = crowdRight.count * 2 > crowd.count
@@ -449,7 +449,7 @@ public enum BananenTortenschlacht: MinigamePlugin {
     )
 
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
-        State(series: SeriesCore(questions: FormatHelpers.fitting(questions, kind: meta.contentKind), maxQuestions: 8, ctx: &ctx, timerMs: ctx.ms(10_000)), dirt: [:], out: [], lastHits: [])
+        State(series: SeriesCore(questions: FormatHelpers.fitting(questions, kind: meta.contentKind), maxQuestions: 8, ctx: &ctx, timerMs: ctx.answerWindow(10_000)), dirt: [:], out: [], lastHits: [])
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
@@ -465,7 +465,7 @@ public enum BananenTortenschlacht: MinigamePlugin {
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {
         var actx = ctx
         actx.players = ctx.players.filter { !state.out.contains($0) }
-        if state.series.advance(ctx: &actx, revealMs: 2500, timerMs: ctx.ms(10_000)), let c = state.series.core {
+        if state.series.advance(ctx: &actx, revealMs: 2500, timerMs: ctx.answerWindow(10_000)), let c = state.series.core {
             state.lastHits = []
             for p in actx.players where c.isCorrect(p) != true && ctx.connected.contains(p) {
                 state.dirt[p, default: 0] += 1
@@ -547,7 +547,7 @@ public enum RisikoLeiter: MinigamePlugin {
 
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         let sorted = FormatHelpers.fitting(questions, kind: meta.contentKind).sorted { $0.schw < $1.schw }
-        var s = State(series: SeriesCore(questions: sorted, maxQuestions: 8, ctx: &ctx, timerMs: ctx.ms(15_000)), unbanked: [:], banked: [:], stopped: [], decisions: [:], deciding: false, decideUntil: 0, lastResults: [:])
+        var s = State(series: SeriesCore(questions: sorted, maxQuestions: 8, ctx: &ctx, timerMs: ctx.answerWindow(15_000)), unbanked: [:], banked: [:], stopped: [], decisions: [:], deciding: false, decideUntil: 0, lastResults: [:])
         s.series.core?.startedAt = ctx.now
         return s
     }
@@ -587,7 +587,7 @@ public enum RisikoLeiter: MinigamePlugin {
                 state.decisions = [:]
                 state.deciding = false
                 if ctx.players.allSatisfy({ state.stopped.contains($0) }) { finishLadder(&state, ctx: ctx); return }
-                state.series.start(ctx: &ctx, timerMs: ctx.ms(15_000))
+                state.series.start(ctx: &ctx, timerMs: ctx.answerWindow(15_000))
                 if state.series.finished { finishLadder(&state, ctx: ctx) }
             }
             return
@@ -598,7 +598,7 @@ public enum RisikoLeiter: MinigamePlugin {
             if ctx.now >= r {
                 if state.series.index >= state.series.maxQuestions { finishLadder(&state, ctx: ctx); return }
                 state.deciding = true
-                state.decideUntil = ctx.now + ctx.ms(8000)
+                state.decideUntil = ctx.now + ctx.answerWindow(8000)
             }
             return
         }
@@ -636,7 +636,7 @@ public enum RisikoLeiter: MinigamePlugin {
     public static func prompt(_ state: State, player: PlayerId, revealed: Bool, ctx: MinigameContext) -> PlayerPrompt {
         if revealed { let s = scores(state, ctx: ctx)[player] ?? 0; return .reveal(title: s > 0 ? "Sicher gelandet" : "Abgerutscht", correct: s > 0, delta: s, detail: nil, streak: 0, speedBonus: nil) }
         if state.stopped.contains(player) { return .idle(title: (state.banked[player] ?? 0) > 0 ? "🔒 Gesichert: \(Money.format(state.banked[player] ?? 0))" : "🪜 Abgerutscht", subtitle: "Die anderen klettern weiter …") }
-        if state.deciding { return .binary(title: "Ungesichert: \(Money.format(state.unbanked[player] ?? 0))", subtitle: "Nächste Stufe: \(Money.format(ladder[min(ladder.count - 1, state.series.questionNumber)]))", a: "weiter", b: "sichern", chosen: state.decisions[player], deadline: state.decideUntil) }
+        if state.deciding { return .binary(title: "Ungesichert: \(Money.format(state.unbanked[player] ?? 0))", subtitle: "Nächste Stufe: \(Money.format(ladder[min(ladder.count - 1, state.series.questionNumber)]))", a: "weiter", b: "sichern", chosen: state.decisions[player], deadline: ctx.visible(state.decideUntil)) }
         guard let c = state.series.core else { return .idle(title: meta.name, subtitle: nil) }
         if state.series.inReveal { return .reveal(title: state.lastResults[player] == true ? "Stufe geschafft!" : "Abgerutscht!", correct: state.lastResults[player], delta: 0, detail: nil, streak: 0, speedBonus: nil) }
         return c.prompt(for: player, ctx: ctx, revealed: false, hint: "🪜 Stufe \(state.series.questionNumber)/8 · ungesichert \(Money.format(state.unbanked[player] ?? 0))")
@@ -666,7 +666,7 @@ public enum GoldenerAffe: MinigamePlugin {
     )
 
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
-        State(series: SeriesCore(questions: FormatHelpers.fitting(questions, kind: meta.contentKind), maxQuestions: 4, ctx: &ctx, timerMs: ctx.ms(15_000)), earned: [:], buzzWins: [:], buzzOrder: [], lockedOut: [], crowned: nil)
+        State(series: SeriesCore(questions: FormatHelpers.fitting(questions, kind: meta.contentKind), maxQuestions: 4, ctx: &ctx, timerMs: ctx.answerWindow(15_000)), earned: [:], buzzWins: [:], buzzOrder: [], lockedOut: [], crowned: nil)
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
@@ -680,7 +680,7 @@ public enum GoldenerAffe: MinigamePlugin {
     }
 
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {
-        if state.series.advance(ctx: &ctx, revealMs: 2500, timerMs: ctx.ms(15_000)), let c = state.series.core {
+        if state.series.advance(ctx: &ctx, revealMs: 2500, timerMs: ctx.answerWindow(15_000)), let c = state.series.core {
             let correct = ctx.players.filter { c.isCorrect($0) == true }.sorted { c.answers[$0]!.at < c.answers[$1]!.at }
             for p in correct { state.earned[p, default: 0] += c.question.value }
             if let f = correct.first { state.buzzWins[f, default: 0] += 1 }

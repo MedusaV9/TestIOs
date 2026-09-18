@@ -107,6 +107,10 @@ public struct MatchSettings: Codable, Equatable, Sendable {
     public var allInErlaubt: Bool
     /// Special rules toggles (SR1…SR7).
     public var specialRules: Set<SpecialRule>
+    /// Show-Master: question timer OFF — answers wait until everyone answered or the GM resolves.
+    public var timerAus: Bool
+    /// Show-Master: fixed time per question in seconds (nil = per difficulty 15/15/20/25 s × tempo).
+    public var fragenZeit: Int?
 
     public init(modus: Modus = .klassik) {
         self.modus = modus
@@ -134,6 +138,8 @@ public struct MatchSettings: Codable, Equatable, Sendable {
         rundenOverride = nil
         allInErlaubt = false
         specialRules = []
+        timerAus = false
+        fragenZeit = nil
     }
 
     public var tempoFactor: Double { (familienModus ? 1.5 : 1.0) * tempo.factor }
@@ -180,6 +186,9 @@ public struct MatchSettings: Codable, Equatable, Sendable {
             specialRules = Set(arr.compactMap { $0.stringValue }.compactMap(SpecialRule.init(rawValue:)))
         }
         if let n = patch["rundenOverride"]?.intValue { rundenOverride = n }
+        if let b = patch["timerAus"]?.boolValue { timerAus = b }
+        if let n = patch["fragenZeit"]?.intValue { fragenZeit = n <= 0 ? nil : min(300, max(5, n)) }
+        if patch["fragenZeit"] == .null { fragenZeit = nil }
         if gmLos { autoGm = true }
         if familienModus { alkoholEdition = false }
     }

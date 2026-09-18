@@ -162,7 +162,7 @@ public struct ChoiceCore: Codable, Equatable, Sendable {
             wert: Int(Double(question.value) * ctx.mods.wertFaktor),
             options: blackout && !revealed ? nil : opts,
             answered: Array(answers.keys.filter { hasAnswered($0) }) + extraAnswered,
-            deadline: revealed ? nil : deadline,
+            deadline: revealed ? nil : ctx.visible(deadline),
             timerMs: timerMs,
             revealed: revealed,
             correctIndex: revealed ? correctIndex : nil,
@@ -189,7 +189,7 @@ public struct ChoiceCore: Codable, Equatable, Sendable {
             return .idle(title: "Gleich geht's los …", subtitle: "Jemand hat einen Insider-Tipp …")
         }
         let chosen = answers[p]?.index
-        return .choice(question: question.displayText, options: options(for: p), chosen: chosen, deadline: deadline,
+        return .choice(question: question.displayText, options: options(for: p), chosen: chosen, deadline: ctx.visible(deadline),
                        secondTry: secondTryOpen[p] != nil,
                        hint: hint ?? whisper[p] ?? (hintLevel > 0 && hintLevel <= question.tipps.count ? question.tipps[hintLevel - 1] : nil))
     }

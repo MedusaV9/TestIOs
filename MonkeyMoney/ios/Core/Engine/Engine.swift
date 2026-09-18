@@ -465,7 +465,7 @@ public struct Engine: Sendable {
         var ctx = context(s, now: now)
         plugin.tick(&box.data, &ctx)
         // Auto-GM: extend once when < 50 % answered and < 5 s left (question formats).
-        if s.settings.autoGmAktiv, s.timerExtensions == 0, !plugin.meta.roundBased {
+        if s.settings.autoGmAktiv, !s.settings.timerAus, s.timerExtensions == 0, !plugin.meta.roundBased {
             let stage = plugin.stage(box.data, false, ctx)
             if let wall = stage.wall, let dl = wall.deadline, dl - now < 5000, dl > now {
                 let connected = s.connectedPlayers.count

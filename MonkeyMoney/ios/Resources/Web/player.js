@@ -143,7 +143,9 @@
     const me = view.me;
     $("meName").textContent = me.name;
     $("meBalance").textContent = fmtMM(me.balance);
-    $("meStatus").textContent = view.statusText + (view.rueckenwind > 1 ? ` · 🌬️ ×${view.rueckenwind}` : "");
+    const p0 = decode(view.prompt);
+    const noTimer = view.phase === "frage" && ["choice", "number", "order", "wager", "chips", "text"].includes(p0.kind) && !p0.deadline;
+    $("meStatus").textContent = view.statusText + (view.rueckenwind > 1 ? ` · 🌬️ ×${view.rueckenwind}` : "") + (noTimer ? " · ⏱️ kein Timer" : "");
     $("meStreak").textContent = me.streak >= 3 ? `🔥 Streak ${me.streak} (×${me.streak >= 5 ? 2 : 1.5})` : (me.streak > 0 ? `Serie: ${me.streak}` : "");
     if ($("meAvatar").dataset.wire !== me.avatar) { $("meAvatar").dataset.wire = me.avatar; renderAvatar($("meAvatar"), me.avatar); }
     if (view.flash) { const f = $("flash"); f.className = "flash"; requestAnimationFrame(() => { f.className = "flash " + view.flash; }); }
