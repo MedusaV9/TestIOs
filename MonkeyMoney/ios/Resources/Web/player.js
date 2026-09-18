@@ -8,10 +8,26 @@
   const codeFromPath = (location.pathname.match(/\/j\/([A-Za-z]{4})/) || [])[1] || new URLSearchParams(location.search).get("code") || "";
   $("code").value = codeFromPath.toUpperCase();
   $("joinRoomChip").textContent = codeFromPath ? `Raum ${codeFromPath.toUpperCase()}` : "Raum-Code eingeben";
+  // Code card (big letters + "Code ändern") vs. the raw input.
+  const showCodeCard = on => { $("codeCard").classList.toggle("hidden", !on); $("code").classList.toggle("hidden", on); if (on) $("codeBig").textContent = $("code").value.toUpperCase().split("").join(" "); updateSteps(); };
+  showCodeCard(codeFromPath.length === 4);
+  $("editCode").onclick = () => { showCodeCard(false); $("code").focus(); };
+  $("code").addEventListener("input", () => { $("code").value = $("code").value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4); if ($("code").value.length === 4) { showCodeCard(true); $("name").focus(); } updateSteps(); });
+  $("name").addEventListener("input", updateSteps);
+  function updateSteps() {
+    const codeOk = $("code").value.trim().length === 4, nameOk = $("name").value.trim().length > 0;
+    const cur = !codeOk ? 1 : (!nameOk ? 2 : 3);
+    for (const li of document.querySelectorAll("#steps li[data-step]")) {
+      const n = Number(li.dataset.step);
+      li.classList.toggle("on", n === cur); li.classList.toggle("done", n < cur);
+      li.querySelector("b").textContent = n < cur ? "✓" : String(n);
+    }
+  }
   const saved = JSON.parse(localStorage.getItem("mm:look") || "null") || { affe: 0, farbe: "gelb" };
   let affeIdx = Math.max(0, MONKEYS.findIndex(m => m[0] === (saved.affeId || "")) >= 0 ? MONKEYS.findIndex(m => m[0] === saved.affeId) : saved.affe || 0);
   let farbe = saved.farbe || "gelb";
   $("name").value = localStorage.getItem("mm:name") || "";
+  updateSteps();
 
   function paintMonkey() {
     const m = MONKEYS[affeIdx];
@@ -178,6 +194,23 @@
     renderPrompt(decode(view.prompt));
   }
 
+  // Banknotes raining over the phone on a win.
+  function rain(n) {
+    const layer = document.createElement("div");
+    layer.className = "rain";
+    for (let i = 0; i < n; i++) {
+      const b = document.createElement("i");
+      b.style.left = `${Math.random() * 100}%`;
+      b.style.animationDelay = `${Math.random() * 900}ms`;
+      b.style.animationDuration = `${1800 + Math.random() * 1400}ms`;
+      b.style.setProperty("--r", `${Math.random() * 720 - 360}deg`);
+      if (i % 3 === 0) b.className = "coin";
+      layer.appendChild(b);
+    }
+    document.body.appendChild(layer);
+    setTimeout(() => layer.remove(), 3600);
+  }
+
   function timerHtml(deadline) {
     return deadline ? `<div class="timer" data-deadline="${deadline}"><div style="width:100%"></div></div>` : "";
   }
@@ -218,8 +251,9 @@
         break;
       case "choice": {
         const locked = p.chosen !== null && p.chosen !== undefined && !p.secondTry;
-        html = `${timerHtml(p.deadline)}${whisperHtml()}${p.hint ? `<div class="hint">${esc(p.hint)}</div>` : ""}<div class="question">${esc(p.question)}</div>
-          <div class="options ${locked ? "locked" : ""}">${p.options.map((o, i) => `<button class="opt ${o.removed ? "removed" : ""} ${p.chosen === o.id ? "chosen" : ""}" data-i="${i}" data-id="${o.id}"><span class="letter">${"ABCDEFGH"[i]}</span><span>${esc(o.text)}</span>${o.count != null ? `<span class="count">${o.count}</span>` : ""}</button>`).join("")}</div>
+        const EMO = ["🍌", "🥥", "🐒", "🌴", "💎", "🎩", "🌊", "🔥"];
+        html = `${timerHtml(p.deadline)}${p.deadline ? "" : `<div class="notimer">⏱️ Kein Timer — lasst euch Zeit, der Show-Master löst auf</div>`}${whisperHtml()}${p.hint ? `<div class="hint">${esc(p.hint)}</div>` : ""}<div class="question">${esc(p.question)}</div>
+          <div class="options ${locked ? "locked" : ""}">${p.options.map((o, i) => `<button class="opt ${o.removed ? "removed" : ""} ${p.chosen === o.id ? "chosen" : ""}" data-i="${i}" data-id="${o.id}" style="--d:${i * 60}ms"><span class="letter">${"ABCDEFGH"[i]}</span><span class="emo">${EMO[i % 8]}</span><span>${esc(o.text)}</span>${o.count != null ? `<span class="count">${o.count}</span>` : ""}${p.chosen === o.id ? `<span class="tick">✓</span>` : ""}</button>`).join("")}</div>
           ${p.secondTry ? `<p class="hint">↩️ Rückgaberecht: wähle eine andere Antwort (50 % Gewinn)</p>` : ""}`;
         break;
       }
@@ -229,6 +263,7 @@
       case "reveal": {
         const cls = p.correct === true ? "ok" : p.correct === false ? "nope" : "meh";
         html = `<div class="reveal ${cls}"><div class="stamp">${esc(p.title)}</div><div class="delta ${p.delta < 0 ? "neg" : ""}">${fmtDelta(p.delta)}</div>${p.streak >= 3 ? `<div class="streak">🔥 Streak ${p.streak}</div>` : ""}<div class="detail">${esc(p.detail || "")}</div></div>`;
+        if (p.delta > 0) rain(p.delta >= 500 ? 34 : 18);
         break;
       }
       case "buzzer":

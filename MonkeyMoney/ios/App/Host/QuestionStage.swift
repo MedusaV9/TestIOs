@@ -23,11 +23,17 @@ struct QuestionStage: View {
             Spacer(minLength: 0)
             podiums
         }
-        .padding(.horizontal, 26)
+        .padding(.horizontal, 8)
         .overlay(alignment: .top) {
-            if revealed, deltas.values.contains(where: { $0 >= 750 }) { ParticleRain(kind: .coins, count: 50, duration: 3) }
+            if revealed, deltas.values.contains(where: { $0 > 0 }) { ParticleRain(kind: .money, count: deltas.values.contains(where: { $0 >= 750 }) ? 90 : 36, duration: 3.5) }
+            if revealed, deltas.values.contains(where: { $0 >= 750 }) { ParticleRain(kind: .coins, count: 40, duration: 3) }
             if revealed, case .bomb(_, _, _, let exploded, _) = extra, exploded != nil { ParticleRain(kind: .mud, count: 40, duration: 2.5) }
         }
+    }
+
+    var correctCount: Int {
+        guard let w = wall, let ci = w.correctIndex else { return 0 }
+        return w.answersByPlayer.values.filter { $0 == ci }.count
     }
 
     // MARK: Wall
@@ -35,22 +41,43 @@ struct QuestionStage: View {
     @ViewBuilder
     func wallView(_ w: QuestionWall) -> some View {
         VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                Chip(text: "Frage \(w.nummer)\(w.gesamt > 0 ? " / \(w.gesamt)" : "")", gold: true)
-                Chip(text: "\(w.kategorieEmoji) \(w.kategorieName)")
-                Chip(text: w.schwierigkeit.label, icon: w.schwierigkeit == .ultrahard ? "flame.fill" : nil)
-                if !title.isEmpty { Chip(text: title) }
-                Spacer()
-                if kind == .jackpot { Chip(text: "💰 JACKPOT", gold: true) }
-                Text(Money.format(w.wert)).font(.outfit(26, .black)).foregroundStyle(MM.gold)
-                if !revealed, let dl = w.deadline {
-                    ZStack {
-                        Circle().stroke(Color.black.opacity(0.4), lineWidth: 6).frame(width: 58, height: 58)
-                        TimelineView(.animation(minimumInterval: 0.1)) { _ in
-                            let remain = max(0, Double(dl - ServerClock.now()))
-                            Circle().trim(from: 0, to: min(1, remain / Double(max(1, w.timerMs)))).stroke(remain < 5000 ? MM.red : MM.gold, style: StrokeStyle(lineWidth: 6, lineCap: .round)).rotationEffect(.degrees(-90)).frame(width: 58, height: 58)
+            ZStack {
+                HStack(spacing: 8) {
+                    Text("\(w.kategorieEmoji) \(w.kategorieName)").font(.poppins(14, .semibold)).foregroundStyle(MM.cream)
+                    Text("·").foregroundStyle(MM.cream.opacity(0.5))
+                    Text(w.schwierigkeit.label).font(.poppins(13, .medium)).foregroundStyle(MM.cream.opacity(0.8))
+                    if w.schwierigkeit == .ultrahard { Image(systemName: "flame.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(MM.orange) }
+                    if !title.isEmpty { Text("· \(title)").font(.poppins(13, .medium)).foregroundStyle(MM.cream.opacity(0.8)) }
+                }
+                .padding(.horizontal, 14).padding(.vertical, 6)
+                .background(Capsule().fill(Color.black.opacity(0.3)).overlay(Capsule().strokeBorder(Color.white.opacity(0.1))))
+                HStack {
+                    HStack(spacing: 6) {
+                        if kind == .jackpot { Text("💰").font(.system(size: 16)) } else { Coin(size: 18) }
+                        Text(kind == .jackpot ? "JACKPOT · \(Money.format(w.wert))" : Money.format(w.wert)).font(.outfit(18, .black)).foregroundStyle(MM.ink)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Capsule().fill(MM.gold).shadow(color: MM.goldDark, radius: 0, y: 3))
+                    Spacer()
+                    if !revealed, let dl = w.deadline {
+                        ZStack {
+                            Circle().fill(MM.bgDeep.opacity(0.85)).frame(width: 64, height: 64)
+                            Circle().stroke(Color.black.opacity(0.5), lineWidth: 6).frame(width: 58, height: 58)
+                            TimelineView(.animation(minimumInterval: 0.1)) { _ in
+                                let remain = max(0, Double(dl - ServerClock.now()))
+                                let frac = min(1, remain / Double(max(1, w.timerMs)))
+                                Circle().trim(from: 0, to: frac)
+                                    .stroke(remain < 5000 ? MM.red : MM.gold, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                                    .rotationEffect(.degrees(-90)).frame(width: 58, height: 58)
+                                    .shadow(color: (remain < 5000 ? MM.red : MM.gold).opacity(0.6), radius: 6)
+                                    .scaleEffect(remain < 5000 && Int(remain / 500) % 2 == 0 ? 1.06 : 1)
+                            }
+                            Image(systemName: "stopwatch.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(MM.cream.opacity(0.7)).offset(y: -20)
+                            CountdownText(deadline: dl, font: .outfit(22, .black)).offset(y: 3)
                         }
-                        CountdownText(deadline: dl, font: .outfit(22, .black))
+                        .transition(.scale.combined(with: .opacity))
+                    } else if !revealed {
+                        Chip(text: "kein Timer", icon: "timer")
                     }
                 }
             }
@@ -69,13 +96,13 @@ struct QuestionStage: View {
                 .frame(maxWidth: 1000)
             }
             if revealed, let e = w.erklaerung, !e.isEmpty {
-                HStack(alignment: .top, spacing: 12) {
-                    Text("🚀").font(.system(size: 26))
-                    Text(e).font(.poppins(17)).foregroundStyle(MM.cream).lineSpacing(3)
+                HStack(alignment: .center, spacing: 14) {
+                    Text(w.kategorieEmoji).font(.system(size: 26)).frame(width: 48, height: 48).background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.35)))
+                    Text(e).font(.poppins(17)).foregroundStyle(MM.cream).lineSpacing(3).frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(16).frame(maxWidth: 1000)
+                .padding(14).frame(maxWidth: 1000)
                 .background(RoundedRectangle(cornerRadius: 16).fill(MM.cream.opacity(0.08)).overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(MM.gold.opacity(0.35))))
-                .bouncy(delay: 0.3)
+                .bouncy(delay: 0.35)
             } else if let t = w.tipp {
                 Text("💡 \(t)").font(.poppins(16, .semibold)).foregroundStyle(MM.gold)
             }
@@ -98,7 +125,10 @@ struct QuestionStage: View {
         )
         .overlay(alignment: .topTrailing) {
             if revealed, let ci = w.correctIndex, let opts = w.options, opts.contains(where: { $0.id == ci }) {
-                StampView(text: "AUFGELÖST", color: MM.green).offset(x: -30, y: -10)
+                let n = correctCount
+                StampView(text: n == 0 ? "FALSCH!" : (n == players.count ? "ALLE RICHTIG!" : "RICHTIG!"), color: n == 0 ? MM.red : MM.green).offset(x: 24, y: -18)
+            } else if revealed, w.options == nil {
+                StampView(text: "AUFGELÖST", color: MM.gold).offset(x: 24, y: -18)
             }
         }
     }
@@ -407,28 +437,30 @@ struct OptionTile: View {
     var players: [PlayerRef]
 
     var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10).fill(MM.optionColors[index % MM.optionColors.count]).frame(width: 46, height: 46)
-                Text(["A", "B", "C", "D", "E", "F", "G", "H"][index % 8]).font(.outfit(24, .black)).foregroundStyle(MM.ink)
-            }
+        let tint = MM.optionColors[index % MM.optionColors.count]
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 3).fill(revealed && correct ? MM.green : tint).frame(width: 5).padding(.vertical, 2)
+            Text(["A", "B", "C", "D", "E", "F", "G", "H"][index % 8]).font(.outfit(24, .black)).foregroundStyle(revealed && correct ? MM.cream : tint).frame(width: 26)
             Text(MM.optionEmojis[index % MM.optionEmojis.count]).font(.system(size: 22))
-            Text(option.text).font(.outfit(24, .bold)).foregroundStyle(MM.cream).lineLimit(2).minimumScaleFactor(0.7)
+            Text(option.text).font(.outfit(24, .bold)).foregroundStyle(MM.cream).lineLimit(2).minimumScaleFactor(0.7).strikethrough(option.removed, color: MM.red)
             Spacer()
             if revealed {
                 HStack(spacing: -8) { ForEach(players) { p in MonkeyImage(avatar: Avatar(wire: p.avatar), face: correct ? "jubel" : "frust").frame(height: 38) } }
-                if correct { Image(systemName: "checkmark.circle.fill").font(.system(size: 28, weight: .black)).foregroundStyle(MM.green) }
+                if correct { Image(systemName: "checkmark.circle.fill").font(.system(size: 28, weight: .black)).foregroundStyle(MM.cream).background(Circle().fill(MM.green).padding(3)) }
+            } else if option.removed {
+                Image(systemName: "xmark").font(.system(size: 18, weight: .black)).foregroundStyle(MM.red.opacity(0.8))
             }
         }
-        .padding(.horizontal, 14).padding(.vertical, 12)
+        .padding(.leading, 10).padding(.trailing, 14).padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(revealed && correct ? MM.green.opacity(0.25) : Color.black.opacity(0.3))
-                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(revealed && correct ? MM.green : Color.white.opacity(0.12), lineWidth: revealed && correct ? 3 : 1))
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(revealed && correct ? MM.green.opacity(0.32) : Color(hex: "#123D2A").opacity(0.85))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(revealed && correct ? MM.green : Color.white.opacity(0.1), lineWidth: revealed && correct ? 3 : 1))
+                .shadow(color: revealed && correct ? MM.green.opacity(0.45) : .black.opacity(0.25), radius: revealed && correct ? 16 : 6, y: 4)
         )
-        .opacity(option.removed || (revealed && !correct) ? 0.45 : 1)
+        .opacity(option.removed || (revealed && !correct) ? 0.42 : 1)
         .scaleEffect(revealed && correct ? 1.03 : 1)
-        .animation(.spring(response: 0.4), value: revealed)
+        .animation(.spring(response: 0.45, dampingFraction: 0.7), value: revealed)
     }
 }
 

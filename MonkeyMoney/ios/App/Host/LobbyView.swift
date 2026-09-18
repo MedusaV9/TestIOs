@@ -48,6 +48,23 @@ struct LobbyView: View {
     }
 
     var body: some View {
+        GeometryReader { geo in
+            let wide = geo.size.width >= 1000
+            ZStack(alignment: .topLeading) {
+                LeafCluster(flip: false).frame(width: geo.size.width * 0.26, height: geo.size.height * 0.42).position(x: geo.size.width * 0.05, y: geo.size.height * 0.84).opacity(0.8).allowsHitTesting(false)
+                LeafCluster(flip: true).frame(width: geo.size.width * 0.26, height: geo.size.height * 0.42).position(x: geo.size.width * 0.95, y: geo.size.height * 0.84).opacity(0.8).allowsHitTesting(false)
+                if wide {
+                    SpotlightHead(pointsRight: true).position(x: geo.size.width * 0.12, y: 60).allowsHitTesting(false)
+                    SpotlightHead(pointsRight: false).position(x: geo.size.width * 0.88, y: 60).allowsHitTesting(false)
+                    HangingSign(lines: ["Good", "Questions", "Bigger", "Wins!"], tilt: -5).frame(width: 118).position(x: 84, y: geo.size.height * 0.32).allowsHitTesting(false)
+                    SloganCrate(lines: ["PLAY", "TOGETHER", "♡"]).frame(width: 104, height: 96).position(x: geo.size.width - 70, y: geo.size.height * 0.86).allowsHitTesting(false)
+                }
+                lobbyContent.padding(.leading, wide ? 132 : 0)
+            }
+        }
+    }
+
+    var lobbyContent: some View {
         VStack(spacing: 0) {
             HostTopBar()
             if let error = host.serverError {
@@ -71,11 +88,13 @@ struct LobbyView: View {
                                 }
                             }
                             .padding(12).background(RoundedRectangle(cornerRadius: 14).fill(Color.black.opacity(0.28)).overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(MM.gold.opacity(0.3))))
-                            Button { withAnimation { host.showGmCode.toggle() } } label: {
+                            Button { withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { host.showGmCode.toggle() } } label: {
                                 HStack(spacing: 6) {
-                                    Image(systemName: host.showGmCode ? "eye.slash" : "eye")
-                                    Text(host.showGmCode ? "Show-Master-Code ausblenden" : "Show-Master-Code einblenden").font(.poppins(13, .semibold))
-                                }.foregroundStyle(MM.cream.opacity(0.85))
+                                    Text("🎬").font(.system(size: 13))
+                                    Text("Show-Master-PIN:").font(.poppins(13, .semibold))
+                                    Text(host.showGmCode ? host.gmPin : "••••").font(.outfit(15, .black)).foregroundStyle(MM.gold)
+                                    Image(systemName: host.showGmCode ? "eye.slash" : "eye").font(.system(size: 12, weight: .bold)).padding(.leading, 4)
+                                }.foregroundStyle(MM.cream.opacity(0.9))
                             }.buttonStyle(.plain)
                         }
                     }
@@ -99,8 +118,11 @@ struct LobbyView: View {
                     Text(lobby?.startHint ?? "").font(.poppins(13)).foregroundStyle(MM.cream.opacity(0.8))
                     HStack(spacing: 10) {
                         ShareLink(item: URL(string: host.joinURL) ?? URL(string: "http://localhost")!) { Label("Raum teilen", systemImage: "square.and.arrow.up").font(.poppins(13, .semibold)) }
-                            .buttonStyle(.plain).foregroundStyle(MM.cream).padding(.horizontal, 12).padding(.vertical, 9).background(Capsule().fill(Color.black.opacity(0.3)))
+                            .buttonStyle(.plain).foregroundStyle(MM.cream).padding(.horizontal, 12).padding(.vertical, 9).background(Capsule().fill(Color.black.opacity(0.3)).overlay(Capsule().strokeBorder(Color.white.opacity(0.1))))
                         GoldButton(title: "QR vergrößern", icon: "arrow.up.left.and.arrow.down.right", style: .ghost, compact: true) { host.showQrLarge = true }
+                        GoldButton(title: "Link kopieren", icon: "link", style: .ghost, compact: true) { UIPasteboard.general.string = host.joinURL; host.toast = "Link kopiert" }
+                    }
+                    HStack(spacing: 10) {
                         GoldButton(title: "Bot hinzufügen", icon: "cpu", style: .ghost, compact: true) { host.addBot() }
                         GoldButton(title: "Einstellungen", icon: "slider.horizontal.3", style: .ghost, compact: true) { showSettings = true }
                     }

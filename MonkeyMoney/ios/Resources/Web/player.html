@@ -22,18 +22,28 @@
       <div class="chip" id="joinRoomChip">Raum</div>
     </div>
     <div class="hero">
+      <span class="spark s1">✦</span><span class="spark s2">✦</span>
       <h1>MIT<span>SPIELEN</span></h1>
       <p>CODE · NAME · LOS!</p>
     </div>
+    <ol class="steps" id="steps">
+      <li class="on" data-step="1"><b>1</b> Code</li><li class="line"></li>
+      <li data-step="2"><b>2</b> Affe &amp; Name</li><li class="line"></li>
+      <li data-step="3"><b>3</b> Los!</li>
+    </ol>
     <div class="card">
       <label class="f">Raum-Code</label>
+      <div class="code-card" id="codeCard">
+        <div class="code-big" id="codeBig">— — — —</div>
+        <button class="btn secondary small" id="editCode" type="button">✎ Code ändern</button>
+      </div>
       <input type="text" id="code" class="code-input" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="LZVQ">
       <label class="f">Dein Name</label>
-      <input type="text" id="name" maxlength="16" placeholder="Dein Name" autocomplete="nickname">
+      <div class="field-icon"><span>👤</span><input type="text" id="name" maxlength="16" placeholder="Dein Name" autocomplete="nickname"></div>
       <div class="monkey-stage">
-        <button class="arrow" id="prev">‹</button>
+        <button class="arrow" id="prev" aria-label="vorheriger Affe">‹</button>
         <div class="monkey-preview" id="preview"></div>
-        <button class="arrow" id="next">›</button>
+        <button class="arrow" id="next" aria-label="nächster Affe">›</button>
       </div>
       <div class="monkey-name" id="mname">Don Bananas</div>
       <div class="monkey-title" id="mtitle">„der Pate“</div>

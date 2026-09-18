@@ -80,7 +80,13 @@ struct JoinView: View {
                             Button { affeIdx = (affeIdx + 13) % 14; player.avatar.affe = Monkeys.all[affeIdx].id } label: { Image(systemName: "chevron.left").font(.system(size: 22, weight: .black)).frame(width: 50, height: 50).background(RoundedRectangle(cornerRadius: 14).fill(MM.panelDark)).foregroundStyle(MM.gold) }
                             Spacer()
                             VStack(spacing: 2) {
-                                MonkeyImage(avatar: player.avatar, face: "jubel").frame(height: 190)
+                                ZStack(alignment: .bottom) {
+                                    Ellipse().fill(Color.black.opacity(0.42)).frame(width: 150, height: 26).blur(radius: 6).offset(y: 8)
+                                    MonkeyImage(avatar: player.avatar, face: "jubel").frame(height: 190)
+                                        .id(player.avatar.affe + player.avatar.farbe)
+                                        .transition(.scale(scale: 0.85).combined(with: .opacity))
+                                }
+                                .animation(.spring(response: 0.35, dampingFraction: 0.7), value: player.avatar.affe + player.avatar.farbe)
                                 Text(Monkeys.monkey(player.avatar.affe).name).font(.outfit(20, .black)).foregroundStyle(MM.cream)
                                 Text("„\(Monkeys.monkey(player.avatar.affe).titel)“").font(.poppins(12)).foregroundStyle(MM.cream.opacity(0.75))
                             }

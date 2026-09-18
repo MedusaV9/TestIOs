@@ -9,15 +9,22 @@ struct StageRootView: View {
     var body: some View {
         ZStack {
             if let stage = host.stage {
+                if stage.phase != .lobby {
+                    StageDecor(jackpot: stage.jackpotAktiv ? stage.jackpotGlas : nil,
+                               showCrowd: [.frage, .aufloesung, .siegerehrung, .highlights].contains(stage.phase),
+                               showCrates: stage.phase != .rad && stage.phase != .brettspiel)
+                        .transition(.opacity)
+                }
                 VStack(spacing: 0) {
                     stageHeader(stage)
                     ZStack {
                         sceneView(stage)
                             .id(sceneKey(stage))
-                            .transition(.asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.97)), removal: .opacity))
+                            .transition(.asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.96)).combined(with: .offset(y: 14)), removal: .opacity))
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .animation(.easeInOut(duration: 0.35), value: sceneKey(stage))
+                    .padding(.horizontal, stage.phase == .lobby || stage.phase == .brettspiel ? 0 : 112)
+                    .animation(.spring(response: 0.45, dampingFraction: 0.85), value: sceneKey(stage))
                     stageFooter(stage)
                 }
                 momentsBanner(stage)
@@ -52,48 +59,59 @@ struct StageRootView: View {
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.black.opacity(0.35))
                         Capsule().fill(MM.gold).frame(width: max(8, geo.size.width * stage.progress))
+                            .animation(.easeInOut(duration: 0.6), value: stage.progress)
                     }
                 }.frame(height: 6).frame(maxWidth: 260)
-                Text(stage.sectionLabel).font(.poppins(14, .bold)).foregroundStyle(MM.cream)
+                Spacer()
+                HStack(spacing: 10) {
+                    if let q = questionCounter(stage) { Text(q).font(.poppins(14, .bold)).foregroundStyle(MM.cream) }
+                    Text(stage.sectionLabel).font(.poppins(14, .medium)).foregroundStyle(MM.cream.opacity(0.75))
+                }
                 if !stage.specialRules.isEmpty { Chip(text: stage.specialRules.joined(separator: " · "), icon: "sparkles") }
                 if stage.timerAus { Chip(text: "Timer aus", icon: "timer") } else if let z = stage.fragenZeit { Chip(text: "\(z) s pro Frage", icon: "timer") }
                 Spacer()
-                if stage.jackpotAktiv {
-                    HStack(spacing: 6) {
-                        Text("💰").font(.system(size: 18))
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text("JACKPOT").font(.poppins(9, .bold)).tracking(2).foregroundStyle(MM.red)
-                            Text(Money.format(stage.jackpotGlas)).font(.outfit(18, .black)).foregroundStyle(MM.gold)
-                        }
-                    }
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.35)).overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(MM.gold.opacity(0.4))))
-                }
                 if stage.affensteuerKiste > 0 { Chip(text: "📦 Kiste \(Money.format(stage.affensteuerKiste))") }
             }
             .padding(.horizontal, 26)
         }
     }
 
+    func questionCounter(_ stage: StageView) -> String? {
+        switch stage.scene {
+        case .frage(let wall?, _, _, _, _), .aufloesung(let wall?, _, _, _, _):
+            return wall.gesamt > 0 ? "Frage \(wall.nummer) / \(wall.gesamt)" : "Frage \(wall.nummer)"
+        default: return nil
+        }
+    }
+
     @ViewBuilder
     func stageFooter(_ stage: StageView) -> some View {
-        HStack(spacing: 12) {
-            GoldButton(title: "Einstellungen", icon: "gearshape.fill", style: .ghost, compact: true) { host.gmPanelOpen = true }
-            GoldButton(title: stage.paused ? "Weiter" : "Pause", icon: stage.paused ? "play.fill" : "pause.fill", style: .ghost, compact: true) {
-                host.command(stage.paused ? .resume : .pause(text: "🍌 Bananen-Pause", dauerMs: nil))
+        ZStack {
+            VStack(spacing: 4) {
+                Rectangle().fill(MM.cream.opacity(0.12)).frame(height: 1).frame(maxWidth: 560)
+                Text("SAME WIFI · REAL FUN · NO SERVER NEEDED").font(.poppins(10, .semibold)).tracking(3).foregroundStyle(MM.cream.opacity(0.45))
             }
-            Spacer()
-            Text("SAME WIFI · REAL FUN · NO SERVER NEEDED").font(.poppins(10, .semibold)).tracking(3).foregroundStyle(MM.cream.opacity(0.45))
-            Spacer()
-            if stage.phase == .ende || stage.phase == .siegerehrung {
-                GoldButton(title: "Zur Lobby", icon: "house.fill", style: .ghost, compact: true) { host.command(.revanche) }
-                GoldButton(title: "Spiele-Abend", icon: "dice.fill", style: .ghost, compact: true) { host.command(.settingsSet(["spielModus": .string("spieleabend")])); host.command(.revanche) }
-            } else {
-                GoldButton(title: "Beenden", icon: "xmark", style: .ghost, compact: true) { confirmEnd = true }
+            HStack(spacing: 12) {
+                if stage.phase == .ende || stage.phase == .siegerehrung {
+                    GoldButton(title: "Zur Lobby", icon: "house.fill", style: .ghost, compact: true) { host.command(.revanche) }
+                    GoldButton(title: "Spiele-Abend", icon: "dice.fill", style: .ghost, compact: true) { host.command(.settingsSet(["spielModus": .string("spieleabend")])); host.command(.revanche) }
+                } else {
+                    GoldButton(title: "Einstellungen", icon: "gearshape.fill", style: .ghost, compact: true) { host.gmPanelOpen = true }
+                    Button { host.command(stage.paused ? .resume : .pause(text: "🍌 Bananen-Pause", dauerMs: nil)) } label: {
+                        Image(systemName: stage.paused ? "play.fill" : "pause.fill").font(.system(size: 15, weight: .black)).foregroundStyle(MM.cream).frame(width: 42, height: 42).background(Circle().fill(Color.black.opacity(0.28)))
+                    }.buttonStyle(PressStyle())
+                    Button { confirmEnd = true } label: {
+                        Image(systemName: "xmark").font(.system(size: 15, weight: .black)).foregroundStyle(MM.cream.opacity(0.8)).frame(width: 42, height: 42).background(Circle().fill(Color.black.opacity(0.28)))
+                    }.buttonStyle(PressStyle())
+                }
+                Spacer()
+                if let label = stage.advanceLabel, stage.gmLos || !stage.gmOnline || stage.phase == .lobby {
+                    GoldButton(title: label, icon: "play.fill", compact: true) { host.command(.flowNext) }
+                        .id(label)
+                        .transition(.scale(scale: 0.9).combined(with: .opacity))
+                }
             }
-            if let label = stage.advanceLabel, stage.gmLos || !stage.gmOnline || stage.phase == .lobby {
-                GoldButton(title: label, icon: "play.fill", compact: true) { host.command(.flowNext) }
-            }
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: stage.advanceLabel)
         }
         .padding(.horizontal, 26).padding(.vertical, 12)
     }
@@ -290,12 +308,22 @@ struct WheelScene: View {
 
     var body: some View {
         HStack(spacing: 40) {
-            WheelSpinView(segments: wheel.face, resultIndex: wheel.resultIndex, spinStartedAt: wheel.spinStartedAt, spinDurationMs: wheel.spinDurationMs, landed: wheel.subphase != "dreht")
-                .frame(width: 520, height: 520)
-                .padding(.leading, 30)
-            VStack(alignment: .leading, spacing: 18) {
-                Text(wheel.subphase == "dreht" ? "DAS RAD DREHT …" : (wheel.resultIndex.map { wheel.face[$0].name.uppercased() } ?? "")).font(.outfit(46, .black)).foregroundStyle(MM.cream).id(wheel.subphase).bouncy()
-                Text("🍌").font(.system(size: 30)).rotationEffect(.degrees(-15))
+            VStack(spacing: -30) {
+                WheelSpinView(segments: wheel.face, resultIndex: wheel.resultIndex, spinStartedAt: wheel.spinStartedAt, spinDurationMs: wheel.spinDurationMs, landed: wheel.subphase != "dreht")
+                    .frame(width: 500, height: 500)
+                    .zIndex(1)
+                // stand
+                VStack(spacing: -6) {
+                    RoundedRectangle(cornerRadius: 6).fill(LinearGradient(colors: [MM.goldDark, Color(hex: "#9A7418")], startPoint: .top, endPoint: .bottom)).frame(width: 70, height: 60)
+                    Ellipse().fill(LinearGradient(colors: [Color(hex: "#2A8A4A"), MM.panelDark], startPoint: .top, endPoint: .bottom)).frame(width: 420, height: 70)
+                        .overlay(Ellipse().strokeBorder(MM.gold.opacity(0.35), lineWidth: 2))
+                        .overlay(HStack(spacing: 60) { ForEach(0..<5, id: \.self) { _ in Circle().fill(MM.gold).frame(width: 10, height: 10).shadow(color: MM.gold, radius: 6) } }.offset(y: 8))
+                }
+            }
+            .padding(.leading, 10)
+            VStack(alignment: .leading, spacing: 14) {
+                Text(wheel.subphase == "dreht" ? "DAS RAD DREHT …" : (wheel.resultIndex.map { wheel.face[$0].name.uppercased() } ?? "")).font(.outfit(46, .black)).foregroundStyle(MM.cream).shadow(color: .black.opacity(0.5), radius: 6, y: 4).id(wheel.subphase).bouncy()
+                Swoosh().frame(width: 260, height: 22)
                 if wheel.subphase == "dreht" {
                     Text("Wo bleibt es stehen?!").font(.poppins(22)).foregroundStyle(MM.cream.opacity(0.85))
                 } else if let e = wheel.erklaerung {
@@ -350,10 +378,16 @@ struct CeremonyScene: View {
     var body: some View {
         ZStack {
             ParticleRain(kind: .money, count: 90, duration: 6)
-            VStack(spacing: 14) {
+            VStack(spacing: 10) {
                 Text("👑").font(.system(size: 50)).bouncy()
-                Text("SIEGEREHRUNG").font(.outfit(58, .black)).foregroundStyle(MM.gold).shadow(color: .black.opacity(0.5), radius: 10, y: 6).bouncy(delay: 0.1)
+                HStack(spacing: 14) {
+                    Laurel(flip: false).frame(width: 60, height: 110)
+                    Text("SIEGEREHRUNG").font(.outfit(58, .black)).foregroundStyle(MM.gold).shadow(color: .black.opacity(0.5), radius: 10, y: 6)
+                    Laurel(flip: true).frame(width: 60, height: 110)
+                }
+                .bouncy(delay: 0.1)
                 Text("Starke Runde!").font(.custom("Poppins-SemiBold", size: 18)).italic().foregroundStyle(MM.cream)
+                Swoosh().frame(width: 120, height: 12).opacity(0.9)
                 HStack(alignment: .bottom, spacing: 26) {
                     ForEach(podiumOrder(), id: \.player.id) { e in
                         VStack(spacing: 8) {
