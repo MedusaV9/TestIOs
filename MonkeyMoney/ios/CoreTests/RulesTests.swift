@@ -130,8 +130,8 @@ final class RulesTests: XCTestCase {
     }
 
     func testMinigameRegistryHasAllTwentySevenFormats() {
-        XCTAssertEqual(MinigameRegistry.all.count, 27)
-        XCTAssertEqual(Set(MinigameRegistry.all.map { $0.meta.id }).count, 27)
+        XCTAssertEqual(MinigameRegistry.all.count, 28)
+        XCTAssertEqual(Set(MinigameRegistry.all.map { $0.meta.id }).count, 28)
         XCTAssertEqual(BoardgameRegistry.all.count, 6)
     }
 }

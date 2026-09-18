@@ -292,7 +292,7 @@ public struct Engine: Sendable {
             s.addMoment("halbzeit", "🍕 Halbzeit! Zwischenstand als Kurschart — weiter mit ▶", at: now)
             return
         }
-        if section.typ == .finale { prepareFinale(&s, now: now) }
+        if section.typ == .finale, section.minigameId != "kokosnuss-shake" { prepareFinale(&s, now: now) }
         if section.typ == .jackpot { s.addMoment("jackpot", "💰 DIE JACKPOT-FRAGE! \(Money.format(Economy.jackpotQuestionValue)) + Glas (\(Money.format(s.jackpotGlas)))", at: now) }
         if section.notariat { s.roundMods.notariat = true }
         let wantsVote = section.typ == .runde && section.kategorieWahl != .keine && s.settings.kategorienWahl != "aus"
@@ -529,7 +529,15 @@ public struct Engine: Sendable {
         case .jackpot:
             startNextSection(&s, now: now)
         case .finale:
-            enterHighlights(&s, now: now)
+            // Tie at the top after the finale ⇒ Kokosnuss-Shake tiebreaker (§2.11), once.
+            let r = s.ranking
+            if r.count >= 2, r[0].balance == r[1].balance, section.minigameId != "kokosnuss-shake" {
+                s.plan.append(Section(typ: .finale, slot: .finale, minigameId: "kokosnuss-shake", fragen: 1, schwierigkeiten: [], kategorieWahl: .keine, radDanach: false, rundenNummer: section.rundenNummer, kategorie: nil, notariat: false))
+                s.addMoment("shake", "🥥 GLEICHSTAND! Der Kokosnuss-Shake entscheidet", at: now)
+                startNextSection(&s, now: now)
+            } else {
+                enterHighlights(&s, now: now)
+            }
         }
     }
 

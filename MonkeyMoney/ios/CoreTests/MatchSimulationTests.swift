@@ -174,6 +174,41 @@ final class MatchSimulationTests: XCTestCase {
         XCTAssertEqual(s.plan.last?.minigameId, "alles-oder-banane")
     }
 
+    func testTieAfterFinaleTriggersKokosnussShake() {
+        let engine = Engine(catalog: TestContent.catalog)
+        var settings = MatchSettings(modus: .quick)
+        settings.tempo = .zackig
+        var s = EngineState(matchId: "tie", roomCode: "TIEE", seed: 3, settings: settings, now: 0, gmPin: "0000")
+        for i in 0..<2 { engine.reduce(&s, .join(playerId: "p\(i)", name: "P\(i)", avatar: Avatar(), profileId: nil, isBot: false), now: 0) }
+        engine.reduce(&s, .gm(.flowNext), now: 0)
+        var now: Millis = 0
+        var sawShake = false
+        var forcedTie = false
+        var ticks = 0
+        while s.phase != .ende && ticks < 60_000 {
+            ticks += 1
+            now += 250
+            engine.tick(&s, now: now)
+            // Force an exact tie when the finale's first question starts; nobody answers afterwards.
+            if !forcedTie, s.isFinale, s.phase == .frage {
+                forcedTie = true
+                for i in s.players.indices { s.players[i].balance = 1000 }
+            }
+            if s.minigame?.id == "kokosnuss-shake" {
+                sawShake = true
+                if let v = engine.playerView(s, player: "p0", now: now), case .tapFrenzy(_, _, _, let active) = v.prompt, active {
+                    engine.reduce(&s, .player("p0", .taps(9)), now: now)
+                }
+            }
+        }
+        XCTAssertEqual(s.phase, .ende)
+        XCTAssertTrue(forcedTie)
+        XCTAssertTrue(sawShake, "tie must trigger the Kokosnuss-Shake")
+        XCTAssertEqual(s.ranking.first?.id, "p0")
+        XCTAssertEqual(s.ranking[0].balance - s.ranking[1].balance, 50)
+        XCTAssertEqual(s.plan.filter { $0.minigameId == "kokosnuss-shake" }.count, 1, "the shake runs once")
+    }
+
     func testEngineStateSurvivesSaveLoadRoundTrip() throws {
         let engine = Engine(catalog: TestContent.catalog)
         var s = EngineState(matchId: "m", roomCode: "ABCD", seed: 5, settings: MatchSettings(modus: .klassik), now: 100, gmPin: "0000")
