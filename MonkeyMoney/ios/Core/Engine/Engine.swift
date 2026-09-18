@@ -67,7 +67,8 @@ public struct Engine: Sendable {
     enum Dur {
         static let intro = 12_000
         static let kategorie = 15_000
-        static let erklaer = 12_000
+        // Explain card: 3–5 rules read aloud; everyone tapping „Bereit“ shortcuts it.
+        static let erklaer = 14_000
         // Reveal = 2.4 s three-beat (zap, drum roll, silence) + time to read the result.
         static let aufloesung = 7500
         static let aufloesungErklaerung = 10_000
@@ -349,8 +350,8 @@ public struct Engine: Sendable {
         guard let section = s.currentSection else { return }
         prepareSectionQuestions(&s, section: section)
         var dur = Dur.erklaer
-        if section.typ == .jackpot || section.typ == .finale { dur = 8000 }
-        if s.settings.kurzeShow { dur = min(dur, 6000) }
+        if section.typ == .jackpot || section.typ == .finale { dur = 9000 }
+        if s.settings.kurzeShow { dur = min(dur, 10_000) }
         enter(&s, .erklaerkarte, duration: dur, now: now)
     }
 
