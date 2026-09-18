@@ -6,7 +6,7 @@ import Combine
 /// profiles (meta store) and save slots. Publishes the stage view.
 @MainActor
 final class HostModel: ObservableObject {
-    enum Screen: Equatable { case menu, modes, lobby, stage, profiles, shop, boards, settings, saves, howto }
+    enum Screen: Hashable { case menu, modes, lobby, stage, profiles, shop, boards, settings, saves, howto }
 
     @Published var screen: Screen = .menu
     @Published var stage: StageView?

@@ -5,18 +5,20 @@ import SwiftUI
 struct StageRootView: View {
     @EnvironmentObject var host: HostModel
     @State private var confirmEnd = false
+    @Namespace private var podiumNS
 
     var body: some View {
         GeometryReader { geo in
             stageBody(width: geo.size.width)
         }
+        .environment(\.podiumNamespace, podiumNS)
     }
 
-    /// Side padding that keeps the wall clear of the hanging boards (wide iPads
-    /// get the full dressing, narrower ones a slimmer one).
+    /// Side padding that keeps the wall clear of the hanging boards — the stage
+    /// canvas is always ~1180 pt wide, so the wings are a fixed 150 pt.
     func sidePadding(width: CGFloat, phase: Phase) -> CGFloat {
         if phase == .lobby || phase == .brettspiel { return 0 }
-        return width >= 1000 ? 150 : 118
+        return 150
     }
 
     @ViewBuilder
@@ -47,7 +49,10 @@ struct StageRootView: View {
                 ProgressView().tint(MM.gold)
             }
         }
-        .sheet(isPresented: $host.gmPanelOpen) { GmPanelView() }
+        .fullScreenCover(isPresented: $host.gmPanelOpen) {
+            // Full width for the three cockpit columns (a form sheet squeezed them into 540 pt).
+            ZStack { MM.bg.ignoresSafeArea(); StageCanvas { GmPanelView().environmentObject(host) } }
+        }
         .alert("Show wirklich beenden?", isPresented: $confirmEnd) {
             Button("Beenden", role: .destructive) { host.command(.ende) }
             Button("Abbrechen", role: .cancel) {}
@@ -206,7 +211,7 @@ struct IntroScene: View {
             Spacer()
             HStack(spacing: 24) {
                 ForEach(Array(players.enumerated()), id: \.element.id) { i, p in
-                    PodiumPlayer(player: p, face: "jubel", size: players.count > 5 ? 100 : 130, showBalance: false).bouncy(delay: 0.6 + Double(i) * 0.15)
+                    PodiumPlayer(player: p, face: "jubel", size: players.count > 5 ? 100 : 130, showBalance: false, morph: true).bouncy(delay: 0.6 + Double(i) * 0.15)
                 }
             }
             Text("Die Show beginnt …").font(.outfit(24, .bold)).foregroundStyle(MM.gold).padding(.bottom, 10)
@@ -333,23 +338,40 @@ struct StandingsScene: View {
     var total: Int
     var halbzeit: Bool
 
+    /// One line of "Stand-Story" — what the standings mean right now.
+    var story: String {
+        guard entries.count >= 2 else { return "" }
+        let gap = entries[0].player.balance - entries[1].player.balance
+        if gap == 0 { return "🤝 Kopf an Kopf an der Spitze!" }
+        if gap < 200 { return "🔥 Nur \(Money.format(gap)) trennen \(entries[0].player.name) und \(entries[1].player.name)" }
+        if let mover = entries.max(by: { $0.delta < $1.delta }), mover.delta > 0, mover.player.id != entries[0].player.id {
+            return "🚀 \(mover.player.name) macht mit \(Money.formatDelta(mover.delta)) Boden gut"
+        }
+        return "👑 \(entries[0].player.name) führt mit \(Money.format(gap)) Vorsprung"
+    }
+
     var body: some View {
-        VStack(spacing: 16) {
-            Text(halbzeit ? "🍕 HALBZEIT" : "ZWISCHENSTAND").font(.outfit(46, .black)).foregroundStyle(MM.cream).bouncy()
-            Text("nach Runde \(runde) von \(total)").font(.poppins(16, .semibold)).foregroundStyle(MM.gold)
-            HStack(alignment: .bottom, spacing: 18) {
+        let size: CGFloat = entries.count <= 4 ? 150 : (entries.count <= 6 ? 118 : 94)
+        VStack(spacing: 14) {
+            Text(halbzeit ? "🍕 HALBZEIT" : "ZWISCHENSTAND").font(.outfit(50, .black)).foregroundStyle(MM.cream).shadow(color: .black.opacity(0.5), radius: 8, y: 4).bouncy()
+            Text("nach Runde \(runde) von \(total)").font(.poppins(17, .semibold)).foregroundStyle(MM.gold)
+            Text(story).font(.poppins(20, .semibold)).foregroundStyle(MM.cream).bouncy(delay: 0.5)
+            Spacer(minLength: 0)
+            HStack(alignment: .bottom, spacing: entries.count > 5 ? 12 : 22) {
                 ForEach(Array(entries.enumerated()), id: \.element.player.id) { i, e in
                     VStack(spacing: 6) {
-                        if e.rueckenwind > 1 { Text("🌬️ ×\(String(format: "%.2g", e.rueckenwind))").font(.poppins(12, .bold)).foregroundStyle(MM.blue) }
-                        PodiumPlayer(player: e.player, face: e.delta >= 0 ? "jubel" : "frust", delta: e.delta, size: entries.count > 5 ? 100 : 130, highlight: i == 0)
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(i == 0 ? MM.gold : MM.panelDark)
-                            .frame(width: entries.count > 5 ? 100 : 130, height: CGFloat(20 + max(0, 140 - i * 25)))
-                            .overlay(Text("\(i + 1)").font(.outfit(30, .black)).foregroundStyle(i == 0 ? MM.ink : MM.cream))
+                        if e.rueckenwind > 1 { Chip(text: "🌬️ Rückenwind ×\(String(format: "%.2g", e.rueckenwind))") }
+                        PodiumPlayer(player: e.player, face: e.delta > 0 ? "jubel" : (e.delta < 0 ? "frust" : "neutral"), delta: e.delta, size: size, highlight: i == 0, morph: true)
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(i == 0 ? LinearGradient(colors: [MM.gold, MM.goldDark], startPoint: .top, endPoint: .bottom) : LinearGradient(colors: [MM.panelDark, MM.bgDeep], startPoint: .top, endPoint: .bottom))
+                            .frame(width: size, height: CGFloat(28 + max(0, 130 - i * 26)))
+                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(i == 0 ? MM.goldDark : Color.white.opacity(0.1), lineWidth: 2))
+                            .overlay(Text("\(i + 1)").font(.outfit(34, .black)).foregroundStyle(i == 0 ? MM.ink : MM.cream))
                     }
-                    .bouncy(delay: Double(i) * 0.12)
+                    .bouncy(delay: 0.15 + Double(entries.count - 1 - i) * 0.12)
                 }
             }
+            .padding(.bottom, 6)
         }
     }
 }
@@ -360,44 +382,60 @@ struct WheelScene: View {
     var wheel: WheelView
     var players: [PlayerRef]
 
+    var landed: Bool { wheel.subphase != "dreht" }
+
     var body: some View {
-        HStack(spacing: 40) {
-            VStack(spacing: -30) {
-                WheelSpinView(segments: wheel.face, resultIndex: wheel.resultIndex, spinStartedAt: wheel.spinStartedAt, spinDurationMs: wheel.spinDurationMs, landed: wheel.subphase != "dreht")
-                    .frame(width: 500, height: 500)
+        HStack(spacing: 30) {
+            VStack(spacing: -26) {
+                LightChaseWheel(segments: wheel.face, resultIndex: wheel.resultIndex, spinStartedAt: wheel.spinStartedAt, spinDurationMs: wheel.spinDurationMs, landed: landed)
+                    .frame(width: 470, height: 470)
                     .zIndex(1)
                 // stand
                 VStack(spacing: -6) {
-                    RoundedRectangle(cornerRadius: 6).fill(LinearGradient(colors: [MM.goldDark, Color(hex: "#9A7418")], startPoint: .top, endPoint: .bottom)).frame(width: 70, height: 60)
-                    Ellipse().fill(LinearGradient(colors: [Color(hex: "#2A8A4A"), MM.panelDark], startPoint: .top, endPoint: .bottom)).frame(width: 420, height: 70)
+                    RoundedRectangle(cornerRadius: 6).fill(LinearGradient(colors: [MM.goldDark, Color(hex: "#9A7418")], startPoint: .top, endPoint: .bottom)).frame(width: 70, height: 56)
+                    Ellipse().fill(LinearGradient(colors: [Color(hex: "#2A8A4A"), MM.panelDark], startPoint: .top, endPoint: .bottom)).frame(width: 400, height: 66)
                         .overlay(Ellipse().strokeBorder(MM.gold.opacity(0.35), lineWidth: 2))
-                        .overlay(HStack(spacing: 60) { ForEach(0..<5, id: \.self) { _ in Circle().fill(MM.gold).frame(width: 10, height: 10).shadow(color: MM.gold, radius: 6) } }.offset(y: 8))
+                        .overlay(HStack(spacing: 56) { ForEach(0..<5, id: \.self) { _ in Circle().fill(MM.gold).frame(width: 10, height: 10).shadow(color: MM.gold, radius: 6) } }.offset(y: 8))
                 }
             }
-            .padding(.leading, 10)
+            .padding(.leading, 6)
             VStack(alignment: .leading, spacing: 14) {
-                Text(wheel.subphase == "dreht" ? "DAS RAD DREHT …" : (wheel.resultIndex.map { wheel.face[$0].name.uppercased() } ?? "")).font(.outfit(46, .black)).foregroundStyle(MM.cream).shadow(color: .black.opacity(0.5), radius: 6, y: 4).id(wheel.subphase).bouncy()
+                Text(landed ? (wheel.resultIndex.flatMap { wheel.face.indices.contains($0) ? wheel.face[$0].name.uppercased() : nil } ?? "") : "DAS RAD DREHT …")
+                    .font(.outfit(46, .black)).foregroundStyle(MM.cream).shadow(color: .black.opacity(0.5), radius: 6, y: 4)
+                    .lineLimit(2).minimumScaleFactor(0.7).id(wheel.subphase).bouncy()
                 Swoosh().frame(width: 260, height: 22)
-                if wheel.subphase == "dreht" {
-                    Text("Wo bleibt es stehen?!").font(.poppins(22)).foregroundStyle(MM.cream.opacity(0.85))
+                if !landed {
+                    Text("Das Licht läuft — wo bleibt es stehen?!").font(.poppins(22)).foregroundStyle(MM.cream.opacity(0.85))
+                    HStack(spacing: 10) {
+                        legend(MM.green, "Grün: Glück")
+                        legend(MM.blue, "Blau: Wendung")
+                        legend(MM.gold, "Gold: Jackpot-Feld")
+                    }
                 } else if let e = wheel.erklaerung {
-                    Text(e).font(.poppins(20)).foregroundStyle(MM.cream).frame(maxWidth: 520).padding(18)
+                    Text(e).font(.poppins(21, .semibold)).foregroundStyle(MM.cream).lineSpacing(3).frame(maxWidth: 520, alignment: .leading).padding(18)
                         .background(RoundedRectangle(cornerRadius: 18).fill(Color.black.opacity(0.3)).overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(MM.gold.opacity(0.4))))
                         .bouncy()
                     if !wheel.betroffene.isEmpty {
-                        HStack { ForEach(players.filter { wheel.betroffene.contains($0.id) }) { p in PodiumPlayer(player: p, face: "denk", size: 90, showBalance: false) } }
+                        HStack { ForEach(players.filter { wheel.betroffene.contains($0.id) }) { p in PodiumPlayer(player: p, face: "denk", size: 96, showBalance: false) } }
                     }
                     if wheel.subphase == "interaktion" {
                         HStack { Text("📱 Auf die Handys schauen!").font(.poppins(18, .bold)).foregroundStyle(MM.gold); CountdownText(deadline: wheel.interactionEndsAt) }
                     }
                 }
                 Spacer()
-                HStack(spacing: 14) { ForEach(players.prefix(6)) { p in PodiumPlayer(player: p, size: 90) } }
+                HStack(alignment: .bottom, spacing: 14) { ForEach(players.prefix(6)) { p in PodiumPlayer(player: p, size: players.count > 4 ? 84 : 104, morph: true) } }
             }
-            .padding(.vertical, 20)
+            .padding(.vertical, 16)
         }
         .overlay(alignment: .top) {
-            if wheel.subphase != "dreht", let i = wheel.resultIndex, wheel.face[i].klasse == .gold { ParticleRain(kind: .confetti, count: 70, duration: 4) }
+            if landed, let i = wheel.resultIndex, wheel.face.indices.contains(i), wheel.face[i].klasse == .gold { ParticleRain(kind: .confetti, count: 70, duration: 4) }
+        }
+    }
+
+    func legend(_ color: Color, _ text: String) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(color).frame(width: 12, height: 12)
+            Text(text).font(.poppins(13, .semibold)).foregroundStyle(MM.cream.opacity(0.85))
         }
     }
 }
@@ -408,19 +446,22 @@ struct HighlightsScene: View {
     var entries: [HighlightEntry]
     var players: [PlayerRef]
     var body: some View {
-        VStack(spacing: 18) {
-            Text("🎞️ HIGHLIGHTS DES ABENDS").font(.outfit(44, .black)).foregroundStyle(MM.cream).bouncy()
+        VStack(spacing: 16) {
+            Text("🎞️ HIGHLIGHTS DES ABENDS").font(.outfit(48, .black)).foregroundStyle(MM.cream).shadow(color: .black.opacity(0.5), radius: 8, y: 4).bouncy()
+            Swoosh().frame(width: 200, height: 16)
             ForEach(Array(entries.enumerated()), id: \.offset) { i, h in
-                HStack(spacing: 16) {
-                    Text(h.emoji).font(.system(size: 40))
-                    Text(h.text).font(.poppins(22, .semibold)).foregroundStyle(MM.cream)
+                HStack(spacing: 18) {
+                    Text(h.emoji).font(.system(size: 44)).frame(width: 70, height: 70).background(Circle().fill(MM.gold.opacity(0.15)))
+                    Text(h.text).font(.poppins(23, .semibold)).foregroundStyle(MM.cream).lineSpacing(3)
                     Spacer()
-                    if let pid = h.playerId, let p = players.first(where: { $0.id == pid }) { MonkeyImage(avatar: Avatar(wire: p.avatar), face: "jubel").frame(height: 70) }
+                    if let pid = h.playerId, let p = players.first(where: { $0.id == pid }) { MonkeyImage(avatar: Avatar(wire: p.avatar), face: "jubel").frame(height: 84) }
                 }
-                .padding(.horizontal, 24).padding(.vertical, 12).frame(maxWidth: 900)
-                .background(RoundedRectangle(cornerRadius: 18).fill(Color.black.opacity(0.3)))
-                .bouncy(delay: Double(i) * 0.4)
+                .padding(.horizontal, 24).padding(.vertical, 12).frame(maxWidth: 860)
+                .background(RoundedRectangle(cornerRadius: 20).fill(LinearGradient(colors: [MM.panelDark.opacity(0.95), MM.bgDeep.opacity(0.95)], startPoint: .top, endPoint: .bottom))
+                    .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(MM.gold.opacity(0.3))).shadow(color: .black.opacity(0.4), radius: 14, y: 10))
+                .bouncy(delay: 0.3 + Double(i) * 0.45)
             }
+            Spacer(minLength: 0)
         }
     }
 }
@@ -445,7 +486,7 @@ struct CeremonyScene: View {
                 HStack(alignment: .bottom, spacing: 26) {
                     ForEach(podiumOrder(), id: \.player.id) { e in
                         VStack(spacing: 8) {
-                            PodiumPlayer(player: e.player, face: e.platz == 1 ? "jubel" : (e.platz == podium.count ? "frust" : "neutral"), size: e.platz == 1 ? 170 : 130, showBalance: false)
+                            PodiumPlayer(player: e.player, face: e.platz == 1 ? "jubel" : (e.platz == podium.count ? "frust" : "neutral"), size: e.platz == 1 ? 170 : 130, showBalance: false, morph: true)
                             VStack(spacing: 2) {
                                 Text("\(e.platz)").font(.outfit(44, .black)).foregroundStyle(e.platz == 1 ? MM.ink : MM.cream)
                                 Text(Money.format(e.mm)).font(.outfit(20, .bold)).foregroundStyle(e.platz == 1 ? MM.ink : MM.gold)

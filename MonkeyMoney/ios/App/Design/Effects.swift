@@ -102,8 +102,11 @@ struct StampView: View {
     }
 }
 
-/// The Glücksrad — segments drawn with Canvas, rotation animated to the result.
-struct WheelSpinView: View {
+/// The Glücksrad as a fairground light board: the ten fields sit on a ring, a
+/// running light races around them and slows to a crawl (`Wheel.chaseStep`,
+/// the same deterministic model that drives the tick sounds) until it settles
+/// on the result, which then pulses while the others dim.
+struct LightChaseWheel: View {
     var segments: [WheelSegment]
     var resultIndex: Int?
     var spinStartedAt: Millis?
@@ -111,72 +114,103 @@ struct WheelSpinView: View {
     var landed: Bool
 
     var body: some View {
-        TimelineView(.animation) { _ in
+        TimelineView(.animation) { timeline in
             GeometryReader { geo in
                 let size = min(geo.size.width, geo.size.height)
-                let angle = currentAngle()
+                let n = max(1, segments.count)
+                let state = chase()
+                let lit = state.lit
+                let done = state.done
+                let t = timeline.date.timeIntervalSince1970
+                let ring = size * 0.36
+                let tileW = size * 0.24, tileH = size * 0.19
                 ZStack {
-                    Circle().fill(MM.goldDark).frame(width: size, height: size).shadow(color: .black.opacity(0.5), radius: 20, y: 12)
-                    Canvas { ctx, sz in
-                        let n = max(1, segments.count)
-                        let r = sz.width / 2 - 8
-                        let center = CGPoint(x: sz.width / 2, y: sz.height / 2)
-                        for (i, seg) in segments.enumerated() {
-                            let a0 = Angle.degrees(Double(i) / Double(n) * 360 - 90 + angle)
-                            let a1 = Angle.degrees(Double(i + 1) / Double(n) * 360 - 90 + angle)
-                            var p = Path()
-                            p.move(to: center)
-                            p.addArc(center: center, radius: r, startAngle: a0, endAngle: a1, clockwise: false)
-                            p.closeSubpath()
-                            ctx.fill(p, with: .color(segmentColor(seg, i)))
-                            ctx.stroke(p, with: .color(MM.goldDark), lineWidth: 3)
-                            let mid = (a0.radians + a1.radians) / 2
-                            let tx = center.x + cos(mid) * r * 0.62
-                            let ty = center.y + sin(mid) * r * 0.62
-                            var text = ctx
-                            text.translateBy(x: tx, y: ty)
-                            text.rotate(by: .radians(mid + .pi / 2))
-                            text.draw(Text(seg.emoji).font(.system(size: r * 0.14)), at: CGPoint(x: 0, y: -r * 0.12))
-                            text.draw(Text(seg.name).font(.outfit(r * 0.07, .bold)).foregroundColor(.white), at: CGPoint(x: 0, y: r * 0.06))
-                        }
-                        // Hub
-                        ctx.fill(Path(ellipseIn: CGRect(x: center.x - r * 0.14, y: center.y - r * 0.14, width: r * 0.28, height: r * 0.28)), with: .color(MM.gold))
-                        ctx.draw(Text("🍌").font(.system(size: r * 0.16)), at: center)
-                        // Bulbs
-                        for i in 0..<16 {
-                            let a = Double(i) / 16 * 2 * .pi
-                            let bx = center.x + cos(a) * (r + 4), by = center.y + sin(a) * (r + 4)
-                            ctx.fill(Path(ellipseIn: CGRect(x: bx - 4, y: by - 4, width: 8, height: 8)), with: .color(i % 2 == 0 ? MM.cream : MM.gold))
+                    // Board plate + bulbs
+                    Circle().fill(LinearGradient(colors: [Color(hex: "#2A8A4A"), MM.panelDark], startPoint: .top, endPoint: .bottom))
+                        .frame(width: size * 0.98, height: size * 0.98)
+                        .overlay(Circle().strokeBorder(MM.goldDark, lineWidth: 8))
+                        .shadow(color: .black.opacity(0.5), radius: 20, y: 12)
+                    ForEach(0..<24, id: \.self) { i in
+                        let a = Double(i) / 24 * 2 * .pi
+                        let on = done ? (Int(t * 6) + i) % 2 == 0 : (i % 3 == state.step % 3)
+                        Circle().fill(on ? MM.cream : MM.gold.opacity(0.35)).frame(width: 9, height: 9)
+                            .shadow(color: on ? MM.gold : .clear, radius: 6)
+                            .offset(x: cos(a) * size * 0.47, y: sin(a) * size * 0.47)
+                    }
+                    // Fields on the ring
+                    ForEach(Array(segments.enumerated()), id: \.offset) { i, seg in
+                        let a = Double(i) / Double(n) * 2 * .pi - .pi / 2
+                        let isLit = i == lit
+                        let isPrev = !done && i == (lit + n - 1) % n
+                        WheelTile(segment: seg, lit: isLit, trail: isPrev, dimmed: done && !isLit, won: done && isLit)
+                            .frame(width: tileW, height: tileH)
+                            .scaleEffect(isLit ? (done ? 1.14 + 0.03 * sin(t * 5) : 1.1) : 1)
+                            .offset(x: cos(a) * ring, y: sin(a) * ring)
+                    }
+                    // Hub
+                    ZStack {
+                        Circle().fill(LinearGradient(colors: [MM.gold, MM.goldDark], startPoint: .top, endPoint: .bottom)).frame(width: size * 0.3, height: size * 0.3)
+                            .overlay(Circle().strokeBorder(Color(hex: "#9A7418"), lineWidth: 4))
+                            .shadow(color: .black.opacity(0.4), radius: 10, y: 6)
+                        if done, let r = resultIndex, segments.indices.contains(r) {
+                            VStack(spacing: 0) {
+                                Text(segments[r].emoji).font(.system(size: size * 0.09))
+                                Text(segments[r].name.uppercased()).font(.outfit(size * 0.032, .black)).foregroundStyle(MM.ink).multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.6)
+                            }.frame(width: size * 0.26)
+                        } else {
+                            Text("🍌").font(.system(size: size * 0.12)).rotationEffect(.degrees(sin(t * 8) * 8))
                         }
                     }
-                    .frame(width: size, height: size)
-                    // Pointer
-                    Triangle().fill(Color(hex: "#FF4FA3")).frame(width: 34, height: 40).overlay(Triangle().stroke(MM.ink, lineWidth: 3)).offset(y: -size / 2 + 6)
                 }
                 .frame(width: geo.size.width, height: geo.size.height)
             }
         }
     }
 
-    func segmentColor(_ s: WheelSegment, _ i: Int) -> Color {
-        switch s.klasse {
-        case .gruen: return i % 2 == 0 ? MM.green : Color(hex: "#3AA655")
-        case .blau: return i % 2 == 0 ? MM.blue : Color(hex: "#6A8DFF")
-        case .gold: return i % 2 == 0 ? MM.gold : MM.orange
+    /// Running-light state from the server clock (deterministic, never snaps).
+    func chase() -> (lit: Int, step: Int, done: Bool) {
+        let n = max(1, segments.count)
+        let result = resultIndex ?? 0
+        let total = Wheel.chaseSteps(segments: n, resultIndex: result)
+        guard let start = spinStartedAt, spinDurationMs > 0 else { return (result, total, true) }
+        let step = Wheel.chaseStep(elapsedMs: ServerClock.now() - start, durationMs: spinDurationMs, segments: n, resultIndex: result)
+        let done = landed || step >= total
+        return (done ? result : Wheel.chaseIndex(step: step, segments: n), step, done)
+    }
+}
+
+/// One field of the light board.
+struct WheelTile: View {
+    var segment: WheelSegment
+    var lit: Bool
+    var trail: Bool
+    var dimmed: Bool
+    var won: Bool
+
+    var tint: Color {
+        switch segment.klasse {
+        case .gruen: return MM.green
+        case .blau: return MM.blue
+        case .gold: return MM.gold
         }
     }
 
-    /// Ease-out spin: 4 full turns + land with the result under the pointer (top).
-    func currentAngle() -> Double {
-        let n = max(1, segments.count)
-        let segAngle = 360.0 / Double(n)
-        let target = resultIndex.map { -(Double($0) * segAngle + segAngle / 2) } ?? 0
-        guard let start = spinStartedAt, spinDurationMs > 0 else { return landed ? target : 0 }
-        let elapsed = Double(ServerClock.now() - start) / Double(spinDurationMs)
-        if elapsed >= 1 { return target }
-        let e = max(0, min(1, elapsed))
-        let eased = 1 - pow(1 - e, 3)
-        return (target - 360 * 4) + (360 * 4) * eased
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(segment.emoji).font(.system(size: 26))
+            Text(segment.name).font(.outfit(13, .black)).foregroundStyle(segment.klasse == .gold || lit ? MM.ink : .white)
+                .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.65)
+        }
+        .padding(.horizontal, 6).padding(.vertical, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(lit ? Color(hex: "#FFF3B0") : (trail ? tint.opacity(0.95) : tint.opacity(dimmed ? 0.35 : 0.8)))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(lit ? .white : MM.goldDark.opacity(0.8), lineWidth: lit ? 4 : 2))
+                .shadow(color: lit ? MM.gold.opacity(0.95) : .black.opacity(0.35), radius: lit ? 22 : 6, y: 4)
+        )
+        .opacity(dimmed ? 0.55 : 1)
+        .overlay(alignment: .topTrailing) { if won { Text("✨").font(.system(size: 20)).offset(x: 8, y: -10) } }
     }
 }
 

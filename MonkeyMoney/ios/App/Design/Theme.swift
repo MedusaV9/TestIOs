@@ -279,8 +279,15 @@ struct PodiumPlayer: View {
     var size: CGFloat = 120
     var showBalance = true
     var highlight = false
+    /// Take part in the cross-scene morph (main player row only).
+    var morph = false
+    @Environment(\.podiumNamespace) private var podiumNS
 
     var body: some View {
+        podium.podiumMorph(player.id, in: morph ? podiumNS : nil)
+    }
+
+    private var podium: some View {
         VStack(spacing: -6) {
             MonkeyImage(avatar: Avatar(wire: player.avatar), face: face)
                 .frame(height: size)
@@ -388,7 +395,7 @@ enum Haptics {
     }
 }
 
-// MARK: - Settings controls (shared by host, phone GM and App Clip)
+// MARK: - Settings controls (shared by host and phone GM)
 
 struct SettingPicker: View {
     var title: String

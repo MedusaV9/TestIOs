@@ -13,31 +13,32 @@ struct StageDecor: View {
 
     var body: some View {
         GeometryReader { geo in
+            // Laid out on the 1180-pt stage canvas: everything lives in the wings
+            // (outer 150 pt) so the wall and the podium row own the centre.
             let w = geo.size.width, h = geo.size.height
-            let wide = w >= 1000
-            let signW: CGFloat = wide ? 132 : 104
+            let signW: CGFloat = 124
             ZStack {
                 Group {
-                    LeafCluster(flip: false).frame(width: w * 0.28, height: h * 0.5).position(x: w * 0.06, y: h * 0.78).opacity(0.9)
-                    LeafCluster(flip: true).frame(width: w * 0.28, height: h * 0.5).position(x: w * 0.94, y: h * 0.78).opacity(0.9)
-                    LeafCluster(flip: true).frame(width: w * 0.2, height: h * 0.32).position(x: w * 0.02, y: h * 0.08).opacity(0.7)
-                    LeafCluster(flip: false).frame(width: w * 0.2, height: h * 0.32).position(x: w * 0.98, y: h * 0.08).opacity(0.7)
+                    LeafCluster(flip: false).frame(width: w * 0.17, height: h * 0.3).position(x: w * 0.055, y: h * 0.84).opacity(0.92)
+                    LeafCluster(flip: true).frame(width: w * 0.17, height: h * 0.3).position(x: w * 0.945, y: h * 0.84).opacity(0.92)
+                    LeafCluster(flip: true).frame(width: w * 0.11, height: h * 0.2).position(x: w * 0.015, y: h * 0.05).opacity(0.6)
+                    LeafCluster(flip: false).frame(width: w * 0.11, height: h * 0.2).position(x: w * 0.985, y: h * 0.05).opacity(0.6)
                 }
                 Group {
-                    SpotlightHead(pointsRight: true).position(x: w * 0.09, y: 26)
-                    SpotlightHead(pointsRight: false).position(x: w * 0.91, y: 26)
-                    HangingSign(lines: leftSign, tilt: -4).frame(width: signW).position(x: signW * 0.5 + 6, y: h * 0.34)
-                    HangingSign(lines: rightSign, tilt: 3).frame(width: signW).position(x: w - signW * 0.5 - 6, y: h * 0.34)
+                    SpotlightHead(pointsRight: true).position(x: w * 0.1, y: 22)
+                    SpotlightHead(pointsRight: false).position(x: w * 0.9, y: 22)
+                    HangingSign(lines: leftSign, tilt: -4).frame(width: signW).position(x: signW * 0.5 + 10, y: h * 0.3)
+                    HangingSign(lines: rightSign, tilt: 3).frame(width: signW).position(x: w - signW * 0.5 - 10, y: h * 0.3)
                 }
-                if showCrates && wide {
-                    SloganCrate(lines: ["QUIZ", "PLAY", "WIN", "TOGETHER"]).frame(width: 118, height: 118).position(x: 84, y: h * 0.76)
-                    SloganCrate(lines: ["TEAMWORK", "MAKES", "MONKEY", "MONEY"]).frame(width: 128, height: 118).position(x: w - 84, y: h * 0.78)
-                    TVProp().frame(width: 92, height: 82).position(x: 70, y: h * 0.58)
+                if showCrates {
+                    SloganCrate(lines: ["QUIZ", "PLAY", "WIN", "TOGETHER"]).frame(width: 112, height: 108).position(x: 82, y: h * 0.8)
+                    SloganCrate(lines: ["TEAMWORK", "MAKES", "MONKEY", "MONEY"]).frame(width: 118, height: 108).position(x: w - 84, y: h * 0.81)
+                    TVProp().frame(width: 88, height: 80).position(x: 66, y: h * 0.6)
                 }
                 if let j = jackpot {
-                    JackpotJar(amount: j).frame(width: 96, height: 150).position(x: w - (wide ? 190 : 62), y: h * (wide ? 0.72 : 0.6))
+                    JackpotJar(amount: j).frame(width: 96, height: 150).position(x: w - 196, y: h * 0.76)
                 }
-                if showCrowd { CrowdSilhouette().frame(height: h * 0.22).position(x: w / 2, y: h - h * 0.09) }
+                if showCrowd { CrowdSilhouette().frame(height: h * 0.17).position(x: w / 2, y: h - h * 0.075) }
             }
         }
         .allowsHitTesting(false)
@@ -179,17 +180,21 @@ struct SpotlightHead: View {
     }
 }
 
-/// Soft organic leaf cluster (monstera / palm silhouettes) for the wings.
+/// Soft organic leaf cluster (monstera / palm silhouettes) for the wings —
+/// each leaf sways gently in its own rhythm, like a breeze through the studio.
 struct LeafCluster: View {
     var flip: Bool
     var body: some View {
-        Canvas { ctx, size in
+        TimelineView(.animation(minimumInterval: 1.0 / 24)) { timeline in
+            let time = timeline.date.timeIntervalSince1970
+            Canvas { ctx, size in
             let w = size.width, h = size.height
             let base = CGPoint(x: flip ? w * 0.95 : w * 0.05, y: h * 0.98)
             let greens = [Color(hex: "#1F6B3A"), Color(hex: "#17452C"), Color(hex: "#2A8A4A"), Color(hex: "#123D2A")]
             for i in 0..<9 {
                 let t = Double(i) / 8
-                let ang = (flip ? .pi : 0) + (flip ? 1 : -1) * (0.25 + t * 1.3)
+                let sway = sin(time * (0.5 + t * 0.35) + Double(i) * 1.7) * 0.025
+                let ang = (flip ? .pi : 0) + (flip ? 1 : -1) * (0.25 + t * 1.3) + sway
                 let len = h * (0.45 + 0.45 * sin(t * .pi))
                 let tip = CGPoint(x: base.x + cos(ang) * len, y: base.y + sin(ang) * len)
                 let midA = CGPoint(x: base.x + cos(ang - 0.35) * len * 0.55, y: base.y + sin(ang - 0.35) * len * 0.55)
@@ -205,6 +210,7 @@ struct LeafCluster: View {
                 vein.move(to: base)
                 vein.addLine(to: tip)
                 ctx.stroke(vein, with: .color(Color.black.opacity(0.18)), lineWidth: 1.5)
+            }
             }
         }
     }

@@ -51,8 +51,8 @@ struct LobbyView: View {
         GeometryReader { geo in
             let wide = geo.size.width >= 1000
             ZStack(alignment: .topLeading) {
-                LeafCluster(flip: false).frame(width: geo.size.width * 0.26, height: geo.size.height * 0.42).position(x: geo.size.width * 0.05, y: geo.size.height * 0.84).opacity(0.8).allowsHitTesting(false)
-                LeafCluster(flip: true).frame(width: geo.size.width * 0.26, height: geo.size.height * 0.42).position(x: geo.size.width * 0.95, y: geo.size.height * 0.84).opacity(0.8).allowsHitTesting(false)
+                LeafCluster(flip: false).frame(width: geo.size.width * 0.17, height: geo.size.height * 0.3).position(x: geo.size.width * 0.05, y: geo.size.height * 0.86).opacity(0.85).allowsHitTesting(false)
+                LeafCluster(flip: true).frame(width: geo.size.width * 0.17, height: geo.size.height * 0.3).position(x: geo.size.width * 0.95, y: geo.size.height * 0.86).opacity(0.85).allowsHitTesting(false)
                 if wide {
                     SpotlightHead(pointsRight: true).position(x: geo.size.width * 0.12, y: 60).allowsHitTesting(false)
                     SpotlightHead(pointsRight: false).position(x: geo.size.width * 0.88, y: 60).allowsHitTesting(false)

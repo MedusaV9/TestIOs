@@ -11,15 +11,19 @@ struct QuestionStage: View {
     var revealed: Bool
     var deltas: [PlayerId: Int]
 
+    /// Wall width on the 1180-pt stage canvas (wings are 150 pt each side).
+    static let wallWidth: CGFloat = 860
+
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
+            Spacer(minLength: 0).frame(maxHeight: 26)
             if let w = wall, !w.blackout {
                 wallView(w)
             } else if let w = wall, w.blackout {
                 blackout(w)
             }
             extraView
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: Self.wallWidth)
             Spacer(minLength: 0)
             podiums
         }
@@ -82,41 +86,44 @@ struct QuestionStage: View {
                 }
             }
             if let img = w.image, w.pixelLevel != nil || minigameId == "pixel-dschungel" {
-                PixelImage(name: img, level: w.pixelLevel ?? 8, maxLevel: 8).frame(height: 260)
+                PixelImage(name: img, level: w.pixelLevel ?? 8, maxLevel: 8).frame(height: 230)
             }
-            Text(w.text).font(.outfit(w.text.count > 90 ? 30 : 38, .black)).foregroundStyle(MM.cream).multilineTextAlignment(.center).lineSpacing(4)
-                .frame(maxWidth: 1000).padding(.horizontal, 20)
+            Text(w.text).font(.outfit(w.text.count > 90 ? 32 : 40, .black)).foregroundStyle(MM.cream).multilineTextAlignment(.center).lineSpacing(4)
+                .frame(maxWidth: Self.wallWidth).padding(.horizontal, 16)
                 .shadow(color: .black.opacity(0.5), radius: 8, y: 4)
             if let opts = w.options {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     ForEach(Array(opts.enumerated()), id: \.element.id) { i, o in
                         OptionTile(index: i, option: o, correct: w.correctIndex == o.id, revealed: w.revealed, count: o.count, players: revealed ? players.filter { w.answersByPlayer[$0.id] == o.id } : [])
+                            .bouncy(delay: revealed ? 0 : 0.08 + Double(i) * 0.07)
                     }
                 }
-                .frame(maxWidth: 1000)
+                .frame(maxWidth: Self.wallWidth)
             }
             if revealed, let e = w.erklaerung, !e.isEmpty {
                 HStack(alignment: .center, spacing: 14) {
                     Text(w.kategorieEmoji).font(.system(size: 26)).frame(width: 48, height: 48).background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.35)))
-                    Text(e).font(.poppins(17)).foregroundStyle(MM.cream).lineSpacing(3).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(e).font(.poppins(18)).foregroundStyle(MM.cream).lineSpacing(3).frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(14).frame(maxWidth: 1000)
+                .padding(14).frame(maxWidth: Self.wallWidth)
                 .background(RoundedRectangle(cornerRadius: 16).fill(MM.cream.opacity(0.08)).overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(MM.gold.opacity(0.35))))
                 .bouncy(delay: 0.35)
             } else if let t = w.tipp {
-                Text("💡 \(t)").font(.poppins(16, .semibold)).foregroundStyle(MM.gold)
+                Text("💡 \(t)").font(.poppins(17, .semibold)).foregroundStyle(MM.gold)
             }
             if !revealed, w.options != nil {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     ForEach(players) { p in
-                        Circle().fill(w.answered.contains(p.id) ? MM.green : Color.black.opacity(0.4)).frame(width: 14, height: 14)
+                        Circle().fill(w.answered.contains(p.id) ? MM.green : Color.black.opacity(0.4)).frame(width: 16, height: 16)
                             .overlay(Circle().strokeBorder(MM.playerColor(Avatar(wire: p.avatar).farbe), lineWidth: 2))
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: w.answered.contains(p.id))
                     }
-                    Text("\(w.answered.count)/\(players.count) geantwortet").font(.poppins(12, .semibold)).foregroundStyle(MM.cream.opacity(0.75))
+                    Text("\(w.answered.count)/\(players.count) geantwortet").font(.poppins(13, .semibold)).foregroundStyle(MM.cream.opacity(0.75))
                 }
             }
         }
-        .padding(20)
+        .padding(22)
+        .frame(maxWidth: Self.wallWidth + 44)
         .background(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .fill(LinearGradient(colors: [MM.panelDark.opacity(0.95), MM.bgDeep.opacity(0.95)], startPoint: .top, endPoint: .bottom))
@@ -141,7 +148,7 @@ struct QuestionStage: View {
             Text("Die Frage läuft nur auf den Handys …").font(.poppins(18)).foregroundStyle(MM.cream.opacity(0.7))
             if let dl = w.deadline { CountdownText(deadline: dl) }
         }
-        .frame(maxWidth: 1000, minHeight: 300)
+        .frame(maxWidth: Self.wallWidth + 44, minHeight: 300)
         .background(RoundedRectangle(cornerRadius: 26).fill(Color.black).overlay(
             LinearGradient(colors: [MM.red, MM.gold, MM.green, MM.blue, MM.lila, .white, MM.orange], startPoint: .leading, endPoint: .trailing).opacity(0.25).mask(RoundedRectangle(cornerRadius: 26))
         ))
@@ -157,7 +164,12 @@ struct QuestionStage: View {
             return AnyView(bankView(pot, chain, step, banked, lastBanker, verdict, durchgang, durchgaenge, runEndsAt, letzteFrage, gongFor))
         case .bomb(let holder, let tension, let passes, let exploded, let durchgang): return AnyView(bombView(holder, tension, passes, exploded, durchgang))
         case .bets(let bets, let teaser, let phase): return AnyView(betsView(bets, teaser, phase))
-        case .numberLine(let lo, let hi, let unit, let guesses, let truth, _): return AnyView(NumberLineView(lo: lo, hi: hi, unit: unit, guesses: guesses, truth: truth, players: players).frame(height: 150))
+        case .numberLine(let lo, let hi, let unit, let guesses, let truth, _):
+            return AnyView(
+                NumberLineView(lo: lo, hi: hi, unit: unit, guesses: guesses, truth: truth, players: players)
+                    .frame(height: 176).padding(.horizontal, 24).padding(.vertical, 6)
+                    .background(RoundedRectangle(cornerRadius: 20).fill(Color.black.opacity(0.3)).overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(MM.gold.opacity(0.25))))
+            )
         case .ladder(let items, let correctOrder, let revealedSteps, _, let werte): return AnyView(ladderView(items, correctOrder, revealedSteps, werte))
         case .pixel(_, let level, let maxLevel, let jackpot, let locked): return AnyView(pixelView(level, maxLevel, jackpot, locked))
         case .steal(let thief, let victim, let betrag, let phase, _): return AnyView(stealView(thief, victim, betrag, phase))
@@ -437,12 +449,26 @@ struct QuestionStage: View {
 
     // MARK: Podiums
 
+    /// Podium row — the monkeys are the stars: 150 pt for up to four, smaller for a full house.
+    static func podiumSize(_ count: Int) -> CGFloat { count <= 4 ? 150 : (count <= 6 ? 118 : 94) }
+
     var podiums: some View {
-        HStack(alignment: .bottom, spacing: players.count > 5 ? 10 : 22) {
+        let size = Self.podiumSize(players.count)
+        return HStack(alignment: .bottom, spacing: players.count > 6 ? 8 : (players.count > 4 ? 14 : 28)) {
             ForEach(players) { p in
-                PodiumPlayer(player: p, face: revealed ? ((deltas[p.id] ?? 0) > 0 ? "jubel" : ((deltas[p.id] ?? 0) < 0 ? "frust" : "neutral")) : (wall?.answered.contains(p.id) == true ? "neutral" : "denk"),
-                             delta: revealed ? deltas[p.id] : nil, size: players.count > 5 ? 88 : 110)
-                    .overlay(alignment: .top) { if !revealed, wall?.answered.contains(p.id) == true { Text("✓").font(.outfit(22, .black)).foregroundStyle(MM.green).offset(y: -18) } }
+                let d = deltas[p.id] ?? 0
+                PodiumPlayer(player: p, face: revealed ? (d > 0 ? "jubel" : (d < 0 ? "frust" : "neutral")) : (wall?.answered.contains(p.id) == true ? "neutral" : "denk"),
+                             delta: revealed ? deltas[p.id] : nil, size: size, morph: true)
+                    .overlay(alignment: .top) {
+                        if !revealed, wall?.answered.contains(p.id) == true {
+                            Text("✓").font(.outfit(size * 0.18, .black)).foregroundStyle(MM.ink).frame(width: size * 0.24, height: size * 0.24)
+                                .background(Circle().fill(MM.green).shadow(color: .black.opacity(0.4), radius: 4, y: 2)).offset(y: -size * 0.12)
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                    }
+                    .animation(.spring(response: 0.35, dampingFraction: 0.6), value: wall?.answered.contains(p.id) == true)
+                    .scaleEffect(revealed && d > 0 ? 1.04 : 1)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.65), value: revealed)
             }
         }
         .padding(.bottom, 4)
@@ -461,19 +487,19 @@ struct OptionTile: View {
     var body: some View {
         let tint = MM.optionColors[index % MM.optionColors.count]
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 3).fill(revealed && correct ? MM.green : tint).frame(width: 5).padding(.vertical, 2)
-            Text(["A", "B", "C", "D", "E", "F", "G", "H"][index % 8]).font(.outfit(24, .black)).foregroundStyle(revealed && correct ? MM.cream : tint).frame(width: 26)
-            Text(MM.optionEmojis[index % MM.optionEmojis.count]).font(.system(size: 22))
-            Text(option.text).font(.outfit(24, .bold)).foregroundStyle(MM.cream).lineLimit(2).minimumScaleFactor(0.7).strikethrough(option.removed, color: MM.red)
+            RoundedRectangle(cornerRadius: 3).fill(revealed && correct ? MM.green : tint).frame(width: 6).padding(.vertical, 2)
+            Text(["A", "B", "C", "D", "E", "F", "G", "H"][index % 8]).font(.outfit(26, .black)).foregroundStyle(revealed && correct ? MM.cream : tint).frame(width: 28)
+            Text(MM.optionEmojis[index % MM.optionEmojis.count]).font(.system(size: 24))
+            Text(option.text).font(.outfit(26, .bold)).foregroundStyle(MM.cream).lineLimit(2).minimumScaleFactor(0.7).strikethrough(option.removed, color: MM.red)
             Spacer()
             if revealed {
-                HStack(spacing: -8) { ForEach(players) { p in MonkeyImage(avatar: Avatar(wire: p.avatar), face: correct ? "jubel" : "frust").frame(height: 38) } }
-                if correct { Image(systemName: "checkmark.circle.fill").font(.system(size: 28, weight: .black)).foregroundStyle(MM.cream).background(Circle().fill(MM.green).padding(3)) }
+                HStack(spacing: -10) { ForEach(players) { p in MonkeyImage(avatar: Avatar(wire: p.avatar), face: correct ? "jubel" : "frust").frame(height: 44) } }
+                if correct { Image(systemName: "checkmark.circle.fill").font(.system(size: 30, weight: .black)).foregroundStyle(MM.cream).background(Circle().fill(MM.green).padding(3)) }
             } else if option.removed {
                 Image(systemName: "xmark").font(.system(size: 18, weight: .black)).foregroundStyle(MM.red.opacity(0.8))
             }
         }
-        .padding(.leading, 10).padding(.trailing, 14).padding(.vertical, 12)
+        .padding(.leading, 10).padding(.trailing, 14).padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(revealed && correct ? MM.green.opacity(0.32) : Color(hex: "#123D2A").opacity(0.85))
@@ -518,27 +544,37 @@ struct PixelImage: View {
 /// Number line for the estimate round.
 struct NumberLineView: View {
     var lo: Double; var hi: Double; var unit: String; var guesses: [Guess]; var truth: Double?; var players: [PlayerRef]
-    func x(_ v: Double, _ w: CGFloat) -> CGFloat { CGFloat((v - lo) / max(0.0001, hi - lo)) * (w - 40) + 20 }
+    func x(_ v: Double, _ w: CGFloat) -> CGFloat { CGFloat((v - lo) / max(0.0001, hi - lo)) * (w - 60) + 30 }
     var body: some View {
         GeometryReader { geo in
+            let lineY: CGFloat = 108
             ZStack(alignment: .topLeading) {
-                Capsule().fill(MM.wood).frame(height: 10).offset(y: 80)
-                Text(fmt(lo)).font(.poppins(12, .bold)).foregroundStyle(MM.cream).position(x: 20, y: 105)
-                Text(fmt(hi)).font(.poppins(12, .bold)).foregroundStyle(MM.cream).position(x: geo.size.width - 20, y: 105)
-                ForEach(guesses, id: \.playerId) { g in
+                Capsule().fill(LinearGradient(colors: [MM.wood, Color(hex: "#6B4527")], startPoint: .top, endPoint: .bottom)).frame(height: 12).offset(y: lineY - 6)
+                    .overlay(alignment: .leading) { Capsule().fill(MM.gold.opacity(0.35)).frame(width: 4, height: 24).offset(x: 28, y: lineY - 12) }
+                    .overlay(alignment: .trailing) { Capsule().fill(MM.gold.opacity(0.35)).frame(width: 4, height: 24).offset(x: -28, y: lineY - 12) }
+                Text(fmt(lo)).font(.poppins(14, .bold)).foregroundStyle(MM.cream).position(x: 30, y: lineY + 24)
+                Text(fmt(hi)).font(.poppins(14, .bold)).foregroundStyle(MM.cream).position(x: geo.size.width - 30, y: lineY + 24)
+                if guesses.isEmpty {
+                    Text("Alle schätzen geheim …").font(.poppins(16, .semibold)).foregroundStyle(MM.cream.opacity(0.7)).position(x: geo.size.width / 2, y: 50)
+                }
+                ForEach(Array(guesses.enumerated()), id: \.element.playerId) { i, g in
                     if let p = players.first(where: { $0.id == g.playerId }) {
                         VStack(spacing: 0) {
-                            MonkeyImage(avatar: Avatar(wire: p.avatar), face: g.platz == 1 ? "jubel" : "neutral").frame(height: 50)
-                            Text(fmt(g.value)).font(.poppins(11, .bold)).foregroundStyle(MM.cream)
-                            if let pl = g.platz { Text("#\(pl)").font(.outfit(12, .black)).foregroundStyle(MM.gold) }
-                        }.position(x: x(g.value, geo.size.width), y: 40)
+                            if let pl = g.platz, pl <= 3 { Text(pl == 1 ? "🥇" : (pl == 2 ? "🥈" : "🥉")).font(.system(size: 20)) }
+                            MonkeyImage(avatar: Avatar(wire: p.avatar), face: g.platz == 1 ? "jubel" : (g.platz ?? 9) <= 3 ? "neutral" : "denk").frame(height: 58)
+                            Text(fmt(g.value)).font(.outfit(15, .black)).foregroundStyle(MM.ink)
+                                .padding(.horizontal, 7).padding(.vertical, 1).background(Capsule().fill(MM.playerColor(Avatar(wire: p.avatar).farbe)))
+                            Rectangle().fill(MM.cream.opacity(0.7)).frame(width: 2, height: 10)
+                        }
+                        .position(x: x(g.value, geo.size.width), y: lineY - 58)
+                        .bouncy(delay: Double(i) * 0.12)
                     }
                 }
                 if let t = truth {
                     VStack(spacing: 0) {
-                        Text("▲").font(.system(size: 22)).foregroundStyle(MM.gold)
-                        Text("\(fmt(t)) \(unit)").font(.outfit(20, .black)).foregroundStyle(MM.gold)
-                    }.position(x: x(t, geo.size.width), y: 130).bouncy()
+                        Text("▲").font(.system(size: 24)).foregroundStyle(MM.gold)
+                        Text("\(fmt(t)) \(unit)").font(.outfit(24, .black)).foregroundStyle(MM.gold).shadow(color: .black.opacity(0.5), radius: 4, y: 2)
+                    }.position(x: x(t, geo.size.width), y: lineY + 34).bouncy(delay: 0.5)
                 }
             }
         }

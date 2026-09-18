@@ -6,26 +6,37 @@ struct HostRootView: View {
     var body: some View {
         ZStack {
             JungleBackground()
-            switch host.screen {
-            case .menu: MainMenuView()
-            case .modes: ModeSelectView()
-            case .lobby: LobbyView()
-            case .stage: StageRootView()
-            case .profiles: ProfilesView()
-            case .shop: ShopView()
-            case .boards: BoardsView()
-            case .settings: HostSettingsView()
-            case .saves: SavesView()
-            case .howto: HowToView()
-            }
-            if let t = host.toast {
-                VStack { Spacer(); Chip(text: t, gold: true).padding(.bottom, 30) }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { withAnimation { host.toast = nil } } }
+            StageCanvas {
+                ZStack {
+                    screen
+                        .id(host.screen)
+                        .transition(.asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.97)), removal: .opacity))
+                    if let t = host.toast {
+                        VStack { Spacer(); Chip(text: t, gold: true).padding(.bottom, 30) }
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                            .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { withAnimation { host.toast = nil } } }
+                    }
+                }
+                .animation(.easeInOut(duration: 0.35), value: host.screen)
             }
         }
-        .animation(.easeInOut(duration: 0.35), value: host.screen)
         .onAppear { host.audio.playMusic("theme_main") }
+    }
+
+    @ViewBuilder
+    var screen: some View {
+        switch host.screen {
+        case .menu: MainMenuView()
+        case .modes: ModeSelectView()
+        case .lobby: LobbyView()
+        case .stage: StageRootView()
+        case .profiles: ProfilesView()
+        case .shop: ShopView()
+        case .boards: BoardsView()
+        case .settings: HostSettingsView()
+        case .saves: SavesView()
+        case .howto: HowToView()
+        }
     }
 }
 
