@@ -112,6 +112,13 @@ struct JoinView: View {
                         }
                     }
                 }
+                if let url = URL(string: "http://\(player.host)/uebung"), !player.host.isEmpty {
+                    Link(destination: url) {
+                        HStack(spacing: 6) { Text("🎯"); Text("Solo üben (Übungsmodus im Browser)").font(.poppins(13, .semibold)) }
+                            .foregroundStyle(MM.cream).padding(.horizontal, 14).padding(.vertical, 9)
+                            .background(Capsule().fill(Color.black.opacity(0.28)).overlay(Capsule().strokeBorder(Color.white.opacity(0.1))))
+                    }
+                }
                 Text("MONKEY MONEY · FRAGEN · FREUNDE · FÜR IMMER").font(.poppins(9, .semibold)).tracking(2).foregroundStyle(MM.cream.opacity(0.5))
             }.padding(16)
         }

@@ -235,6 +235,14 @@ input[type=range] { width: 100%; margin: 18px 0; accent-color: var(--gold); heig
 .conn { position: fixed; top: 10px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); z-index: 30; }
 .conn.off { background: var(--red); box-shadow: 0 0 8px var(--red); }
 .foot { text-align: center; font-size: 10px; letter-spacing: .3em; opacity: .5; margin-top: 18px; }
+a.chip { text-decoration: none; }
+/* Übungsmodus */
+.practice-head { display: flex; justify-content: space-around; padding: 12px; margin-bottom: 12px; }
+.pstat { text-align: center; }
+.pstat b { display: block; font-family: "Outfit"; font-weight: 900; font-size: 26px; color: var(--gold); }
+.pstat span { font-size: 11px; opacity: .8; letter-spacing: .05em; }
+#kat, #schw { font-size: 14px; padding: 11px 10px; min-width: 0; }
+.opt:disabled { cursor: default; }
 
 /* GM cockpit */
 .gm .cols { display: grid; gap: 12px; }

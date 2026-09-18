@@ -17,7 +17,8 @@ Download: **[monkeymoney-latest](https://github.com/MedusaV9/TestIOs/releases/ta
 | Formate | 27: Bananen-Basics, Vier Lianen, Kokosnuss-Uhr, Bananen-Tresor, Affenleiter, Pixel-Dschungel, Affenbank, Stinkbanane, Taschendieb, Alles oder Banane, Lianen-Finale, Monkey Market, Bananen-Börse, Affen-Auktion, Bananen-Bluff, Lianensteg-Duell, Boxkampf, Konter-Quiz, Einer gegen alle, Tortenschlacht, Risiko-Leiter, Goldener Affe, Blitz-DJ, Rückwärts-Banane, Stummfilm-Studio, Wer singt's?, 7-Buchstaben-Telegramm |
 | Brettspiele | Werwölfe vom Bananenhain, Bananen-Batsche (UNO), Affen ärgern sich nicht, Bananopoly, Affenturm, Siedler vom Bananenhain — Handys und/oder iPad-Sitze (Pass-and-Play) |
 | Ökonomie | 100/250/500/1.000 MM, Speed-Knick, Streak ×1,5/×2, Rückenwind mit Überhol-Kappe, Jackpot-Glas, Dispo −500, Schuldenerlass, Mitleids-Banane, W_final-Formel, AT-Umrechnung, Level |
-| Systeme | 7 Joker, 15 Rad-Segmente (Pech-Schutz, Pity-Timer, Fair-Finale-Pool), 7 Special Rules, Teams, Familien-/18+-Modus, 17 GM-Werkzeuge + Auto-GM, Pause, Save-Slots, Revanche |
+| Systeme | 7 Joker, 15 Rad-Segmente (Pech-Schutz, Pity-Timer, Fair-Finale-Pool), 7 Special Rules, Teams, Familien-/18+-Modus, 17 GM-Werkzeuge + Auto-GM, **Timer AUS / feste Zeit pro Frage**, Pause, Save-Slots, Revanche |
+| Übungsmodus | Solo-Quiz auf dem Handy gegen die iPad-Fragenbank (`/uebung`): Kategorie/Schwierigkeit/kindgerecht, Erklärungen, Serien-Statistik |
 | Meta | Profile (PIN/Geräte-Erkennung), 85-Item-Shop, 4 Bestenlisten, Daily-/Monats-Quests, Bananen-Pass, Meilensteine |
 | Audio | 22 eigene Musik-Tracks (Sonauto/Treblo v3), CC0/CC-BY-SFX, 50 Song-Snippets für die Musik-Formate |
 
@@ -53,8 +54,12 @@ MonkeyMoney/ios
 3. **Show-Master (optional)**: In der Lobby „Show-Master-Code einblenden“ → zweiter QR + PIN.
    Das Handy zeigt das Regiepult (Spickzettel, Antworten, Werkzeuge). Ohne Show-Master führt das iPad
    („Starten, wenn alle da sind!“, Weiter-Knopf unten rechts) — Auto-Regie verlängert Timer und pickt Kategorien.
-4. **Spielstand**: Autosave nach jeder Runde; drei manuelle Slots; beim App-Start „Weiterspielen?“.
-5. **Spiele-Abend**: eigener Hauptmenü-Punkt; Spiel wählen, optional iPad-Sitze eintragen, los.
+4. **Timer**: Der Show-Master (Handy-Pult, iPad-Regie oder Lobby-Einstellungen) kann den Fragen-Timer
+   ganz ausschalten — Fragen warten dann, bis alle geantwortet haben oder er „Auflösen“ drückt — oder eine
+   feste Zeit pro Frage (10 s … 2 min) setzen. Beides geht auch mitten im Match.
+5. **Spielstand**: Autosave nach jeder Runde; drei manuelle Slots; beim App-Start „Weiterspielen?“.
+6. **Spiele-Abend**: eigener Hauptmenü-Punkt; Spiel wählen, optional iPad-Sitze eintragen, los.
+7. **Übungsmodus**: `http://<ipad-ip>:8080/uebung` (Link auf der Beitreten-Seite) — solo üben ohne Raum.
 
 Alle Geräte müssen im selben WLAN sein. Kein Internet nötig.
 

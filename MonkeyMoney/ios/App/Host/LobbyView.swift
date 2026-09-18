@@ -116,6 +116,7 @@ struct LobbyView: View {
                         Text("\(host.stage?.players.count ?? 0) / \(lobby?.maxPlayers ?? 8) Spieler").font(.poppins(15, .bold)).foregroundStyle(MM.cream)
                     }
                     Text(lobby?.startHint ?? "").font(.poppins(13)).foregroundStyle(MM.cream.opacity(0.8))
+                    Text("🎯 Solo üben ohne Raum: \(host.joinURL.replacingOccurrences(of: "/j/\(host.roomCode)", with: "/uebung"))").font(.poppins(11)).foregroundStyle(MM.cream.opacity(0.6))
                     HStack(spacing: 10) {
                         ShareLink(item: URL(string: host.joinURL) ?? URL(string: "http://localhost")!) { Label("Raum teilen", systemImage: "square.and.arrow.up").font(.poppins(13, .semibold)) }
                             .buttonStyle(.plain).foregroundStyle(MM.cream).padding(.horizontal, 12).padding(.vertical, 9).background(Capsule().fill(Color.black.opacity(0.3)).overlay(Capsule().strokeBorder(Color.white.opacity(0.1))))

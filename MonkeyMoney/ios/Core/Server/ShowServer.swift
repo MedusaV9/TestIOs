@@ -29,6 +29,11 @@ public final class ShowServer: @unchecked Sendable {
     let roots: Roots
     private var timer: DispatchSourceTimer?
     private var lastStageSeq = -1
+    /// Übungsmodus (solo practice on the phone): per-device recent questions + stats, in memory.
+    struct PracticeStats: Codable { var gespielt = 0; var richtig = 0; var serie = 0; var beste = 0 }
+    private var practiceUsed: [String: [String]] = [:]
+    private var practiceStats: [String: PracticeStats] = [:]
+    private var practiceOpen: [String: (question: Question, order: [Int])] = [:]
 
     public init(port: UInt16, hub: RoomHub, meta: MetaStore, roots: Roots) {
         http = HTTPServer(port: port)
@@ -127,6 +132,7 @@ public final class ShowServer: @unchecked Sendable {
         if let extra = extraRoutes?(req) { return extra }
         if path == "/" || path.hasPrefix("/j/") || path == "/player" || path == "/player.html" { return file(roots.web.appendingPathComponent("player.html")) }
         if path == "/gm" || path == "/gm.html" { return file(roots.web.appendingPathComponent("gm.html")) }
+        if path == "/uebung" || path == "/uebung.html" { return file(roots.web.appendingPathComponent("uebung.html")) }
         if path == "/healthz" { return .text("ok") }
         if path.hasPrefix("/api/") { return queue.sync { api(req) } }
         if path.hasPrefix("/fonts/") { return file(roots.fonts.appendingPathComponent(String(path.dropFirst("/fonts/".count)))) }
@@ -190,6 +196,12 @@ public final class ShowServer: @unchecked Sendable {
         case ("GET", "/api/room"):
             struct Info: Codable { var code: String; var phase: String; var players: Int; var joinURL: String }
             return .json((try? enc.encode(Info(code: hub.state.roomCode, phase: hub.state.phase.rawValue, players: hub.state.players.count, joinURL: hub.joinURL))) ?? Data())
+        case ("GET", "/api/kategorien"):
+            return .json((try? enc.encode(hub.engine.catalog.categories)) ?? Data("[]".utf8))
+        case ("GET", "/api/uebung/frage"):
+            return practiceQuestion(req)
+        case ("POST", "/api/uebung/antwort"):
+            return practiceAnswer(req)
         default:
             break
         }
@@ -226,5 +238,54 @@ public final class ShowServer: @unchecked Sendable {
             }
         }
         return .notFound()
+    }
+
+    // MARK: Übungsmodus
+
+    struct PracticeQuestionOut: Codable {
+        var id: String; var kat: String; var katName: String; var katEmoji: String; var schw: String; var wert: Int
+        var text: String; var options: [String]; var typ: String; var stats: PracticeStats
+    }
+
+    func practiceQuestion(_ req: HTTPServer.Request) -> HTTPServer.Response {
+        let device = req.query["device"] ?? "anon"
+        let catalog = hub.engine.catalog
+        var opts = PickOptions(anzahl: 1, used: Set(practiceUsed[device] ?? []), typen: [.choice, .wahrFalsch, .emoji],
+                               kidSafeOnly: req.query["familie"] == "1", allowAdult: false, mix: .ausgewogen)
+        if let k = req.query["kat"], !k.isEmpty { opts.kategorien = [k] }
+        if let s = req.query["schw"], let d = Difficulty(rawValue: s) { opts.schwierigkeiten = [d] }
+        var rng = SeededRandom(seed: UInt32(truncatingIfNeeded: clock() ^ Int(device.hashValue & 0xFFFF)))
+        var picked = catalog.pick(opts, rng: &rng).first
+        if picked == nil { practiceUsed[device] = []; opts.used = []; picked = catalog.pick(opts, rng: &rng).first }
+        guard let q = picked, let correct = q.correctIndex else { return .text("keine Frage", status: 404) }
+        var recent = practiceUsed[device] ?? []
+        recent.append(q.id)
+        if recent.count > 400 { recent.removeFirst(recent.count - 400) }
+        practiceUsed[device] = recent
+        // Shuffle the options for choice questions (never for Wahr/Falsch).
+        let base = q.choiceOptions
+        let order = q.typ == .wahrFalsch ? Array(base.indices) : rng.shuffled(Array(base.indices))
+        practiceOpen[device] = (q, order)
+        _ = correct
+        let out = PracticeQuestionOut(id: q.id, kat: q.kat, katName: catalog.categoryName(q.kat), katEmoji: catalog.categoryEmoji(q.kat), schw: q.schw.rawValue, wert: q.value,
+                                      text: q.displayText, options: order.map { base[$0] }, typ: q.typ.rawValue, stats: practiceStats[device] ?? PracticeStats())
+        return .json((try? Wire.encoder.encode(out)) ?? Data())
+    }
+
+    func practiceAnswer(_ req: HTTPServer.Request) -> HTTPServer.Response {
+        struct Body: Decodable { var id: String; var index: Int?; var device: String? }
+        struct Out: Codable { var correct: Bool; var correctIndex: Int; var erkl: String; var tipps: [String]; var stats: PracticeStats }
+        guard let body = Wire.decode(Body.self, req.body) else { return .text("bad request", status: 400) }
+        let device = body.device ?? "anon"
+        guard let open = practiceOpen[device], open.question.id == body.id, let correct = open.question.correctIndex,
+              let shownCorrect = open.order.firstIndex(of: correct) else { return .text("keine offene Frage", status: 409) }
+        practiceOpen[device] = nil
+        var stats = practiceStats[device] ?? PracticeStats()
+        let ok = body.index == shownCorrect
+        stats.gespielt += 1
+        if ok { stats.richtig += 1; stats.serie += 1; stats.beste = max(stats.beste, stats.serie) } else { stats.serie = 0 }
+        practiceStats[device] = stats
+        let out = Out(correct: ok, correctIndex: shownCorrect, erkl: open.question.erkl, tipps: open.question.tipps, stats: stats)
+        return .json((try? Wire.encoder.encode(out)) ?? Data())
     }
 }
