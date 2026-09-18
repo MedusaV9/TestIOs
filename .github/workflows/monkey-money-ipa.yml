@@ -27,7 +27,7 @@ jobs:
         run: swift test --package-path MonkeyMoney/ios 2>&1 | tail -40
 
   typecheck:
-    name: Typecheck app & App Clip (Linux SDK simulation)
+    name: Typecheck app (Linux SDK simulation)
     runs-on: ubuntu-latest
     container: swift:6.1
     steps:
@@ -95,7 +95,6 @@ jobs:
           APP_DIR="build/Build/Products/Release-iphoneos/MonkeyMoney.app"
           test -d "$APP_DIR"
           ls -la "$APP_DIR" | head -40
-          test -d "$APP_DIR/AppClips" && ls -la "$APP_DIR/AppClips" || echo "no AppClips folder embedded"
           test -f "$APP_DIR/Web/player.html"
           test -f "$APP_DIR/Content/fragen.json"
           test -d "$APP_DIR/Audio/Music"

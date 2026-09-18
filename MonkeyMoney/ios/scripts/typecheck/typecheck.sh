@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Monkey Money — Linux "SDK simulation" for the iOS app (App + App Clip).
+# Monkey Money — Linux "SDK simulation" for the iOS app.
 #
 # There is no Xcode on Linux, so `swift build` cannot compile SwiftUI code
 # here. This script builds a set of *stub* modules (SwiftUI, UIKit, WidgetKit,
@@ -12,9 +12,8 @@
 # runtime behaviour, SDK signatures the stubs model too loosely, linking.
 #
 # Usage:
-#   scripts/typecheck/typecheck.sh            # app + clip
+#   scripts/typecheck/typecheck.sh            # app
 #   scripts/typecheck/typecheck.sh app        # app target only
-#   scripts/typecheck/typecheck.sh clip       # App Clip only
 #   TYPECHECK_DEBUG=1 …                       # also define DEBUG
 #
 # The stub sources live in ./Shims/<ModuleName>/. Extend them when the app
@@ -105,7 +104,7 @@ prepare_sources() {
         else
             cp "$f" "$out"
         fi
-    done < <(find "$IOS/App" "$IOS/Clip" "$IOS/Core" -name '*.swift' -print0)
+    done < <(find "$IOS/App" "$IOS/Core" -name '*.swift' -print0)
 }
 
 typecheck_target() {
@@ -144,10 +143,7 @@ prepare_sources
 
 rc=0
 case "$TARGET" in
-    app)  typecheck_target MonkeyMoney App Core || rc=1 ;;
-    clip) typecheck_target MonkeyMoneyClip Clip Core App/Player App/Design App/Audio App/Shared || rc=1 ;;
-    all)  typecheck_target MonkeyMoney App Core || rc=1
-          typecheck_target MonkeyMoneyClip Clip Core App/Player App/Design App/Audio App/Shared || rc=1 ;;
-    *) echo "unknown target: $TARGET (app|clip|all)" >&2; exit 2 ;;
+    app|all) typecheck_target MonkeyMoney App Core || rc=1 ;;
+    *) echo "unknown target: $TARGET (app|all)" >&2; exit 2 ;;
 esac
 exit $rc

@@ -1,8 +1,8 @@
 # 🐒 MONKEY MONEY — Swift-Port
 
 **Die Quiz-Show fürs Wohnzimmer, jetzt nativ.** Das iPad ist Bühne, Server und
-Spielstandspeicher; die iPhones der Gäste sind die Controller — per QR-Code
-im Browser (immer) oder in der App / als App Clip. Ein Show-Master ist optional
+Spielstandspeicher; die Handys der Gäste sind die Controller — QR-Code scannen,
+im Browser mitspielen, nichts installieren. Ein Show-Master ist optional
 und bekommt in der Lobby einen eigenen, ein- und ausblendbaren QR-Code.
 
 Download: **[monkeymoney-latest](https://github.com/MedusaV9/TestIOs/releases/tag/monkeymoney-latest)**
@@ -16,11 +16,11 @@ Download: **[monkeymoney-latest](https://github.com/MedusaV9/TestIOs/releases/ta
 | Show | Lobby → Opening → Runden (Kategorien-Voting, Erklärkarte, Fragen, Zwischenstand, Glücksrad) → Jackpot-Frage → Lianen-Finale → Highlights → Siegerehrung → Abspann/Revanche |
 | Formate | 27: Bananen-Basics, Vier Lianen, Kokosnuss-Uhr, Bananen-Tresor, Affenleiter, Pixel-Dschungel, Affenbank, Stinkbanane, Taschendieb, Alles oder Banane, Lianen-Finale, Monkey Market, Bananen-Börse, Affen-Auktion, Bananen-Bluff, Lianensteg-Duell, Boxkampf, Konter-Quiz, Einer gegen alle, Tortenschlacht, Risiko-Leiter, Goldener Affe, Blitz-DJ, Rückwärts-Banane, Stummfilm-Studio, Wer singt's?, 7-Buchstaben-Telegramm |
 | Brettspiele | Werwölfe vom Bananenhain, Bananen-Batsche (UNO), Affen ärgern sich nicht, Bananopoly, Affenturm, Siedler vom Bananenhain — Handys und/oder iPad-Sitze (Pass-and-Play) |
-| Ökonomie | 100/250/500/1.000 MM, Speed-Knick, Streak ×1,5/×2, Rückenwind mit Überhol-Kappe, Jackpot-Glas, Dispo −500, Schuldenerlass, Mitleids-Banane, W_final-Formel, AT-Umrechnung, Level |
-| Systeme | 7 Joker, 15 Rad-Segmente (Pech-Schutz, Pity-Timer, Fair-Finale-Pool), 7 Special Rules, Teams, Familien-/18+-Modus, 17 GM-Werkzeuge + Auto-GM, **Timer AUS / feste Zeit pro Frage**, Pause, Save-Slots, Revanche |
+| Ökonomie | Fragenwert F = 100/250/500/1.000 MM — **jedes Format zahlt relativ zu F** (Tresor 1,5F/1F/0,6F, Pixel 1,5F→¼F, Affenbank 0,2F…3,2F, Kokosnuss-Sack 1,5F, Alles-oder-Banane bis 1,5F/750), Speed-Knick, Streak ×1,5/×2, Rückenwind mit Überhol-Kappe, Jackpot-Frage 2F + Glas, Dispo −500, Schuldenerlass, Mitleids-Banane, W_final-Formel, AT-Umrechnung, Level |
+| Systeme | 7 Joker, 15 Rad-Segmente (Pech-Schutz, Pity-Timer, Fair-Finale-Pool), 7 Special Rules, Teams, Familien-/18+-Modus, 17 GM-Werkzeuge + Auto-GM, **Timer AUS / feste Zeit pro Frage**, Pause, Save-Slots, Revanche; Erklärkarten als 3–5 Regeln + Gewinn-Zeile; `swift test` enthält Bot-Matches **und Balance-Gates** (keine Runde zahlt >1,9× den Median) |
 | Übungsmodus | Solo-Quiz auf dem Handy gegen die iPad-Fragenbank (`/uebung`): Kategorie/Schwierigkeit/kindgerecht, Erklärungen, Serien-Statistik |
 | Meta | Profile (PIN/Geräte-Erkennung), 85-Item-Shop, 4 Bestenlisten, Daily-/Monats-Quests, Bananen-Pass, Meilensteine |
-| Audio | 22 eigene Musik-Tracks (Sonauto/Treblo v3), CC0/CC-BY-SFX, 50 Song-Snippets für die Musik-Formate |
+| Audio | 22 eigene Musik-Tracks (Sonauto/Treblo v3), CC0/CC-BY-SFX, 50 Song-Snippets für die Musik-Formate; **Sound-Regie**: Stinger pro Phase, Auflösungs-Dreiklang (Zap → Trommelwirbel → Stille → Fanfare + Applaus-Stufe nach Gewinn), Siegerehrungs-Wirbel, Rad-Ticks |
 
 ## Ordner
 
@@ -35,13 +35,12 @@ MonkeyMoney/ios
 │  ├─ Protocol/   ClientMessage/ServerMessage, RoomHub (Sessions, Rechte, Broadcast)
 │  ├─ Meta/       Profile, Shop, Bestenlisten, Quests
 │  └─ Server/     HTTP/1.1 + WebSocket auf BSD-Sockets, ShowServer (Routen, REST-API)
-├─ App/           SwiftUI — Host (iPad), Player (iPhone), Design, Audio
-├─ Clip/          App-Clip-Target (nutzt App/Player)
+├─ App/           SwiftUI — Host (iPad), Player (iPhone), Design (StageCanvas, Props, Effects), Audio (Regie)
 ├─ Resources/     Web (Browser-Client), Fonts, Content, Audio, Monkeys (PNG-Puppen), Assets
 ├─ CoreTests/     swift test (Bot-Matches, Regeln, Protokoll, Meta)
 ├─ DevServer/     mm-dev-server — der echte Server auf Linux/macOS für Browser-Tests
 ├─ scripts/typecheck/  Linux-"SDK-Simulation" für die SwiftUI-Targets
-├─ project.yml    XcodeGen (Targets MonkeyMoney + MonkeyMoneyClip)
+├─ project.yml    XcodeGen (Target MonkeyMoney, universal iPhone/iPad)
 └─ Package.swift  SwiftPM (Core + Tests + DevServer)
 ```
 
@@ -50,7 +49,8 @@ MonkeyMoney/ios
 1. **iPad**: App öffnen → „Neue Show starten“ → Modus (Quick / Klassik / Marathon / Custom) und
    Einstellungen wählen → „Lobby öffnen“. Die Lobby zeigt QR-Code, Raum-Code und die iPad-Adresse.
 2. **Handys**: QR scannen. Safari öffnet `http://<ipad-ip>:8080/j/CODE` — Name, Affe, Farbe, „Rein da!“.
-   Wer die App installiert hat, kann stattdessen in der App den QR scannen (gleicher Ablauf, nativ).
+   Das Handy zeigt Runde, Fortschritt, das Jackpot-Glas (antippen = Erklärung), Erklärkarten als
+   nummerierte Regeln mit Gewinn-Zeile und den eigenen Affen in jeder Wartephase.
 3. **Show-Master (optional)**: In der Lobby „Show-Master-Code einblenden“ → zweiter QR + PIN.
    Das Handy zeigt das Regiepult (Spickzettel, Antworten, Werkzeuge). Ohne Show-Master führt das iPad
    („Starten, wenn alle da sind!“, Weiter-Knopf unten rechts) — Auto-Regie verlängert Timer und pickt Kategorien.
@@ -63,12 +63,19 @@ MonkeyMoney/ios
 
 Alle Geräte müssen im selben WLAN sein. Kein Internet nötig.
 
-### App Clip
+### Bühne (iPad)
 
-Das Target `MonkeyMoneyClip` ist angelegt (Invocation-URL `https://<domain>/j/CODE?host=<ip:port>`,
-AASA-Route im Server). App Clips werden von iOS **nur** aus App-Store-/TestFlight-Builds mit registrierter
-Associated Domain gestartet — eine unsignierte IPA kann keinen App Clip auslösen. Für Sideload-Builds
-bleiben deshalb Safari (QR) und die installierte App (QR-Scanner, `monkeymoney://join?code=…&host=…`).
+Die Host-Oberfläche wird auf einer festen Bühnen-Leinwand (1180 × 820 pt) komponiert und uniform auf das
+Display skaliert (`StageCanvas`) — 11", 13", iPad mini und der Anzeige-Zoom „Mehr Platz“ zeigen dieselbe
+Komposition: Fragenwand mittig, Podeste mit großen Puppen davor, Kulisse (Schilder, Kisten, TV, Glas,
+Publikum) in den Kulissen-Streifen. Podeste morphen zwischen den Szenen (matchedGeometry), das Glücksrad ist
+ein Lichterlauf-Feld, das deterministisch ausrollt und pro Schritt tickt.
+
+### Warum kein App Clip?
+
+App Clips startet iOS nur aus App-Store-/TestFlight-Builds mit registrierter Associated Domain — eine
+sideload-IPA kann keinen auslösen. Die Spieler nutzen deshalb den Browser (QR → Safari); das frühere
+Clip-Target wurde entfernt.
 
 ## Entwickeln
 
@@ -76,7 +83,7 @@ bleiben deshalb Safari (QR) und die installierte App (QR-Scanner, `monkeymoney:/
 # Kern-Tests (Linux/macOS, Swift 6.1)
 swift test --package-path MonkeyMoney/ios
 
-# Linux-Typecheck der SwiftUI-Targets (App + Clip)
+# Linux-Typecheck des SwiftUI-Targets
 MonkeyMoney/ios/scripts/typecheck/typecheck.sh
 
 # Echter Server ohne iPad — Browser-Client testen

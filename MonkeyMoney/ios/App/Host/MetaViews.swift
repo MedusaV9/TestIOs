@@ -231,7 +231,7 @@ struct HostSettingsView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Netzwerk").font(.outfit(20, .bold)).foregroundStyle(MM.gold)
                             Text("iPad-Adresse: http://\(host.lanIP):\(host.port) — Handys müssen im selben WLAN sein. Kein Internet nötig.").font(.poppins(13)).foregroundStyle(MM.cream)
-                            Text("Beitritt: QR-Code scannen → Safari öffnet den Spieler direkt. Mit installierter Monkey-Money-App auf dem iPhone kann der Link auch in der App geöffnet werden (monkeymoney://). App Clips brauchen eine App-Store-Verteilung mit registrierter Domain — die Ziele dafür sind im Projekt angelegt (MonkeyMoneyClip).").font(.poppins(12)).foregroundStyle(MM.cream.opacity(0.8))
+                            Text("Beitritt: QR-Code scannen → Safari öffnet den Spieler direkt im Browser, nichts zu installieren. Mit installierter Monkey-Money-App auf dem iPhone kann der Link auch in der App geöffnet werden (monkeymoney://).").font(.poppins(12)).foregroundStyle(MM.cream.opacity(0.8))
                         }
                     }
                     PanelCard {

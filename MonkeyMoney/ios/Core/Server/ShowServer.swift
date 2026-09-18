@@ -149,11 +149,11 @@ public final class ShowServer: @unchecked Sendable {
         return HTTPServer.Response(contentType: HTTPServer.mimeType(for: url.path), body: data)
     }
 
-    /// Associated-domains file for the App Clip (served for completeness; App
-    /// Clip invocation needs an HTTPS domain registered in App Store Connect).
+    /// Associated-domains file for universal links into the installed app
+    /// (served for completeness; needs an HTTPS domain registered by Apple).
     func aasa() -> HTTPServer.Response {
         let json = """
-        {"appclips":{"apps":["TEAMID.de.monkeymoney.app.Clip"]},"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.de.monkeymoney.app"],"components":[{"/":"/j/*"},{"/":"/gm"}]}]}}
+        {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.de.monkeymoney.app"],"components":[{"/":"/j/*"},{"/":"/gm"}]}]}}
         """
         return .json(Data(json.utf8))
     }
