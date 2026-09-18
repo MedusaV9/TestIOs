@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0E2F24">
+  <title>Monkey Money — Mitspielen</title>
+  <link rel="icon" href="/img/favicon.svg">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div class="conn off" id="conn" title="Verbindung"></div>
+  <div class="flash" id="flash"></div>
+  <div class="toast" id="toast"></div>
+
+  <!-- JOIN -->
+  <div class="app" id="join">
+    <div class="top">
+      <div class="brand"><img src="/img/favicon.svg" alt=""> MONKEY MONEY</div>
+      <div class="chip" id="joinRoomChip">Raum</div>
+    </div>
+    <div class="hero">
+      <h1>MIT<span>SPIELEN</span></h1>
+      <p>CODE · NAME · LOS!</p>
+    </div>
+    <div class="card">
+      <label class="f">Raum-Code</label>
+      <input type="text" id="code" class="code-input" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="LZVQ">
+      <label class="f">Dein Name</label>
+      <input type="text" id="name" maxlength="16" placeholder="Dein Name" autocomplete="nickname">
+      <div class="monkey-stage">
+        <button class="arrow" id="prev">‹</button>
+        <div class="monkey-preview" id="preview"></div>
+        <button class="arrow" id="next">›</button>
+      </div>
+      <div class="monkey-name" id="mname">Don Bananas</div>
+      <div class="monkey-title" id="mtitle">„der Pate“</div>
+      <div class="colors" id="colors"></div>
+      <label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="saveProfile" style="width:20px;height:20px"> ✨ Als Profil speichern (AT-Konto + Shop)</label>
+      <div id="pinRow" class="hidden"><label class="f">Optionale 4-stellige PIN</label><input type="password" id="pin" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+      <div id="profiles" class="hidden" style="margin-top:10px"></div>
+      <button class="btn secondary" id="loadProfile" style="margin-top:12px">👤 Anderes Profil laden (Name + PIN)</button>
+      <button class="btn" id="go" style="margin-top:12px">Rein da! 🍌</button>
+      <p class="muted center" id="joinErr"></p>
+    </div>
+    <div class="foot">MONKEY MONEY · FRAGEN · FREUNDE · FÜR IMMER</div>
+  </div>
+
+  <!-- GAME -->
+  <div class="app hidden" id="game">
+    <div class="card me">
+      <div class="avatar" id="meAvatar"></div>
+      <div class="info">
+        <div class="name" id="meName"></div>
+        <div class="status" id="meStatus"></div>
+        <div class="streak" id="meStreak"></div>
+      </div>
+      <div class="balance" id="meBalance">0 MM</div>
+    </div>
+    <div class="jokers hidden" id="jokers"></div>
+    <div class="card" id="main"></div>
+    <div class="card hidden" id="rankCard"><h3>Zwischenstand</h3><ul class="ranking" id="ranking"></ul></div>
+    <div class="foot">SAME WIFI · REAL FUN · NO SERVER NEEDED</div>
+  </div>
+
+  <script src="/common.js"></script>
+  <script src="/player.js"></script>
+</body>
+</html>

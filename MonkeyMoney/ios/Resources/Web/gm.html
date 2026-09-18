@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0E2F24">
+  <title>Monkey Money — Show-Master</title>
+  <link rel="icon" href="/img/favicon.svg">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body class="gm">
+  <div class="conn off" id="conn"></div>
+  <div class="toast" id="toast"></div>
+
+  <div class="app" id="login">
+    <div class="top"><div class="brand"><img src="/img/favicon.svg" alt=""> MONKEY MONEY · SHOW-MASTER</div></div>
+    <div class="hero"><h1>REGIE<span>PULT</span></h1><p>CODE · PIN · ACTION</p></div>
+    <div class="card">
+      <label class="f">Raum-Code</label><input type="text" id="code" class="code-input" maxlength="4" autocapitalize="characters">
+      <label class="f">Show-Master-PIN</label><input type="password" id="pin" inputmode="numeric" maxlength="4" class="code-input" placeholder="••••">
+      <button class="btn" id="go" style="margin-top:14px">Ans Pult 🎬</button>
+      <p class="muted center" id="err"></p>
+    </div>
+  </div>
+
+  <div class="app hidden" id="cockpit">
+    <div class="top">
+      <div class="brand"><img src="/img/favicon.svg" alt=""> SHOW-MASTER · <span id="roomLbl"></span></div>
+      <div class="row" style="flex:0 0 auto"><span class="chip" id="phaseChip">—</span><span class="chip gold" id="jarChip">Glas 500 MM</span></div>
+    </div>
+    <div class="cols">
+      <!-- LEFT: live status -->
+      <div>
+        <div class="card"><h3>Live-Status</h3><div class="players" id="players"></div></div>
+        <div class="card"><h3>Drama-Meter</h3><div class="drama"><div id="drama" style="width:50%"></div></div><p class="muted" id="empfehlung" style="margin:8px 0 0"></p></div>
+        <div class="card"><h3>Aktions-Log</h3><div class="log" id="log"></div></div>
+      </div>
+      <!-- MIDDLE: main action + cheat sheet -->
+      <div>
+        <div class="card">
+          <h2 id="sectionLbl">—</h2>
+          <div class="timer" id="timer"><div style="width:100%"></div></div>
+          <p class="muted" id="sceneInfo"></p>
+          <button class="btn" id="mainAction">Weiter</button>
+          <div class="row" style="margin-top:10px">
+            <button class="btn secondary small" id="skipOpening">⏭ Opening überspringen</button>
+            <button class="btn secondary small" id="pauseBtn">⏸ Bananen-Pause</button>
+          </div>
+        </div>
+        <div class="card" id="spick">
+          <h3>🤫 Spickzettel</h3>
+          <div id="spickBody"><p class="muted">Keine Frage aktiv.</p></div>
+        </div>
+        <div class="card"><h3>Antworten live</h3><div class="answers" id="answers"><p class="muted">—</p></div></div>
+        <div class="card" id="boardgames"><h3>🎲 Spiele-Abend</h3><div id="bgButtons" class="tools"></div></div>
+      </div>
+      <!-- RIGHT: the 17 tools -->
+      <div>
+        <div class="card"><h3>Werkzeuge</h3>
+          <div class="tools">
+            <button class="btn secondary" data-cmd="timer">⏳ +15 s</button>
+            <button class="btn secondary" data-cmd="hint">💡 Tipp-Kanone</button>
+            <button class="btn secondary" data-cmd="encore">🎤 Encore</button>
+            <button class="btn secondary" data-cmd="wheel">🎡 Rad drehen</button>
+            <button class="btn secondary" data-cmd="score">🏦 Punkte ±</button>
+            <button class="btn secondary" data-cmd="whisper">🤫 Flüster-Tipp</button>
+            <button class="btn secondary" data-cmd="boost">🐒 Aufholjagd</button>
+            <button class="btn secondary" data-cmd="punish">⚖️ Pranger</button>
+            <button class="btn secondary" data-cmd="joker">🎁 Joker schenken</button>
+            <button class="btn secondary" data-cmd="vote">🗳️ Voting</button>
+            <button class="btn secondary" data-cmd="mood">🌡️ Stimmung</button>
+            <button class="btn secondary" data-cmd="broken">🔴 Roter Buzzer</button>
+            <button class="btn secondary" data-cmd="skip">🚪 Notausgang</button>
+            <button class="btn secondary" data-cmd="rig">🎯 Gezinktes Rad</button>
+            <button class="btn secondary" data-cmd="feedback">📝 Feedback</button>
+            <button class="btn danger" data-cmd="ende">⏹ Show beenden</button>
+          </div>
+        </div>
+        <div class="card"><h3>🔊 Soundboard</h3>
+          <div class="tools" id="sounds"></div>
+        </div>
+        <div class="card"><h3>⚙️ Regie-Einstellungen</h3>
+          <label class="f">Tempo</label><select id="tempo"><option value="zackig">Zackig</option><option value="normal">Normal</option><option value="gemuetlich">Gemütlich</option></select>
+          <label class="f">Fragen-Mix</label><select id="mix"><option value="locker">🍌 Locker</option><option value="ausgewogen">⚖️ Ausgewogen</option><option value="knifflig">🧠 Knifflig</option></select>
+          <label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="autoGm"> Auto-Regie (Timer/Picks)</label>
+          <label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="musik"> Musik an</label>
+          <label class="f">Lobby-Modus</label><select id="modus"><option value="quick">Quick Cash</option><option value="klassik">Klassik-Show</option><option value="marathon">Marathon</option></select>
+          <div class="row" style="margin-top:10px"><button class="btn secondary small" id="revanche">🔁 Revanche</button><button class="btn secondary small" id="teams">🎲 Teams mischen</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="foot">SAME WIFI · REAL FUN · NO SERVER NEEDED</div>
+  </div>
+
+  <script src="/common.js"></script>
+  <script src="/gm.js"></script>
+</body>
+</html>

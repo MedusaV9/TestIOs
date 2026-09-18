@@ -11,12 +11,18 @@ let package = Package(
     name: "MonkeyMoneyCore",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
-        .library(name: "MonkeyMoneyCore", targets: ["MonkeyMoneyCore"])
+        .library(name: "MonkeyMoneyCore", targets: ["MonkeyMoneyCore"]),
+        .executable(name: "mm-dev-server", targets: ["DevServer"])
     ],
     targets: [
         .target(
             name: "MonkeyMoneyCore",
             path: "Core"
+        ),
+        .executableTarget(
+            name: "DevServer",
+            dependencies: ["MonkeyMoneyCore"],
+            path: "DevServer"
         ),
         .testTarget(
             name: "MonkeyMoneyCoreTests",
