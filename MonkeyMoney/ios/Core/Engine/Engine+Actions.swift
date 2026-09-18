@@ -100,6 +100,9 @@ extension Engine {
             if def.id == .schmiergeld && !plugin.meta.jokerAktionen.contains("removeOne") { return false }
             if def.id == .rueckgaberecht && !plugin.meta.jokerAktionen.contains("secondTry") { return false }
             if def.id == .ueberziehungskredit && plugin.meta.roundBased { return false }
+            // 50:50 / hint / second try need at least 3 options (never on Wahr/Falsch).
+            if def.minOptions > 0, !plugin.meta.roundBased, s.currentQuestionIds.indices.contains(s.questionIndex),
+               let q = catalog.question(s.currentQuestionIds[s.questionIndex]), q.choiceOptions.count < def.minOptions { return false }
             return true
         case .vorFrage:
             return s.phase == .erklaerkarte || s.phase == .kategorieWahl || s.phase == .aufloesung || s.phase == .zwischenstand
