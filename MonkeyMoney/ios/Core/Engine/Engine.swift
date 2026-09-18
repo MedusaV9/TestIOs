@@ -62,6 +62,9 @@ public struct Engine: Sendable {
     public static let minPlayers = 2
     public static let graceMs = 180_000
 
+    /// Settings that shape the plan — changeable in the lobby (and after the show) only.
+    public static let lobbyOnlySettings: [String] = ["modus", "teams", "specialRules", "rundenOverride", "v2Formate", "allInErlaubt", "finaleFaktor", "spielModus", "tutorialVideos", "alltimeItems"]
+
     // MARK: Phase durations (base ms, scaled by tempo)
 
     enum Dur {
@@ -241,7 +244,7 @@ public struct Engine: Sendable {
 
     func startMatch(_ s: inout EngineState, now: Millis) {
         guard canStart(s) else { return }
-        s.plan = Plan.build(settings: s.settings, playerCount: s.players.count, songs: catalog.songs)
+        s.plan = Plan.build(settings: s.settings, playerCount: s.players.count, catalog: catalog)
         s.sectionIndex = -1
         s.questionIndex = 0
         s.jackpotGlas = Economy.jackpotJarStart
@@ -306,7 +309,10 @@ public struct Engine: Sendable {
     }
 
     func enterKategorieWahl(_ s: inout EngineState, section: Section, now: Millis) {
-        let supply = catalog.categoriesWithSupply(schwierigkeiten: section.schwierigkeiten, used: Set(s.usedQuestionIds), minimum: section.fragen, pool: s.settings.kategorienPool)
+        let pool = s.settings.kategorienPool
+        let supply = catalog.categoriesWithSupply(schwierigkeiten: section.schwierigkeiten, used: Set(s.usedQuestionIds), minimum: section.fragen, pool: pool)
+        // A narrow question set (one sub-category) leaves nothing to vote on — straight to the explain card.
+        if !pool.isEmpty && supply.count < 2 { enterErklaerkarte(&s, now: now); return }
         var options = s.rng.shuffled(supply.isEmpty ? catalog.categories.map { $0.id } : supply)
         options = Array(options.prefix(4))
         s.kategorie = CategoryVoteState()
@@ -372,7 +378,7 @@ public struct Engine: Sendable {
             // Picture riddles are the point of the Pixel-Dschungel: take them from any
             // category first (only a dozen exist), any difficulty, then fill up normally.
             var pix = opts
-            pix.kategorien = []
+            pix.kategorien = s.settings.kategorienPool
             pix.typen = [.bildPixel]
             picked = catalog.pick(pix, rng: &s.rng)
             if picked.count < count {
@@ -385,21 +391,25 @@ public struct Engine: Sendable {
             opts.anzahl = count - picked.count
         }
         if picked.count < count { picked += catalog.pick(opts, rng: &s.rng) }
-        if picked.count < count {
-            // Category exhausted: widen (any category), then any difficulty.
-            opts.kategorien = []
+        // Widening ladder, always inside the Show-Master's question set first:
+        // voted category → whole pool → any difficulty in the pool → (last resort) the whole catalogue.
+        func refill(_ change: (inout PickOptions) -> Void) {
+            guard picked.count < count else { return }
+            change(&opts)
             opts.used = used.union(picked.map { $0.id })
             opts.anzahl = count - picked.count
             picked += catalog.pick(opts, rng: &s.rng)
-            if !picked.isEmpty && section.kategorie != nil {
-                s.addMoment("kategorie", "📚 Kategorie erschöpft — weiter mit Mix!", at: s.phaseStartedAt)
-            }
         }
-        if picked.count < count {
-            opts.schwierigkeiten = []
-            opts.used = used.union(picked.map { $0.id })
-            opts.anzahl = count - picked.count
-            picked += catalog.pick(opts, rng: &s.rng)
+        let pool = s.settings.kategorienPool
+        if section.kategorie != nil, picked.count < count {
+            refill { $0.kategorien = pool }
+            if picked.count > 0 { s.addMoment("kategorie", "📚 Kategorie erschöpft — weiter mit dem Fragen-Set!", at: s.phaseStartedAt) }
+        }
+        refill { $0.schwierigkeiten = [] }
+        if !pool.isEmpty, picked.count < count {
+            refill { $0.kategorien = []; $0.schwierigkeiten = section.schwierigkeiten }
+            refill { $0.schwierigkeiten = [] }
+            if picked.count > 0 { s.addMoment("kategorie", "📚 Fragen-Set erschöpft — der Rest kommt aus dem ganzen Katalog", at: s.phaseStartedAt) }
         }
         // ULTRAHARD cap per match (§1.2): replace surplus with hard.
         let cap = Blueprints.blueprint(for: s.settings.modus).ultrahardMax
@@ -475,8 +485,7 @@ public struct Engine: Sendable {
     }
 
     func resolvedPlugin(_ s: EngineState, _ section: Section) -> AnyMinigame {
-        let videoSongs = catalog.songs.filter { $0.hatVideo }.count
-        return MinigameRegistry.resolve(section.minigameId, playerCount: s.players.count, songsAvailable: catalog.songs.count, videoSongs: videoSongs, v2: s.settings.v2Formate)
+        MinigameRegistry.resolve(section.minigameId, Plan.availability(settings: s.settings, playerCount: s.players.count, catalog: catalog))
     }
 
     func tickFrage(_ s: inout EngineState, now: Millis) {

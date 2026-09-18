@@ -19,7 +19,7 @@ final class HostModel: ObservableObject {
     @Published var gmPanelOpen = false
     @Published var autosaveAvailable: SaveSlot?
     @Published var slots: [SaveSlot?] = [nil, nil, nil]
-    @Published var settingsDraft = MatchSettings(modus: .klassik)
+    @Published var settingsDraft = Edition.defaultSettings()
     @Published var lastAudioMusic: String?
     @Published var localSeatNames: [String] = []
     @Published var toast: String?
@@ -40,7 +40,7 @@ final class HostModel: ObservableObject {
 
     init() {
         let dir = Bundle.main.url(forResource: "Content", withExtension: nil) ?? Bundle.main.bundleURL.appendingPathComponent("Content")
-        catalog = (try? ContentCatalog.load(from: dir)) ?? .empty
+        catalog = Edition.catalog((try? ContentCatalog.load(from: dir)) ?? .empty)
         meta = Self.loadMeta()
         loadSlots()
     }
@@ -94,6 +94,18 @@ final class HostModel: ObservableObject {
         loadSlots()
     }
 
+    /// One line about the question pool of some settings (what the catalogue can serve).
+    func poolInfo(_ s: MatchSettings) -> String {
+        let counts = catalog.typeCounts(pool: s.kategorienPool, kidSafe: s.familienModus)
+        let total = counts.values.reduce(0, +)
+        var served: [String] = []
+        if (counts[.schaetz] ?? 0) >= 4 { served.append("Schätzen") }
+        if (counts[.sortier] ?? 0) >= 4 { served.append("Sortieren") }
+        if (counts[.bildPixel] ?? 0) >= 1 { served.append("Pixel-Bilder") }
+        let name = QuestionSets.set(s.fragenSet)?.name ?? "Eigene Auswahl"
+        return "\(name): \(total) Fragen" + (served.isEmpty ? " · nur Auswahl-Formate (Schätz-/Sortier-/Pixel-Runden werden zu Vier Lianen)" : " · dazu \(served.joined(separator: ", "))")
+    }
+
     // MARK: Server lifecycle
 
     var joinURL: String { server?.withHub { $0.joinURL } ?? "http://\(lanIP):\(port)" }
@@ -124,6 +136,7 @@ final class HostModel: ObservableObject {
         for p in UInt16(8080)...UInt16(8086) {
             let hub = RoomHub(engine: engine, state: state, joinBaseURL: "http://\(lanIP):\(p)")
             let s = ShowServer(port: p, hub: hub, meta: meta, roots: roots)
+            s.edition = Edition.name
             s.onMetaChanged = { [weak self] m in Task { @MainActor in self?.persistMeta(m) } }
             s.onStageChanged = { [weak self] view in Task { @MainActor in self?.stageUpdated(view) } }
             do {

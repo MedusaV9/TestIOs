@@ -310,7 +310,7 @@ extension Engine {
         for qid in s.currentQuestionIds.dropFirst(s.questionIndex + 1).prefix(5) {
             if let q = catalog.question(qid) {
                 let korrekt = q.correctIndex.flatMap { i in q.choiceOptions.indices.contains(i) ? q.choiceOptions[i] : nil } ?? q.schaetz.map { "\($0.richtwert) \($0.einheit)" } ?? "—"
-                regal.append(GmQuestionInfo(id: q.id, text: q.text, kategorie: catalog.categoryName(q.kat), schwierigkeit: q.schw, korrekt: korrekt, erklaerung: q.erkl, tipps: q.tipps, typ: q.typ))
+                regal.append(GmQuestionInfo(id: q.id, text: q.text, kategorie: catalog.categoryPath(q), schwierigkeit: q.schw, korrekt: korrekt, erklaerung: q.erkl, tipps: q.tipps, typ: q.typ))
             }
         }
         // Drama meter lite: score gap, spread, remaining rounds.
@@ -326,9 +326,21 @@ extension Engine {
             else if s.questionsSinceWheel >= 4 { empfehlung = "Vier Fragen ohne Rad — Zeit für einen Dreh." }
             else if rel < 0.1 { empfehlung = "Kopf-an-Kopf! Encore-Frage lohnt sich." }
         }
+        let pool = s.settings.kategorienPool
+        let kid = s.settings.familienModus
+        let counts = catalog.typeCounts(pool: pool, kidSafe: kid)
+        let total = counts.values.reduce(0, +)
+        var served: [String] = []
+        if (counts[.schaetz] ?? 0) >= 4 { served.append("Schätzen") }
+        if (counts[.sortier] ?? 0) >= 4 { served.append("Sortieren") }
+        if (counts[.bildPixel] ?? 0) >= 1 { served.append("Pixel-Bilder") }
+        let setName = QuestionSets.set(s.settings.fragenSet)?.name ?? "Eigene Auswahl"
+        let poolInfo = "\(setName): \(total) Fragen" + (served.isEmpty ? " · nur Auswahl-Formate (Schätz-/Sortier-/Pixel-Runden fallen auf Vier Lianen zurück)" : " · dazu \(served.joined(separator: ", "))")
         return GmView(stage: stage, spickzettel: spick, antworten: answers, regal: regal, settings: s.settings, log: Array(s.log.suffix(40)),
                       timerExtensionsLeft: max(0, 2 - s.timerExtensions), jokerBudget: s.jokerGrantBudget, encoresLeft: max(0, 2 - s.encoresThisRound),
                       moodPollsLeft: max(0, 3 - s.moodPolls), dramaScore: drama, empfehlung: empfehlung, vote: s.gmVote,
-                      canRig: s.phase == .zwischenstand, gmPin: s.gmPin, players: s.players, roomCode: s.roomCode, joinURL: joinURL)
+                      canRig: s.phase == .zwischenstand, gmPin: s.gmPin, players: s.players, roomCode: s.roomCode, joinURL: joinURL,
+                      fragenSets: catalog.questionSetInfos(activePool: pool, kidSafe: kid), kategorien: catalog.categoryInfos(activePool: pool, kidSafe: kid),
+                      poolInfo: poolInfo, lobbyOnlySettings: Engine.lobbyOnlySettings)
     }
 }

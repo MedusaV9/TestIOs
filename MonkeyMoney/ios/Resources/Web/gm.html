@@ -29,15 +29,16 @@
       <div class="brand"><img src="/img/favicon.svg" alt=""> SHOW-MASTER · <span id="roomLbl"></span></div>
       <div class="row" style="flex:0 0 auto"><span class="chip warn hidden" id="timerChip">⏱️ Timer aus</span><span class="chip" id="phaseChip">—</span><span class="chip gold" id="jarChip">Glas 500 MM</span></div>
     </div>
+    <!-- Tab bar on phones (columns on wide screens) -->
+    <nav class="gm-tabs" id="tabs">
+      <button class="on" data-tab="regie">🎬 Regie</button>
+      <button data-tab="fragen">📚 Fragen</button>
+      <button data-tab="werkzeuge">🧰 Werkzeuge</button>
+      <button data-tab="einstellungen">⚙️ Einstellungen</button>
+    </nav>
     <div class="cols">
-      <!-- LEFT: live status -->
-      <div>
-        <div class="card"><h3>Live-Status</h3><div class="players" id="players"></div></div>
-        <div class="card"><h3>Drama-Meter</h3><div class="drama"><div id="drama" style="width:50%"></div></div><p class="muted" id="empfehlung" style="margin:8px 0 0"></p></div>
-        <div class="card"><h3>Aktions-Log</h3><div class="log" id="log"></div></div>
-      </div>
-      <!-- MIDDLE: main action + cheat sheet -->
-      <div>
+      <!-- REGIE: main action, cheat sheet, live answers, players -->
+      <div class="col" data-col="regie">
         <div class="card">
           <h2 id="sectionLbl">—</h2>
           <div class="timer" id="timer"><div style="width:100%"></div></div>
@@ -53,11 +54,36 @@
           <div id="spickBody"><p class="muted">Keine Frage aktiv.</p></div>
         </div>
         <div class="card"><h3>Antworten live</h3><div class="answers" id="answers"><p class="muted">—</p></div></div>
-        <div class="card" id="boardgames"><h3>🎲 Spiele-Abend</h3><div id="bgButtons" class="tools"></div></div>
+        <div class="card"><h3>Live-Status</h3><div class="players" id="players"></div></div>
+        <div class="card"><h3>Drama-Meter</h3><div class="drama"><div id="drama" style="width:50%"></div></div><p class="muted" id="empfehlung" style="margin:8px 0 0"></p></div>
+        <div class="card"><h3>Aktions-Log</h3><div class="log" id="log"></div></div>
       </div>
-      <!-- RIGHT: the 17 tools -->
-      <div>
-        <div class="card"><h3>Werkzeuge</h3>
+      <!-- FRAGEN: question set + categories + shelf -->
+      <div class="col" data-col="fragen">
+        <div class="card">
+          <h3>📚 Fragen-Set</h3>
+          <p class="muted" style="margin:0 0 8px">Welche Fragen kommen in die Show? Ein Tipp genügt — gilt sofort für die nächste Runde.</p>
+          <div class="sets" id="sets"></div>
+          <div class="pool-info" id="poolInfo"></div>
+          <details id="customPool">
+            <summary>🎛️ Eigene Auswahl — Kategorien &amp; Unterkategorien</summary>
+            <div class="row" style="margin:8px 0"><button class="btn secondary small" id="poolAll">Alle an</button><button class="btn secondary small" id="poolNone">Alle aus</button></div>
+            <div class="cats" id="cats"></div>
+          </details>
+        </div>
+        <div class="card">
+          <h3>🎚️ Fragen-Feinschliff</h3>
+          <label class="f">Fragen-Mix</label><select id="mix"><option value="locker">🍌 Locker — mehr Alltagsfragen</option><option value="ausgewogen">⚖️ Ausgewogen</option><option value="knifflig">🧠 Knifflig</option></select>
+          <label class="f">Deutschland-Anteil: <b id="deLbl">50 %</b></label><input type="range" id="deAnteil" min="0" max="100" step="10" value="50">
+          <label class="f">Kategorien-Wahl vor den Runden</label><select id="katWahl"><option value="voting">🗳️ Spieler stimmen ab</option><option value="gm">🎬 Show-Master wählt</option><option value="aus">Aus — zufällig aus dem Set</option></select>
+          <label class="f check"><input type="checkbox" id="familie"> 👨‍👩‍👧 Familien-Modus — nur kindgerechte Fragen, Timer +50 %, kein Pranger</label>
+          <label class="f check"><input type="checkbox" id="alkohol"> 🥃 18+ Zinsen &amp; Shots</label>
+        </div>
+        <div class="card"><h3>🗂️ Fragen-Regal (nächste)</h3><div id="regal"><p class="muted">—</p></div></div>
+      </div>
+      <!-- WERKZEUGE + SOUND + EINSTELLUNGEN -->
+      <div class="col" data-col="werkzeuge">
+        <div class="card"><h3>🧰 Werkzeuge</h3>
           <div class="tools">
             <button class="btn secondary" data-cmd="timer">⏳ +15 s</button>
             <button class="btn secondary" data-cmd="hint">💡 Tipp-Kanone</button>
@@ -70,29 +96,55 @@
             <button class="btn secondary" data-cmd="joker">🎁 Joker schenken</button>
             <button class="btn secondary" data-cmd="vote">🗳️ Voting</button>
             <button class="btn secondary" data-cmd="mood">🌡️ Stimmung</button>
-            <button class="btn secondary" data-cmd="broken">🔴 Roter Buzzer</button>
+            <button class="btn secondary" data-cmd="broken">🔴 Frage fehlerhaft</button>
             <button class="btn secondary" data-cmd="skip">🚪 Notausgang</button>
             <button class="btn secondary" data-cmd="rig">🎯 Gezinktes Rad</button>
             <button class="btn secondary" data-cmd="feedback">📝 Feedback</button>
+            <button class="btn secondary" data-cmd="teams">🎲 Teams mischen</button>
+            <button class="btn secondary" data-cmd="revanche">🔁 Revanche</button>
             <button class="btn danger" data-cmd="ende">⏹ Show beenden</button>
           </div>
+          <p class="muted" id="budget" style="margin:8px 0 0"></p>
         </div>
-        <div class="card"><h3>🔊 Soundboard</h3>
-          <div class="tools" id="sounds"></div>
-        </div>
-        <div class="card"><h3>⚙️ Regie-Einstellungen</h3>
+        <div class="card"><h3>🔊 Soundboard</h3><div class="tools" id="sounds"></div></div>
+      </div>
+      <div class="col" data-col="einstellungen">
+        <div class="card"><h3>⏱️ Tempo &amp; Timer</h3>
           <label class="f">Tempo</label><select id="tempo"><option value="zackig">Zackig</option><option value="normal">Normal</option><option value="gemuetlich">Gemütlich</option></select>
-          <label class="f">Fragen-Mix</label><select id="mix"><option value="locker">🍌 Locker</option><option value="ausgewogen">⚖️ Ausgewogen</option><option value="knifflig">🧠 Knifflig</option></select>
-          <label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="timerAus" style="width:22px;height:22px"> ⏱️ Timer AUS — Fragen warten, bis alle geantwortet haben oder du auflöst</label>
+          <label class="f check"><input type="checkbox" id="timerAus"> ⏱️ Timer AUS — Fragen warten, bis alle geantwortet haben oder du auflöst</label>
           <label class="f">Zeit pro Frage</label><select id="fragenZeit"><option value="0">Nach Schwierigkeit (15/15/20/25 s × Tempo)</option><option value="10">10 s</option><option value="15">15 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="45">45 s</option><option value="60">Gemütlich · 60 s</option><option value="120">2 Minuten</option></select>
-          <label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="autoGm"> Auto-Regie (Timer/Picks)</label>
-          <label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="musik"> Musik an</label>
-          <label class="f">Lobby-Modus</label><select id="modus"><option value="quick">Quick Cash</option><option value="klassik">Klassik-Show</option><option value="marathon">Marathon</option></select>
-          <div class="row" style="margin-top:10px"><button class="btn secondary small" id="revanche">🔁 Revanche</button><button class="btn secondary small" id="teams">🎲 Teams mischen</button></div>
+          <label class="f check"><input type="checkbox" id="autoGm"> Auto-Regie (verlängert Timer, pickt Kategorien)</label>
+          <label class="f check"><input type="checkbox" id="kurzeShow"> Kurze Show (knappere Karten &amp; Auflösungen)</label>
+        </div>
+        <div class="card"><h3>🎛️ Show-Elemente</h3>
+          <label class="f check"><input type="checkbox" id="jokerAn"> 🃏 Joker</label>
+          <label class="f check"><input type="checkbox" id="radAn"> 🎡 Glücksrad nach den Runden</label>
+          <label class="f check"><input type="checkbox" id="musik"> 🎵 Musik</label>
+          <label class="f check"><input type="checkbox" id="gmLos"> 🖥️ iPad führt selbst (Weiter-Knopf auf der Bühne)</label>
+        </div>
+        <div class="card" id="lobbyCard"><h3>🏁 Nur in der Lobby</h3>
+          <p class="muted hidden" id="lobbyHint" style="margin:0 0 8px">Die Show läuft — diese Punkte formen den Ablauf und gelten erst für die nächste Show (Revanche).</p>
+          <label class="f">Modus</label><select id="modus"><option value="quick">⚡ Quick Cash · 4 Runden</option><option value="klassik">🎬 Klassik-Show · 6 Runden + Jackpot</option><option value="marathon">🏃 Marathon · alle Formate</option></select>
+          <label class="f">Runden (Custom)</label><select id="runden"><option value="0">Wie im Modus</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="8">8</option></select>
+          <label class="f">Teams</label><select id="teams"><option value="aus">Einzeln</option><option value="2er">2er-Teams</option><option value="2v2v2v2">4 Lager</option></select>
+          <label class="f">Finale-Faktor</label><select id="finaleFaktor"><option value="1.0">1,0 streng</option><option value="1.25">1,25 Standard</option><option value="1.5">1,5 Chaos</option></select>
+          <label class="f check"><input type="checkbox" id="v2"> v2-Formate (Market, Börse, Duelle, Musik …)</label>
+          <label class="f check"><input type="checkbox" id="allIn"> All-in bei Alles oder Banane erlaubt</label>
+          <label class="f">Special Rules</label>
+          <div class="rules" id="rules"></div>
         </div>
       </div>
     </div>
     <div class="foot">SAME WIFI · REAL FUN · NO SERVER NEEDED</div>
+  </div>
+
+  <!-- Tool sheet (replaces the old prompt() dialogs) -->
+  <div class="sheet hidden" id="toolSheet">
+    <div class="sheet-card gm-sheet">
+      <h2 id="sheetTitle"></h2>
+      <div id="sheetBody"></div>
+      <div class="row" style="margin-top:14px"><button class="btn secondary" id="sheetCancel" type="button">Abbrechen</button><button class="btn" id="sheetOk" type="button">Los</button></div>
+    </div>
   </div>
 
   <script src="/common.js"></script>

@@ -33,12 +33,15 @@ public final class ContentCatalog: @unchecked Sendable {
     public let questions: [Question]
     public let taxonomy: Taxonomy
     public let songs: [Song]
+    /// Edition restriction (League Edition: ["league_of_legends"]) — only presets inside it are offered.
+    public let restriction: [String]?
     private let byId: [String: Question]
 
-    public init(questions: [Question], taxonomy: Taxonomy, songs: [Song]) {
+    public init(questions: [Question], taxonomy: Taxonomy, songs: [Song], restriction: [String]? = nil) {
         self.questions = questions
         self.taxonomy = taxonomy
         self.songs = songs
+        self.restriction = restriction
         var map: [String: Question] = [:]
         for q in questions { map[q.id] = q }
         byId = map
@@ -61,8 +64,9 @@ public final class ContentCatalog: @unchecked Sendable {
 
     public var categories: [Category] { taxonomy.ober.isEmpty ? Taxonomy.builtin.ober : taxonomy.ober }
 
-    public func categoryName(_ id: String) -> String { categories.first { $0.id == id }?.name ?? id }
-    public func categoryEmoji(_ id: String) -> String { categories.first { $0.id == id }?.emoji ?? "❓" }
+    /// Name of a top-level or sub-category id (vote options may be sub-categories).
+    public func categoryName(_ id: String) -> String { categoryDisplayName(id) }
+    public func categoryEmoji(_ id: String) -> String { categoryDisplayEmoji(id) }
 
     /// Candidate filter shared by all pickers.
     public func candidates(_ opts: PickOptions) -> [Question] {
@@ -111,12 +115,25 @@ public final class ContentCatalog: @unchecked Sendable {
     }
 
     /// Category ids that still have enough unused questions of the given tiers.
+    /// With a pool, the vote runs over the pool's entries; a pool that is a
+    /// single top-level category is broken down into its sub-categories so
+    /// the vote still means something (Gaming → LoL / Minecraft / Pokémon …).
     public func categoriesWithSupply(schwierigkeiten: [Difficulty], used: Set<String>, minimum: Int = 4, pool: [String] = []) -> [String] {
-        var counts: [String: Int] = [:]
+        var perKat: [String: Int] = [:], perSub: [String: Int] = [:]
         for q in questions where !used.contains(q.id) && (schwierigkeiten.isEmpty || schwierigkeiten.contains(q.schw)) && q.typ.isChoiceLike {
-            if !pool.isEmpty && !pool.contains(q.kat) { continue }
-            counts[q.kat, default: 0] += 1
+            if !pool.isEmpty && !pool.contains(q.kat) && !pool.contains(q.sub) { continue }
+            perKat[q.kat, default: 0] += 1
+            perSub[q.sub, default: 0] += 1
         }
-        return categories.map { $0.id }.filter { (counts[$0] ?? 0) >= minimum }
+        if pool.isEmpty { return categories.map { $0.id }.filter { (perKat[$0] ?? 0) >= minimum } }
+        let tops = categories.map { $0.id }.filter { pool.contains($0) }
+        let subs = pool.filter { id in taxonomy.subcategory(id) != nil }
+        var options: [String]
+        if tops.count == 1 && subs.isEmpty {
+            options = subcategories(of: tops[0]).map { $0.id }
+        } else {
+            options = tops + subs
+        }
+        return options.filter { id in (perKat[id] ?? 0) >= minimum || (perSub[id] ?? 0) >= minimum }
     }
 }

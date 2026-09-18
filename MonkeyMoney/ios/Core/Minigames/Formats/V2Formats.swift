@@ -449,7 +449,7 @@ public enum BananenBluff: MinigamePlugin {
     }
 
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
-        let info = GmQuestionInfo(id: state.question.id, text: state.question.text, kategorie: ctx.catalog.categoryName(state.question.kat), schwierigkeit: state.question.schw,
+        let info = GmQuestionInfo(id: state.question.id, text: state.question.text, kategorie: ctx.catalog.categoryPath(state.question), schwierigkeit: state.question.schw,
                                   korrekt: state.truth, erklaerung: state.question.erkl, tipps: state.question.tipps, typ: .choice)
         return (info, state.lies)
     }

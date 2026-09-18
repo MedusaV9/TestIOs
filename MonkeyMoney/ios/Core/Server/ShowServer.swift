@@ -26,6 +26,8 @@ public final class ShowServer: @unchecked Sendable {
     public var clock: () -> Millis = { Int(Date().timeIntervalSince1970 * 1000) }
     /// Extra routes (dev server: stage console without an iPad).
     public var extraRoutes: ((HTTPServer.Request) -> HTTPServer.Response?)?
+    /// Edition label shown on the join page ("" = classic, "League Edition" …).
+    public var edition: String = ""
     let roots: Roots
     private var timer: DispatchSourceTimer?
     private var lastStageSeq = -1
@@ -194,8 +196,8 @@ public final class ShowServer: @unchecked Sendable {
         case ("GET", "/api/boards"):
             return .json((try? enc.encode(meta.boards())) ?? Data())
         case ("GET", "/api/room"):
-            struct Info: Codable { var code: String; var phase: String; var players: Int; var joinURL: String }
-            return .json((try? enc.encode(Info(code: hub.state.roomCode, phase: hub.state.phase.rawValue, players: hub.state.players.count, joinURL: hub.joinURL))) ?? Data())
+            struct Info: Codable { var code: String; var phase: String; var players: Int; var joinURL: String; var edition: String }
+            return .json((try? enc.encode(Info(code: hub.state.roomCode, phase: hub.state.phase.rawValue, players: hub.state.players.count, joinURL: hub.joinURL, edition: edition))) ?? Data())
         case ("GET", "/api/kategorien"):
             return .json((try? enc.encode(hub.engine.catalog.categories)) ?? Data("[]".utf8))
         case ("GET", "/api/uebung/frage"):

@@ -198,7 +198,7 @@ public struct ChoiceCore: Codable, Equatable, Sendable {
     }
 
     public func gmInfo(ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
-        let info = GmQuestionInfo(id: question.id, text: question.text, kategorie: ctx.catalog.categoryName(question.kat),
+        let info = GmQuestionInfo(id: question.id, text: question.text, kategorie: ctx.catalog.categoryPath(question),
                                   schwierigkeit: question.schw, korrekt: options.indices.contains(correctIndex) ? options[correctIndex] : "?",
                                   erklaerung: question.erkl, tipps: question.tipps, typ: question.typ)
         var ans: [PlayerId: String] = [:]

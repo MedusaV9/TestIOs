@@ -3,13 +3,30 @@ import Foundation
 /// Match plan: the mode blueprint under the settings, resolved into sections
 /// (rounds + optional jackpot beat + finale) with slot dramaturgy.
 public enum Plan {
+    /// What the catalogue can feed this match under its settings (pool, family mode).
+    public static func availability(settings: MatchSettings, playerCount: Int, catalog: ContentCatalog) -> MinigameRegistry.Availability {
+        var counts = catalog.typeCounts(pool: settings.kategorienPool, kidSafe: settings.familienModus)
+        if counts.isEmpty { counts = [.choice: 0] } // known-but-empty pool: everything falls back
+        return MinigameRegistry.Availability(playerCount: playerCount, songsAvailable: catalog.songs.count,
+                                             videoSongs: catalog.songs.filter { $0.hatVideo }.count, v2: settings.v2Formate, typeCounts: counts)
+    }
+
+    public static func build(settings: MatchSettings, playerCount: Int, catalog: ContentCatalog) -> [Section] {
+        build(settings: settings, playerCount: playerCount, availability: availability(settings: settings, playerCount: playerCount, catalog: catalog))
+    }
+
+    /// Legacy entry (tests): songs only, no question-type gating.
     public static func build(settings: MatchSettings, playerCount: Int, songs: [Song]) -> [Section] {
+        build(settings: settings, playerCount: playerCount,
+              availability: MinigameRegistry.Availability(playerCount: playerCount, songsAvailable: songs.count, videoSongs: songs.filter { $0.hatVideo }.count, v2: settings.v2Formate))
+    }
+
+    public static func build(settings: MatchSettings, playerCount: Int, availability: MinigameRegistry.Availability) -> [Section] {
         let bp = Blueprints.blueprint(for: settings.modus)
         let rounds = Blueprints.rounds(for: settings)
         var sections: [Section] = []
-        let videoSongs = songs.filter { $0.hatVideo }.count
         for (i, r) in rounds.enumerated() {
-            let plugin = MinigameRegistry.resolve(r.minigameId, playerCount: playerCount, songsAvailable: songs.count, videoSongs: videoSongs, v2: settings.v2Formate)
+            let plugin = MinigameRegistry.resolve(r.minigameId, availability)
             // Song formats never need a category vote.
             var wahl = r.kategorieWahl
             if case .songs = plugin.meta.contentKind { wahl = .keine }

@@ -32,6 +32,11 @@ struct ModeSelectView: View {
                                 Spacer()
                                 Text("≈ \(Plan.estimateMinutes(settings: host.settingsDraft)) min").font(.poppins(14, .semibold)).foregroundStyle(MM.cream.opacity(0.8))
                             }
+                            QuestionSetPicker(sets: host.catalog.questionSetInfos(activePool: host.settingsDraft.kategorienPool, kidSafe: host.settingsDraft.familienModus),
+                                              kategorien: host.catalog.categoryInfos(activePool: host.settingsDraft.kategorienPool, kidSafe: host.settingsDraft.familienModus),
+                                              pool: host.settingsDraft.kategorienPool, poolInfo: host.poolInfo(host.settingsDraft),
+                                              onSet: { host.settingsDraft.applyQuestionSet($0) },
+                                              onPool: { host.settingsDraft.apply(patch: ["kategorienPool": .array($0.map { .string($0) })]) })
                             HStack(spacing: 24) {
                                 SettingPicker(title: "Tempo", options: Tempo.allCases.map { ($0.rawValue, $0.label) }, selection: Binding(get: { host.settingsDraft.tempo.rawValue }, set: { host.settingsDraft.tempo = Tempo(rawValue: $0) ?? .gemuetlich }))
                                 SettingPicker(title: "Fragen-Mix", options: FragenMix.allCases.map { ($0.rawValue, $0.label) }, selection: Binding(get: { host.settingsDraft.fragenMix.rawValue }, set: { host.settingsDraft.fragenMix = FragenMix(rawValue: $0) ?? .locker }))
@@ -81,25 +86,11 @@ struct ModeSelectView: View {
                                     SettingPicker(title: "", options: [("1.0", "1,0 streng"), ("1.25", "1,25 Standard"), ("1.5", "1,5 Chaos")], selection: Binding(get: { String(host.settingsDraft.finaleFaktor) }, set: { host.settingsDraft.finaleFaktor = Double($0) ?? 1.25 }))
                                     Text("Deutschland-Anteil: \(Int(host.settingsDraft.deAnteil * 100)) %").font(.poppins(14, .bold)).foregroundStyle(MM.gold)
                                     Slider(value: s.deAnteil, in: 0...1, step: 0.1).tint(MM.gold)
-                                    Text("Kategorien-Pool (leer = alle)").font(.poppins(14, .bold)).foregroundStyle(MM.gold)
-                                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 8) {
-                                        ForEach(host.catalog.categories) { k in
-                                            let on = host.settingsDraft.kategorienPool.isEmpty || host.settingsDraft.kategorienPool.contains(k.id)
-                                            Button {
-                                                var pool = host.settingsDraft.kategorienPool.isEmpty ? host.catalog.categories.map { $0.id } : host.settingsDraft.kategorienPool
-                                                if pool.contains(k.id) { pool.removeAll { $0 == k.id } } else { pool.append(k.id) }
-                                                host.settingsDraft.kategorienPool = pool.count == host.catalog.categories.count ? [] : pool
-                                            } label: {
-                                                HStack { Text(k.emoji); Text(k.name).font(.poppins(12, .semibold)).lineLimit(1) }
-                                                    .padding(.horizontal, 10).padding(.vertical, 8).frame(maxWidth: .infinity)
-                                                    .background(RoundedRectangle(cornerRadius: 10).fill(on ? Color(hex: k.farbe).opacity(0.55) : Color.black.opacity(0.25)))
-                                                    .foregroundStyle(MM.cream)
-                                            }.buttonStyle(.plain)
-                                        }
-                                    }
+                                    Text("Runden (Custom)").font(.poppins(14, .bold)).foregroundStyle(MM.gold)
+                                    SettingPicker(title: "", options: [("0", "Wie im Modus"), ("2", "2"), ("3", "3"), ("4", "4"), ("5", "5"), ("6", "6"), ("8", "8")], selection: Binding(get: { String(host.settingsDraft.rundenOverride ?? 0) }, set: { host.settingsDraft.rundenOverride = (Int($0) ?? 0) <= 0 ? nil : Int($0) }))
                                 }.padding(.top, 8)
                             } label: {
-                                Text("Custom Game · Special Rules · Kategorien").font(.poppins(15, .bold)).foregroundStyle(MM.cream)
+                                Text("Custom Game · Special Rules · Finale · Runden").font(.poppins(15, .bold)).foregroundStyle(MM.cream)
                             }.tint(MM.gold)
                         }
                     }

@@ -152,7 +152,7 @@ public enum BananenTresor: MinigamePlugin {
     }
 
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
-        let info = GmQuestionInfo(id: state.question.id, text: state.question.text, kategorie: ctx.catalog.categoryName(state.question.kat),
+        let info = GmQuestionInfo(id: state.question.id, text: state.question.text, kategorie: ctx.catalog.categoryPath(state.question),
                                   schwierigkeit: state.question.schw, korrekt: "\(format(state.spec.richtwert)) \(state.spec.einheit)",
                                   erklaerung: state.question.erkl, tipps: state.question.tipps, typ: .schaetz)
         return (info, state.guesses.mapValues { format($0) })
@@ -293,7 +293,7 @@ public enum Affenleiter: MinigamePlugin {
     }
 
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
-        let info = GmQuestionInfo(id: state.question.id, text: state.question.text, kategorie: ctx.catalog.categoryName(state.question.kat),
+        let info = GmQuestionInfo(id: state.question.id, text: state.question.text, kategorie: ctx.catalog.categoryPath(state.question),
                                   schwierigkeit: state.question.schw, korrekt: state.correct.map { state.items[$0] }.joined(separator: " → "),
                                   erklaerung: state.question.erkl, tipps: state.question.tipps, typ: .sortier)
         var answers: [PlayerId: String] = [:]

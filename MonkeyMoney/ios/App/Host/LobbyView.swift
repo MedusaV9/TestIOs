@@ -257,12 +257,20 @@ struct LobbySettingsSheet: View {
     var settings: MatchSettings { host.stage.flatMap { if case .lobby(let l) = $0.scene { return l.settings } else { return nil } } ?? host.settingsDraft }
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 18) {
             Text("Lobby-Einstellungen").font(.outfit(30, .black)).foregroundStyle(MM.cream)
-            SettingPicker(title: "Modus", options: Modus.allCases.map { ($0.rawValue, $0.title) }, selection: Binding(get: { settings.modus.rawValue }, set: { host.command(.settingsSet(["modus": .string($0)])) }))
-            SettingPicker(title: "Tempo", options: Tempo.allCases.map { ($0.rawValue, $0.label) }, selection: Binding(get: { settings.tempo.rawValue }, set: { host.command(.settingsSet(["tempo": .string($0)])) }))
-            SettingPicker(title: "Fragen-Mix", options: FragenMix.allCases.map { ($0.rawValue, $0.label) }, selection: Binding(get: { settings.fragenMix.rawValue }, set: { host.command(.settingsSet(["fragenMix": .string($0)])) }))
-            SettingPicker(title: "Teams", options: [("aus", "Einzeln"), ("2er", "2er-Teams"), ("2v2v2v2", "4 Lager")], selection: Binding(get: { settings.teams.rawValue }, set: { host.command(.settingsSet(["teams": .string($0)])); host.command(.teamsShuffle) }))
+            QuestionSetPicker(sets: host.catalog.questionSetInfos(activePool: settings.kategorienPool, kidSafe: settings.familienModus),
+                              kategorien: host.catalog.categoryInfos(activePool: settings.kategorienPool, kidSafe: settings.familienModus),
+                              pool: settings.kategorienPool, poolInfo: host.poolInfo(settings), compact: true,
+                              onSet: { host.command(.settingsSet(["fragenSet": .string($0)])) },
+                              onPool: { host.command(.settingsSet(["kategorienPool": .array($0.map { .string($0) })])) })
+            Group {
+                SettingPicker(title: "Modus", options: Modus.allCases.map { ($0.rawValue, $0.title) }, selection: Binding(get: { settings.modus.rawValue }, set: { host.command(.settingsSet(["modus": .string($0)])) }))
+                SettingPicker(title: "Tempo", options: Tempo.allCases.map { ($0.rawValue, $0.label) }, selection: Binding(get: { settings.tempo.rawValue }, set: { host.command(.settingsSet(["tempo": .string($0)])) }))
+                SettingPicker(title: "Fragen-Mix", options: FragenMix.allCases.map { ($0.rawValue, $0.label) }, selection: Binding(get: { settings.fragenMix.rawValue }, set: { host.command(.settingsSet(["fragenMix": .string($0)])) }))
+                SettingPicker(title: "Teams", options: [("aus", "Einzeln"), ("2er", "2er-Teams"), ("2v2v2v2", "4 Lager")], selection: Binding(get: { settings.teams.rawValue }, set: { host.command(.settingsSet(["teams": .string($0)])); host.command(.teamsShuffle) }))
+            }
             HStack(spacing: 14) {
                 ToggleChip(title: "⏱️ Timer aus", on: Binding(get: { settings.timerAus }, set: { host.command(.settingsSet(["timerAus": .bool($0)])) }))
                 SettingPicker(title: "", options: [("0", "Zeit: Auto"), ("15", "15 s"), ("20", "20 s"), ("30", "30 s"), ("60", "60 s"), ("120", "2 min")], selection: Binding(get: { String(settings.fragenZeit ?? 0) }, set: { host.command(.settingsSet(["fragenZeit": .number(Double($0) ?? 0)])) }))
@@ -274,13 +282,18 @@ struct LobbySettingsSheet: View {
                 ToggleChip(title: "Ohne Game Master", on: Binding(get: { settings.gmLos }, set: { host.command(.settingsSet(["gmLos": .bool($0)])) }))
             }
             HStack(spacing: 14) {
+                ToggleChip(title: "👨‍👩‍👧 Familien-Modus", on: Binding(get: { settings.familienModus }, set: { host.command(.settingsSet(["familienModus": .bool($0)])) }))
+                SettingPicker(title: "", options: [("voting", "🗳️ Kategorien: Voting"), ("gm", "🎬 Show-Master wählt"), ("aus", "Kategorien-Wahl aus")], selection: Binding(get: { settings.kategorienWahl }, set: { host.command(.settingsSet(["kategorienWahl": .string($0)])) }))
+            }
+            HStack(spacing: 14) {
                 GoldButton(title: "Bots entfernen", icon: "cpu", style: .ghost, compact: true) { host.removeBots() }
                 GoldButton(title: "Teams neu mischen", icon: "shuffle", style: .ghost, compact: true) { host.command(.teamsShuffle) }
                 GoldButton(title: "Spielstand speichern", icon: "externaldrive", style: .ghost, compact: true) { host.writeSlot(1) }
             }
-            Spacer()
             GoldButton(title: "Fertig", style: .gold) { dismiss() }
         }
-        .padding(34).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading).background(MM.bg)
+        .padding(34).frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .background(MM.bg)
     }
 }

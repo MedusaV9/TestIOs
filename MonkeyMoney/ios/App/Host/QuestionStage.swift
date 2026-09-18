@@ -133,16 +133,22 @@ struct QuestionStage: View {
                     }
                 }
             }
-            if let img = w.image, w.pixelLevel != nil || minigameId == "pixel-dschungel" {
-                PixelImage(name: img, level: w.pixelLevel ?? 8, maxLevel: 8).frame(height: 230)
+            let isPixel = minigameId == "pixel-dschungel"
+            if isPixel {
+                // The picture is the star of this round; the options live on the phones.
+                if let img = w.image, !img.isEmpty {
+                    PixelImage(name: img, level: w.pixelLevel ?? 8, maxLevel: 8).frame(height: 300)
+                } else {
+                    PixelPlaceholder().frame(maxWidth: 520)
+                }
             }
-            Text(w.text).font(.outfit(w.text.count > 90 ? 32 : 40, .black)).foregroundStyle(MM.cream).multilineTextAlignment(.center).lineSpacing(4)
+            Text(w.text).font(.outfit(isPixel ? 28 : (w.text.count > 90 ? 32 : 40), .black)).foregroundStyle(MM.cream).multilineTextAlignment(.center).lineSpacing(4)
                 .frame(maxWidth: Self.wallWidth).padding(.horizontal, 16)
                 .shadow(color: .black.opacity(0.5), radius: 8, y: 4)
             if let opts = w.options {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isPixel ? min(4, max(2, opts.count)) : 2), spacing: isPixel ? 8 : 12) {
                     ForEach(Array(opts.enumerated()), id: \.element.id) { i, o in
-                        OptionTile(index: i, option: o, correct: w.correctIndex == o.id, revealed: w.revealed, count: o.count, players: showResult ? players.filter { w.answersByPlayer[$0.id] == o.id } : [])
+                        OptionTile(index: i, option: o, correct: w.correctIndex == o.id, revealed: w.revealed, count: o.count, players: showResult ? players.filter { w.answersByPlayer[$0.id] == o.id } : [], compact: isPixel)
                             .bouncy(delay: revealed ? 0 : 0.08 + Double(i) * 0.07)
                     }
                 }
@@ -219,7 +225,7 @@ struct QuestionStage: View {
                     .background(RoundedRectangle(cornerRadius: 20).fill(Color.black.opacity(0.3)).overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(MM.gold.opacity(0.25))))
             )
         case .ladder(let items, let correctOrder, let revealedSteps, _, let werte): return AnyView(ladderView(items, correctOrder, revealedSteps, werte))
-        case .pixel(_, let level, let maxLevel, let jackpot, let locked): return AnyView(pixelView(level, maxLevel, jackpot, locked))
+        case .pixel(_, let level, let maxLevel, let jackpot, let stufen, let locked): return AnyView(pixelView(level, maxLevel, jackpot, stufen, locked))
         case .steal(let thief, let victim, let betrag, let phase, _): return AnyView(stealView(thief, victim, betrag, phase))
         case .lianen(let lengths, let w, let ds): return AnyView(LianenView(lengths: lengths, w: w, deltas: ds, players: players).frame(height: 190))
         case .buzzers(let armed, let order, let lockedOut, let stufe, let wert): return AnyView(buzzersView(armed, order, lockedOut, stufe, wert))
@@ -393,14 +399,39 @@ struct QuestionStage: View {
             }
     }
 
+    /// Money stair of the Pixel-Dschungel: the current level glows, spent levels dim.
     @ViewBuilder
-    func pixelView(_ level: Int, _ maxLevel: Int, _ jackpot: Int, _ locked: [PlayerId]) -> some View {
-
-            HStack(spacing: 14) {
-                Chip(text: "Stufe \(level)/\(maxLevel)")
-                Text("Jackpot jetzt: \(Money.format(jackpot))").font(.outfit(26, .black)).foregroundStyle(MM.gold).contentTransition(.numericText())
-                ForEach(players.filter { locked.contains($0.id) }) { p in Text("🙈 \(p.name)").font(.poppins(13, .bold)).foregroundStyle(MM.cream) }
+    func pixelView(_ level: Int, _ maxLevel: Int, _ jackpot: Int, _ stufen: [Int], _ locked: [PlayerId]) -> some View {
+        HStack(spacing: 18) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("JACKPOT JETZT").font(.poppins(11, .bold)).tracking(2).foregroundStyle(MM.gold)
+                Text(Money.format(jackpot)).font(.outfit(34, .black)).foregroundStyle(MM.gold).contentTransition(.numericText())
+                Text(level >= maxLevel ? "Bild ist scharf" : "Stufe \(level + 1) von \(maxLevel + 1) · alle 3 s schärfer").font(.poppins(12)).foregroundStyle(MM.cream.opacity(0.7))
             }
+            HStack(alignment: .bottom, spacing: 5) {
+                ForEach(Array(stufen.enumerated()), id: \.offset) { i, v in
+                    let active = i == min(level, stufen.count - 1), spent = i < level
+                    VStack(spacing: 3) {
+                        Text("\(v)").font(.poppins(11, .bold)).foregroundStyle(active ? MM.ink : (spent ? MM.cream.opacity(0.4) : MM.cream.opacity(0.85)))
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(active ? MM.gold : (spent ? Color.black.opacity(0.3) : MM.panel))
+                            .frame(width: 44, height: CGFloat(14 + (stufen.count - i) * 5))
+                            .shadow(color: active ? MM.gold.opacity(0.8) : .clear, radius: 8)
+                    }
+                    .padding(.horizontal, 3).padding(.vertical, 4)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(active ? MM.gold.opacity(0.9) : Color.clear))
+                }
+            }
+            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: level)
+            if !locked.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("EINGELOGGT").font(.poppins(11, .bold)).tracking(2).foregroundStyle(MM.cream.opacity(0.7))
+                    HStack(spacing: -8) { ForEach(players.filter { locked.contains($0.id) }) { p in MonkeyImage(avatar: Avatar(wire: p.avatar), face: "denk").frame(height: 44).overlay(alignment: .top) { Text("🙈").font(.system(size: 14)).offset(y: -6) } } }
+                }
+            }
+        }
+        .padding(.horizontal, 20).padding(.vertical, 12)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color.black.opacity(0.3)).overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(MM.gold.opacity(0.25))))
     }
 
     @ViewBuilder
@@ -579,23 +610,26 @@ struct OptionTile: View {
     var revealed: Bool
     var count: Int?
     var players: [PlayerRef]
+    /// Smaller tiles (Pixel-Dschungel: four in a row under the picture).
+    var compact = false
 
     var body: some View {
         let tint = MM.optionColors[index % MM.optionColors.count]
-        HStack(spacing: 12) {
+        let fs: CGFloat = compact ? 19 : 26
+        HStack(spacing: compact ? 8 : 12) {
             RoundedRectangle(cornerRadius: 3).fill(revealed && correct ? MM.green : tint).frame(width: 6).padding(.vertical, 2)
-            Text(["A", "B", "C", "D", "E", "F", "G", "H"][index % 8]).font(.outfit(26, .black)).foregroundStyle(revealed && correct ? MM.cream : tint).frame(width: 28)
-            Text(MM.optionEmojis[index % MM.optionEmojis.count]).font(.system(size: 24))
-            Text(option.text).font(.outfit(26, .bold)).foregroundStyle(MM.cream).lineLimit(2).minimumScaleFactor(0.7).strikethrough(option.removed, color: MM.red)
-            Spacer()
+            Text(["A", "B", "C", "D", "E", "F", "G", "H"][index % 8]).font(.outfit(fs, .black)).foregroundStyle(revealed && correct ? MM.cream : tint).frame(width: compact ? 20 : 28)
+            if !compact { Text(MM.optionEmojis[index % MM.optionEmojis.count]).font(.system(size: 24)) }
+            Text(option.text).font(.outfit(fs, .bold)).foregroundStyle(MM.cream).lineLimit(2).minimumScaleFactor(0.7).strikethrough(option.removed, color: MM.red)
+            Spacer(minLength: 0)
             if revealed {
-                HStack(spacing: -10) { ForEach(players) { p in MonkeyImage(avatar: Avatar(wire: p.avatar), face: correct ? "jubel" : "frust").frame(height: 44) } }
-                if correct { Image(systemName: "checkmark.circle.fill").font(.system(size: 30, weight: .black)).foregroundStyle(MM.cream).background(Circle().fill(MM.green).padding(3)) }
+                HStack(spacing: -10) { ForEach(players) { p in MonkeyImage(avatar: Avatar(wire: p.avatar), face: correct ? "jubel" : "frust").frame(height: compact ? 34 : 44) } }
+                if correct { Image(systemName: "checkmark.circle.fill").font(.system(size: compact ? 22 : 30, weight: .black)).foregroundStyle(MM.cream).background(Circle().fill(MM.green).padding(3)) }
             } else if option.removed {
                 Image(systemName: "xmark").font(.system(size: 18, weight: .black)).foregroundStyle(MM.red.opacity(0.8))
             }
         }
-        .padding(.leading, 10).padding(.trailing, 14).padding(.vertical, 14)
+        .padding(.leading, 10).padding(.trailing, compact ? 10 : 14).padding(.vertical, compact ? 10 : 14)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(revealed && correct ? MM.green.opacity(0.32) : Color(hex: "#123D2A").opacity(0.85))
@@ -608,32 +642,81 @@ struct OptionTile: View {
     }
 }
 
-/// Pixelated image reveal (8 steps) for Pixel-Dschungel.
+/// Pixelated image reveal for the Pixel-Dschungel: the picture is drawn to a
+/// tiny canvas (8 → 128 columns over the eight levels, the original's stair)
+/// and blown up without smoothing — the classic mosaic. Levels are cached so
+/// the wall never re-renders the picture on every state update.
 struct PixelImage: View {
     var name: String
     var level: Int
     var maxLevel: Int
 
+    /// Columns per level (level ≥ maxLevel = sharp).
+    static let columns = [8, 12, 18, 26, 38, 56, 84, 128]
+
     var body: some View {
         Group {
-            if let url = Bundle.main.url(forResource: (name as NSString).deletingPathExtension, withExtension: (name as NSString).pathExtension, subdirectory: "Content/pixel"), let ui = UIImage(contentsOfFile: url.path) {
-                let block = max(1, 48 - level * 6)
-                Image(uiImage: PixelImage.pixelate(ui, block: level >= maxLevel ? 1 : block))
-                    .interpolation(.none).resizable().scaledToFit()
+            if let ui = PixelImage.frame(name: name, level: level, maxLevel: maxLevel) {
+                Image(uiImage: ui)
+                    .interpolation(level >= maxLevel ? .high : .none).resizable().scaledToFit()
                     .clipShape(RoundedRectangle(cornerRadius: 18))
                     .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(MM.gold.opacity(0.5), lineWidth: 3))
-                    .animation(.easeInOut(duration: 0.4), value: level)
-            } else { Text("🖼️").font(.system(size: 80)) }
+                    .shadow(color: .black.opacity(0.45), radius: 16, y: 10)
+                    .animation(.easeInOut(duration: 0.35), value: level)
+            } else {
+                PixelPlaceholder()
+            }
         }
     }
 
-    static func pixelate(_ img: UIImage, block: Int) -> UIImage {
-        guard block > 1, let cg = img.cgImage else { return img }
-        let w = max(1, cg.width / block), h = max(1, cg.height / block)
-        let small = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
+    nonisolated(unsafe) static var cache: [String: UIImage] = [:]
+    nonisolated(unsafe) static var originals: [String: UIImage] = [:]
+
+    static func original(_ name: String) -> UIImage? {
+        if let o = originals[name] { return o }
+        let base = (name as NSString).deletingPathExtension, ext = (name as NSString).pathExtension
+        guard let url = Bundle.main.url(forResource: base, withExtension: ext.isEmpty ? "png" : ext, subdirectory: "Content/pixel")
+                ?? Bundle.main.url(forResource: base, withExtension: ext.isEmpty ? "png" : ext, subdirectory: "pixel")
+                ?? Bundle.main.url(forResource: base, withExtension: ext.isEmpty ? "png" : ext),
+              let img = UIImage(contentsOfFile: url.path) else { return nil }
+        originals[name] = img
+        return img
+    }
+
+    static func frame(name: String, level: Int, maxLevel: Int) -> UIImage? {
+        guard !name.isEmpty, let img = original(name) else { return nil }
+        if level >= maxLevel { return img }
+        let key = "\(name)#\(level)"
+        if let c = cache[key] { return c }
+        let cols = columns[min(columns.count - 1, max(0, level))]
+        let out = pixelate(img, columns: cols)
+        cache[key] = out
+        return out
+    }
+
+    /// Downscale to `columns` × rows real pixels (scale 1, so a block is a block).
+    static func pixelate(_ img: UIImage, columns: Int) -> UIImage {
+        guard let cg = img.cgImage, cg.width > 0, cg.height > 0 else { return img }
+        let w = max(1, columns), h = max(1, Int((Double(columns) * Double(cg.height) / Double(cg.width)).rounded()))
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        return UIGraphicsImageRenderer(size: CGSize(width: w, height: h), format: format).image { _ in
             img.draw(in: CGRect(x: 0, y: 0, width: w, height: h))
         }
-        return small
+    }
+}
+
+/// No picture for this question (pool without picture riddles): a clear beat
+/// instead of an empty frame — the monkey covers its eyes, the question stays playable.
+struct PixelPlaceholder: View {
+    var body: some View {
+        VStack(spacing: 6) {
+            MonkeyImage(avatar: Avatar(affe: "schnarch-schorsch", farbe: "gelb"), face: "denk").frame(height: 120)
+            Text("Kein Bild zu dieser Frage — ratet über die Antworten!").font(.poppins(15, .semibold)).foregroundStyle(MM.cream.opacity(0.85))
+        }
+        .frame(maxWidth: .infinity).padding(.vertical, 14)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color.black.opacity(0.3)).overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(MM.gold.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [8, 6]))))
     }
 }
 

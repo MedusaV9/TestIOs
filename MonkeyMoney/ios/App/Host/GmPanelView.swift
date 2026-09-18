@@ -102,16 +102,29 @@ struct GmPanelView: View {
                                 SettingPicker(title: "Fragen-Mix", options: FragenMix.allCases.map { ($0.rawValue, $0.label) }, selection: Binding(get: { g.settings.fragenMix.rawValue }, set: { host.command(.settingsSet(["fragenMix": .string($0)])) }))
                                 ToggleChip(title: "⏱️ Timer aus", on: Binding(get: { g.settings.timerAus }, set: { host.command(.settingsSet(["timerAus": .bool($0)])) }))
                                 SettingPicker(title: "Zeit pro Frage", options: [("0", "Auto"), ("15", "15 s"), ("20", "20 s"), ("30", "30 s"), ("60", "60 s"), ("120", "2 min")], selection: Binding(get: { String(g.settings.fragenZeit ?? 0) }, set: { host.command(.settingsSet(["fragenZeit": .number(Double($0) ?? 0)])) }))
-                                ToggleChip(title: "Auto-Regie", on: Binding(get: { g.settings.autoGm }, set: { host.command(.autoGmSet($0)) }))
-                                ToggleChip(title: "Musik", on: Binding(get: { g.settings.musik }, set: { host.command(.settingsSet(["musik": .bool($0)])) }))
+                                HStack(spacing: 8) {
+                                    ToggleChip(title: "Auto-Regie", on: Binding(get: { g.settings.autoGm }, set: { host.command(.autoGmSet($0)) }))
+                                    ToggleChip(title: "Musik", on: Binding(get: { g.settings.musik }, set: { host.command(.settingsSet(["musik": .bool($0)])) }))
+                                }
+                                HStack(spacing: 8) {
+                                    ToggleChip(title: "🃏 Joker", on: Binding(get: { g.settings.jokerAn }, set: { host.command(.settingsSet(["jokerAn": .bool($0)])) }))
+                                    ToggleChip(title: "🎡 Rad", on: Binding(get: { g.settings.radAn }, set: { host.command(.settingsSet(["radAn": .bool($0)])) }))
+                                    ToggleChip(title: "👨‍👩‍👧 Familie", on: Binding(get: { g.settings.familienModus }, set: { host.command(.settingsSet(["familienModus": .bool($0)])) }))
+                                }
+                                SettingPicker(title: "Kategorien-Wahl", options: [("voting", "Voting"), ("gm", "Show-Master"), ("aus", "Aus")], selection: Binding(get: { g.settings.kategorienWahl }, set: { host.command(.settingsSet(["kategorienWahl": .string($0)])) }))
+                                HStack { Text("Deutschland-Anteil \(Int(g.settings.deAnteil * 100)) %").font(.poppins(12)).foregroundStyle(MM.cream); Slider(value: Binding(get: { g.settings.deAnteil }, set: { host.command(.settingsSet(["deAnteil": .number($0)])) }), in: 0...1, step: 0.1).tint(MM.gold) }
                                 HStack { Text("Lautstärke").font(.poppins(12)).foregroundStyle(MM.cream); Slider(value: $audio.volume, in: 0...1).tint(MM.gold) }
                                 }
+                                QuestionSetPicker(sets: g.fragenSets, kategorien: g.kategorien, pool: g.settings.kategorienPool, poolInfo: g.poolInfo, compact: true,
+                                                  onSet: { host.command(.settingsSet(["fragenSet": .string($0)])); refresh() },
+                                                  onPool: { host.command(.settingsSet(["kategorienPool": .array($0.map { .string($0) })])); refresh() })
+                                    .padding(.top, 6)
                                 Text("Spielstand").font(.poppins(13, .bold)).foregroundStyle(MM.gold).padding(.top, 6)
                                 HStack { ForEach(1...3, id: \.self) { n in tool("💾 Slot \(n)") { host.writeSlot(n) } } }
                                 Text("Aktions-Log").font(.poppins(13, .bold)).foregroundStyle(MM.gold).padding(.top, 6)
                                 ForEach(Array(g.log.suffix(14).reversed().enumerated()), id: \.offset) { _, l in Text(l.text).font(.poppins(11)).foregroundStyle(MM.cream.opacity(0.8)).lineLimit(1) }
                             }
-                        }.frame(width: 300)
+                        }.frame(width: 340)
                     }
                 }
             }

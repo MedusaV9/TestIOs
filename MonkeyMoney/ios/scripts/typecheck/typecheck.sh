@@ -12,7 +12,9 @@
 # runtime behaviour, SDK signatures the stubs model too loosely, linking.
 #
 # Usage:
-#   scripts/typecheck/typecheck.sh            # app
+#   scripts/typecheck/typecheck.sh            # app + League Edition flavour
+#   scripts/typecheck/typecheck.sh app        # classic app only
+#   scripts/typecheck/typecheck.sh league     # League Edition (-D LEAGUE_EDITION)
 #   scripts/typecheck/typecheck.sh app        # app target only
 #   TYPECHECK_DEBUG=1 …                       # also define DEBUG
 #
@@ -115,6 +117,8 @@ typecheck_target() {
         < <(find "${dirs[@]/#/$SCRATCH/}" -name '*.swift' -print0 | sort -z)
     local defines=()
     [[ "${TYPECHECK_DEBUG:-0}" == "1" ]] && defines=(-D DEBUG)
+    # Extra compilation conditions for a flavour (e.g. LEAGUE_EDITION).
+    for d in ${TYPECHECK_DEFINES:-}; do defines+=(-D "$d"); done
     log "typechecking $name (${#files[@]} files)"
     local logf="$BUILD/$name.log"
     set +e
@@ -143,7 +147,10 @@ prepare_sources
 
 rc=0
 case "$TARGET" in
-    app|all) typecheck_target MonkeyMoney App Core || rc=1 ;;
-    *) echo "unknown target: $TARGET (app|all)" >&2; exit 2 ;;
+    app)    typecheck_target MonkeyMoney App Core || rc=1 ;;
+    league) TYPECHECK_DEFINES="LEAGUE_EDITION ${TYPECHECK_DEFINES:-}" typecheck_target MonkeyMoneyLeague App Core || rc=1 ;;
+    all)    typecheck_target MonkeyMoney App Core || rc=1
+            TYPECHECK_DEFINES="LEAGUE_EDITION ${TYPECHECK_DEFINES:-}" typecheck_target MonkeyMoneyLeague App Core || rc=1 ;;
+    *) echo "unknown target: $TARGET (app|league|all)" >&2; exit 2 ;;
 esac
 exit $rc

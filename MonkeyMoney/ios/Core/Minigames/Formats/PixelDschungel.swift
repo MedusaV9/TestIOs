@@ -70,6 +70,9 @@ public enum PixelDschungel: MinigamePlugin {
 
     public static func outcomes(_ state: State, ctx: MinigameContext) -> [PlayerId: Outcome] { state.core.standardOutcomes(ctx: ctx, speed: false) }
 
+    /// The whole money stair: jackpot value per level 0…maxLevel.
+    public static func stair(_ s: State) -> [Int] { (0...s.maxLevel).map { jackpot(s, level: $0) } }
+
     public static func stage(_ state: State, revealed: Bool, ctx: MinigameContext) -> MinigameStageOutput {
         var wall = state.core.wall(ctx: ctx, revealed: revealed)
         let lvl = revealed ? state.maxLevel : level(state, now: ctx.now)
@@ -77,17 +80,19 @@ public enum PixelDschungel: MinigamePlugin {
         wall.image = state.core.question.bild
         return MinigameStageOutput(wall: wall,
                                    extra: .pixel(image: state.core.question.bild ?? "", level: lvl, maxLevel: state.maxLevel,
-                                                 jackpot: jackpot(state, level: lvl), locked: Array(state.core.answers.keys)),
+                                                 jackpot: jackpot(state, level: lvl), stufen: stair(state), locked: Array(state.core.answers.keys)),
                                    title: meta.name)
     }
 
     public static func prompt(_ state: State, player: PlayerId, revealed: Bool, ctx: MinigameContext) -> PlayerPrompt {
         if revealed { return state.core.prompt(for: player, ctx: ctx, revealed: true, delta: scores(state, ctx: ctx)[player]) }
         if state.core.hasAnswered(player) {
-            return .idle(title: "Augen zu! 🙈", subtitle: "Du hast geantwortet — die Auflösung kommt gleich.")
+            let at = state.levelAt[player] ?? level(state, now: ctx.now)
+            return .idle(title: "🙈 Eingeloggt — Augen zu!", subtitle: "Stufe \(at + 1) von \(state.maxLevel + 1): \(Money.format(jackpot(state, level: at))) wenn's stimmt. Die Auflösung kommt gleich.")
         }
         let lvl = level(state, now: ctx.now)
-        return state.core.prompt(for: player, ctx: ctx, revealed: false, hint: "💰 Jackpot jetzt: \(Money.format(jackpot(state, level: lvl)))")
+        return state.core.prompt(for: player, ctx: ctx, revealed: false,
+                                 hint: "🖼️ Bild läuft auf dem Bildschirm · Stufe \(lvl + 1)/\(state.maxLevel + 1) · jetzt tippen = \(Money.format(jackpot(state, level: lvl)))")
     }
 
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) { state.core.gmInfo(ctx: ctx) }

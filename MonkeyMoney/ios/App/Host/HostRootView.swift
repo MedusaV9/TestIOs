@@ -55,8 +55,9 @@ struct HostTopBar: View {
                 .background(Capsule().fill(Color.black.opacity(0.3)))
             }
             HStack(spacing: 8) {
-                Text("🐵").font(.system(size: 20))
+                Text(Edition.isLeague ? "⚔️" : "🐵").font(.system(size: 20))
                 Text("MONKEY MONEY").font(.outfit(17, .black)).foregroundStyle(MM.gold).tracking(1.5)
+                if Edition.isLeague { Chip(text: "LEAGUE EDITION", gold: true) }
             }
             if host.server != nil {
                 Chip(text: "iPad ist der Server", icon: "wifi")
@@ -107,11 +108,11 @@ struct MainMenuView: View {
                             .background(RoundedRectangle(cornerRadius: 16).fill(MM.panel).overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(MM.gold, lineWidth: 2)))
                         }.buttonStyle(PressStyle()).frame(width: 520)
                     }
-                    GoldButton(title: "Neue Show starten", icon: "play.fill") { host.settingsDraft = MatchSettings(modus: .klassik); host.screen = .modes }
+                    GoldButton(title: "Neue Show starten", icon: "play.fill") { host.settingsDraft = Edition.defaultSettings(); host.screen = .modes }
                         .frame(width: 520)
                     HStack(spacing: 12) {
                         GoldButton(title: "Spiele-Abend", icon: "dice.fill", style: .green) {
-                            var s = MatchSettings(modus: .quick)
+                            var s = Edition.defaultSettings(modus: .quick)
                             s.spielModus = .spieleabend
                             host.startShow(settings: s)
                         }
@@ -128,7 +129,7 @@ struct MainMenuView: View {
             Spacer(minLength: 0)
             HStack(spacing: 30) {
                 MonkeyImage(avatar: Avatar(affe: "don-bananas", farbe: "gelb"), face: "jubel").frame(height: 150)
-                Text("\(host.catalog.questions.count.formatted()) Fragen · 27 Formate · 6 Brettspiele · \(host.meta.profiles.count) Profile")
+                Text(Edition.isLeague ? "\(host.catalog.questions.count.formatted()) League-of-Legends-Fragen · Champions, Lore, Items, Esports · \(host.meta.profiles.count) Profile" : "\(host.catalog.questions.count.formatted()) Fragen · 27 Formate · 6 Brettspiele · \(host.meta.profiles.count) Profile")
                     .font(.poppins(14, .semibold)).foregroundStyle(MM.cream.opacity(0.8))
                 MonkeyImage(avatar: Avatar(affe: "kiki-krawall", farbe: "gruen"), face: "jubel").frame(height: 150)
             }
@@ -148,9 +149,9 @@ struct LogoView: View {
                 .shadow(color: Color(hex: "#A67C1A"), radius: 0, y: 4 * size).shadow(color: .black.opacity(0.5), radius: 16, y: 10)
             Text("MONEY").font(.outfit(64 * size, .black)).foregroundStyle(MM.gold)
                 .shadow(color: Color(hex: "#A67C1A"), radius: 0, y: 4 * size).shadow(color: .black.opacity(0.5), radius: 16, y: 10)
-            Text("QUIZ · PLAY · WIN").font(.poppins(14 * size, .bold)).tracking(3).foregroundStyle(MM.cream)
+            Text(Edition.isLeague ? "⚔️ LEAGUE EDITION" : "QUIZ · PLAY · WIN").font(.poppins(14 * size, .bold)).tracking(3).foregroundStyle(Edition.isLeague ? MM.ink : MM.cream)
                 .padding(.horizontal, 18 * size).padding(.vertical, 6 * size)
-                .background(RoundedRectangle(cornerRadius: 6).fill(MM.wood)).overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(hex: "#5A3A1C"), lineWidth: 2))
+                .background(RoundedRectangle(cornerRadius: 6).fill(Edition.isLeague ? MM.gold : MM.wood)).overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Edition.isLeague ? MM.goldDark : Color(hex: "#5A3A1C"), lineWidth: 2))
                 .offset(y: 10 * size)
         }
     }

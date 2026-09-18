@@ -365,6 +365,10 @@ struct PhoneGmView: View {
                         ToggleChip(title: "⏱️ Timer aus", on: Binding(get: { g.settings.timerAus }, set: { player.gm(.settingsSet(["timerAus": .bool($0)])) }))
                         SettingPicker(title: "", options: [("0", "Auto"), ("20", "20 s"), ("30", "30 s"), ("60", "60 s"), ("120", "2 min")], selection: Binding(get: { String(g.settings.fragenZeit ?? 0) }, set: { player.gm(.settingsSet(["fragenZeit": .number(Double($0) ?? 0)])) }))
                     }
+                    QuestionSetPicker(sets: g.fragenSets, kategorien: g.kategorien, pool: g.settings.kategorienPool, poolInfo: g.poolInfo, compact: true,
+                                      onSet: { player.gm(.settingsSet(["fragenSet": .string($0)])) },
+                                      onPool: { player.gm(.settingsSet(["kategorienPool": .array($0.map { .string($0) })])) })
+                        .padding(12).background(RoundedRectangle(cornerRadius: 14).fill(Color.black.opacity(0.3)))
                     if let q = g.spickzettel {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("🤫 Spickzettel").font(.poppins(12, .bold)).foregroundStyle(MM.gold)

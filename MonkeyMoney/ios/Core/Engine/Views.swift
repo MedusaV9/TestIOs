@@ -281,8 +281,9 @@ public indirect enum StageExtra: Codable, Equatable, Sendable {
     case numberLine(min: Double, max: Double, unit: String, guesses: [Guess], truth: Double?, log: Bool)
     /// Affenleiter: items in correct order (revealed steps) + player orders.
     case ladder(items: [String], correctOrder: [Int], revealedSteps: Int, playerOrders: [PlayerId: [Int]], werte: [String])
-    /// Pixel-Dschungel: image, level 0…8, jackpot ladder.
-    case pixel(image: String, level: Int, maxLevel: Int, jackpot: Int, locked: [PlayerId])
+    /// Pixel-Dschungel: image (empty = no picture for this question), level 0…8,
+    /// current jackpot, the whole money stair (value per level) and who has locked in.
+    case pixel(image: String, level: Int, maxLevel: Int, jackpot: Int, stufen: [Int], locked: [PlayerId])
     /// Taschendieb: thief/victim/amount cutscene.
     case steal(thief: PlayerId?, victim: PlayerId?, betrag: Int, phase: String, candidates: [PlayerId])
     /// Lianen-Finale: normalised liana lengths + W.
@@ -479,4 +480,11 @@ public struct GmView: Codable, Equatable, Sendable {
     public var players: [Player]
     public var roomCode: String
     public var joinURL: String
+    /// Question-set presets (with counts) and the category tree for the pool picker.
+    public var fragenSets: [QuestionSetInfo]
+    public var kategorien: [CategoryInfo]
+    /// One line about the active pool: questions and which special formats it can serve.
+    public var poolInfo: String
+    /// Settings that only take effect in the lobby (the plan is built at start).
+    public var lobbyOnlySettings: [String]
 }

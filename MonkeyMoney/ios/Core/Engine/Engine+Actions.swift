@@ -221,12 +221,18 @@ extension Engine {
         case .flowSkipOpening:
             if s.phase == .intro { s.openingSkipped = true; s.phaseEndsAt = now }
         case .settingsSet(let patch):
-            guard s.phase == .lobby || s.phase == .ende || patch.keys.allSatisfy({ ["tempo", "fragenMix", "autoGm", "autoTipp", "musik", "musikVolume", "kurzeShow", "gmLos", "jokerAn", "radAn", "timerAus", "fragenZeit"].contains($0) }) else { return }
+            // Mid-match only the live knobs; plan-shaping settings wait for the lobby.
+            guard s.phase == .lobby || s.phase == .ende || !patch.keys.contains(where: { Engine.lobbyOnlySettings.contains($0) }) else { return }
             if let b = patch["timerAus"]?.boolValue, b != s.settings.timerAus {
                 s.addMoment("regie", b ? "⏱️ Timer aus — antwortet in Ruhe, der Show-Master löst auf" : "⏱️ Timer wieder an", at: now)
             }
             if let n = patch["fragenZeit"]?.intValue { s.addMoment("regie", n <= 0 ? "⏱️ Zeit pro Frage: nach Schwierigkeit" : "⏱️ Zeit pro Frage: \(n) s", at: now) }
+            let poolBefore = s.settings.kategorienPool
             s.settings.apply(patch: patch)
+            if s.settings.kategorienPool != poolBefore || patch["fragenSet"] != nil {
+                let name = QuestionSets.set(s.settings.fragenSet)?.name ?? "Eigene Auswahl"
+                s.addMoment("regie", "📚 Fragen-Set: \(name)" + (s.phase == .lobby ? "" : " — gilt ab der nächsten Runde"), at: now)
+            }
             s.addLog("settings", "Einstellungen geändert: \(patch.keys.sorted().joined(separator: ", "))", at: now)
         case .scoreAdjust(let pid, let delta, let grund):
             guard let i = s.index(of: pid) else { return }

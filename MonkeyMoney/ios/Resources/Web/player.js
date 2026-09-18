@@ -8,6 +8,13 @@
   const codeFromPath = (location.pathname.match(/\/j\/([A-Za-z]{4})/) || [])[1] || new URLSearchParams(location.search).get("code") || "";
   $("code").value = codeFromPath.toUpperCase();
   $("joinRoomChip").textContent = codeFromPath ? `Raum ${codeFromPath.toUpperCase()}` : "Raum-Code eingeben";
+  // Edition badge (League Edition ships only Runeterra questions).
+  fetch("/api/room").then(r => r.ok ? r.json() : null).then(info => {
+    if (!info || !info.edition) return;
+    const chip = MM.el(`<div class="chip gold edition">⚔️ ${esc(info.edition)}</div>`);
+    document.querySelector("#join .hero").appendChild(chip);
+    document.title = `Monkey Money ${info.edition} — Mitspielen`;
+  }).catch(() => {});
   // Code card (big letters + "Code ändern") vs. the raw input.
   const showCodeCard = on => { $("codeCard").classList.toggle("hidden", !on); $("code").classList.toggle("hidden", on); if (on) $("codeBig").textContent = $("code").value.toUpperCase().split("").join(" "); updateSteps(); };
   showCodeCard(codeFromPath.length === 4);

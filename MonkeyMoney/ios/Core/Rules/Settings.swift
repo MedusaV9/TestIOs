@@ -99,8 +99,10 @@ public struct MatchSettings: Codable, Equatable, Sendable {
     public var familienModus: Bool
     /// 18+ alcohol edition (opt in per player).
     public var alkoholEdition: Bool
-    /// Category pool restriction (empty = all).
+    /// Category pool restriction — top-level and/or sub-category ids (empty = all).
     public var kategorienPool: [String]
+    /// The preset behind the pool ("alle", "league", …, "eigen" for a hand-picked pool).
+    public var fragenSet: String
     /// Custom round count override for "Custom" games (nil = blueprint).
     public var rundenOverride: Int?
     /// All-in allowed in Alles oder Banane.
@@ -135,11 +137,20 @@ public struct MatchSettings: Codable, Equatable, Sendable {
         familienModus = false
         alkoholEdition = false
         kategorienPool = []
+        fragenSet = QuestionSets.alleId
         rundenOverride = nil
         allInErlaubt = false
         specialRules = []
         timerAus = false
         fragenZeit = nil
+    }
+
+    /// Apply a question-set preset: pool + kid-safe flag follow the set.
+    public mutating func applyQuestionSet(_ id: String) {
+        guard let set = QuestionSets.set(id) else { return }
+        fragenSet = set.id
+        if set.id != QuestionSets.eigenId { kategorienPool = set.pool }
+        if set.kidSafe { familienModus = true }
     }
 
     public var tempoFactor: Double { (familienModus ? 1.5 : 1.0) * tempo.factor }
@@ -156,6 +167,14 @@ public struct MatchSettings: Codable, Equatable, Sendable {
             fresh.gmLos = gmLos
             fresh.spielModus = spielModus
             fresh.teams = teams
+            // The question pool is the Show-Master's choice, not the mode's.
+            fresh.kategorienPool = kategorienPool
+            fresh.fragenSet = fragenSet
+            fresh.familienModus = familienModus
+            fresh.alkoholEdition = alkoholEdition
+            fresh.deAnteil = deAnteil
+            fresh.timerAus = timerAus
+            fresh.fragenZeit = fragenZeit
             self = fresh
         }
         if let s = patch["tempo"]?.stringValue, let v = Tempo(rawValue: s) { tempo = v }
@@ -181,11 +200,15 @@ public struct MatchSettings: Codable, Equatable, Sendable {
         if let b = patch["familienModus"]?.boolValue { familienModus = b }
         if let b = patch["alkoholEdition"]?.boolValue { alkoholEdition = b }
         if let b = patch["allInErlaubt"]?.boolValue { allInErlaubt = b }
-        if let arr = patch["kategorienPool"]?.arrayValue { kategorienPool = arr.compactMap { $0.stringValue } }
+        if let arr = patch["kategorienPool"]?.arrayValue {
+            kategorienPool = arr.compactMap { $0.stringValue }
+            fragenSet = QuestionSets.id(forPool: kategorienPool, kidSafe: false)
+        }
+        if let id = patch["fragenSet"]?.stringValue { applyQuestionSet(id) }
         if let arr = patch["specialRules"]?.arrayValue {
             specialRules = Set(arr.compactMap { $0.stringValue }.compactMap(SpecialRule.init(rawValue:)))
         }
-        if let n = patch["rundenOverride"]?.intValue { rundenOverride = n }
+        if let n = patch["rundenOverride"]?.intValue { rundenOverride = n <= 0 ? nil : n }
         if let b = patch["timerAus"]?.boolValue { timerAus = b }
         if let n = patch["fragenZeit"]?.intValue { fragenZeit = n <= 0 ? nil : min(300, max(5, n)) }
         if patch["fragenZeit"] == .null { fragenZeit = nil }

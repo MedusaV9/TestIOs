@@ -338,22 +338,64 @@ public enum MinigameRegistry {
 
     public static let fallbackId = "vier-lianen"
 
+    /// What the current match can feed a format: players, songs, and — inside
+    /// the chosen question pool — how many questions of each type exist.
+    public struct Availability: Sendable {
+        public var playerCount: Int
+        public var songsAvailable: Int
+        public var videoSongs: Int
+        public var v2: Bool
+        public var typeCounts: [QuestionType: Int]
+
+        public init(playerCount: Int, songsAvailable: Int, videoSongs: Int, v2: Bool, typeCounts: [QuestionType: Int] = [:]) {
+            self.playerCount = playerCount
+            self.songsAvailable = songsAvailable
+            self.videoSongs = videoSongs
+            self.v2 = v2
+            self.typeCounts = typeCounts
+        }
+
+        /// Empty counts = "not known" (legacy callers) → no type gating.
+        var typesKnown: Bool { !typeCounts.isEmpty }
+    }
+
     /// Resolve a playlist wish to an available plugin for this match.
     public static func resolve(_ id: String, playerCount: Int, songsAvailable: Int, videoSongs: Int, v2: Bool) -> AnyMinigame {
-        if let p = plugin(id), available(p, playerCount: playerCount, songsAvailable: songsAvailable, videoSongs: videoSongs, v2: v2) {
-            return p
-        }
+        resolve(id, Availability(playerCount: playerCount, songsAvailable: songsAvailable, videoSongs: videoSongs, v2: v2))
+    }
+
+    public static func resolve(_ id: String, _ a: Availability) -> AnyMinigame {
+        if let p = plugin(id), available(p, a) { return p }
         return plugin(fallbackId)!
     }
 
     public static func available(_ p: AnyMinigame, playerCount: Int, songsAvailable: Int, videoSongs: Int, v2: Bool) -> Bool {
-        if p.meta.v2 && !v2 { return false }
-        if playerCount < p.meta.minPlayers || playerCount > p.meta.maxPlayers { return false }
+        available(p, Availability(playerCount: playerCount, songsAvailable: songsAvailable, videoSongs: videoSongs, v2: v2))
+    }
+
+    /// A format is available when the players fit, its songs exist and the
+    /// question pool holds the types it is built around (an estimate round
+    /// needs Schätz-Fragen, the ladder Sortier-Fragen, the Pixel-Dschungel a
+    /// picture riddle) — otherwise the playlist falls back to Vier Lianen.
+    public static func available(_ p: AnyMinigame, _ a: Availability) -> Bool {
+        if p.meta.v2 && !a.v2 { return false }
+        if a.playerCount < p.meta.minPlayers || a.playerCount > p.meta.maxPlayers { return false }
         switch p.meta.contentKind {
         case .songs(let video):
-            if video { return videoSongs >= max(3, p.meta.minVideoSongs) }
-            return songsAvailable >= 3
-        default: return true
+            if video { return a.videoSongs >= max(3, p.meta.minVideoSongs) }
+            return a.songsAvailable >= 3
+        case .fragen(let types):
+            guard a.typesKnown, let primary = types.first else { return true }
+            // The first listed type is the format's essence (Schätz for the Tresor,
+            // Sortier for the ladder, a picture for the Pixel-Dschungel); the rest are
+            // fallbacks. Choice-like formats run on any pool with a handful of questions.
+            switch primary {
+            case .schaetz, .sortier: return (a.typeCounts[primary] ?? 0) >= 4
+            case .bildPixel: return (a.typeCounts[.bildPixel] ?? 0) >= 1
+            default: return types.reduce(0) { $0 + (a.typeCounts[$1] ?? 0) } >= 4
+            }
+        case .none:
+            return true
         }
     }
 }
