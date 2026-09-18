@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0E2F24">
+  <title>Monkey Money — Übungsmodus</title>
+  <link rel="icon" href="/img/favicon.svg">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div class="toast" id="toast"></div>
+  <div class="flash" id="flash"></div>
+  <div class="app">
+    <div class="top">
+      <a class="chip" href="/">‹ Zurück</a>
+      <div class="brand"><img src="/img/favicon.svg" alt=""> MONKEY MONEY</div>
+    </div>
+    <div class="hero">
+      <span class="spark s1">✦</span><span class="spark s2">✦</span>
+      <h1>ÜBUNGS<span>MODUS</span></h1>
+      <p>SOLO · OHNE RAUM · OHNE DRUCK</p>
+    </div>
+    <div class="card practice-head">
+      <div class="pstat"><b id="sSerie">0</b><span>Serie 🔥</span></div>
+      <div class="pstat"><b id="sRichtig">0 / 0</b><span>richtig</span></div>
+      <div class="pstat"><b id="sBeste">0</b><span>beste Serie</span></div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <select id="kat"><option value="">Alle Kategorien</option></select>
+        <select id="schw"><option value="">Alle Schwierigkeiten</option><option value="easy">Leicht</option><option value="medium">Mittel</option><option value="hard">Schwer</option><option value="ultrahard">Ultra</option></select>
+      </div>
+      <label class="f" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="familie" style="width:20px;height:20px"> 👨‍👩‍👧 Nur kindgerechte Fragen</label>
+    </div>
+    <div class="card" id="main"><div class="idle"><div class="eye">🐵</div><h2>Bereit?</h2><p>Die erste Frage kommt sofort …</p></div></div>
+    <button class="btn hidden" id="nextBtn" style="margin-top:12px">Nächste Frage ▶</button>
+    <div class="foot">MONKEY MONEY · FRAGEN · FREUNDE · FÜR IMMER</div>
+  </div>
+  <script src="/common.js"></script>
+  <script src="/uebung.js"></script>
+</body>
+</html>

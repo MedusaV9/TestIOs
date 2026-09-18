@@ -1,0 +1,483 @@
+/* Monkey Money — phone player (browser fallback). Renders the declarative
+   PlayerPrompt kinds the engine emits; the native iPhone app renders the same. */
+(() => {
+  const $ = id => document.getElementById(id);
+  const { MONKEYS, COLORS, esc, fmtMM, fmtDelta, renderAvatar, prompt: decode, serverNow, haptic } = MM;
+
+  // ---------- join screen ----------
+  const codeFromPath = (location.pathname.match(/\/j\/([A-Za-z]{4})/) || [])[1] || new URLSearchParams(location.search).get("code") || "";
+  $("code").value = codeFromPath.toUpperCase();
+  $("joinRoomChip").textContent = codeFromPath ? `Raum ${codeFromPath.toUpperCase()}` : "Raum-Code eingeben";
+  // Edition badge (League Edition ships only Runeterra questions).
+  fetch("/api/room").then(r => r.ok ? r.json() : null).then(info => {
+    if (!info || !info.edition) return;
+    const chip = MM.el(`<div class="chip gold edition">⚔️ ${esc(info.edition)}</div>`);
+    document.querySelector("#join .hero").appendChild(chip);
+    document.title = `Monkey Money ${info.edition} — Mitspielen`;
+  }).catch(() => {});
+  // Code card (big letters + "Code ändern") vs. the raw input.
+  const showCodeCard = on => { $("codeCard").classList.toggle("hidden", !on); $("code").classList.toggle("hidden", on); if (on) $("codeBig").textContent = $("code").value.toUpperCase().split("").join(" "); updateSteps(); };
+  showCodeCard(codeFromPath.length === 4);
+  $("editCode").onclick = () => { showCodeCard(false); $("code").focus(); };
+  $("code").addEventListener("input", () => { $("code").value = $("code").value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4); if ($("code").value.length === 4) { showCodeCard(true); $("name").focus(); } updateSteps(); });
+  $("name").addEventListener("input", updateSteps);
+  function updateSteps() {
+    const codeOk = $("code").value.trim().length === 4, nameOk = $("name").value.trim().length > 0;
+    const cur = !codeOk ? 1 : (!nameOk ? 2 : 3);
+    for (const li of document.querySelectorAll("#steps li[data-step]")) {
+      const n = Number(li.dataset.step);
+      li.classList.toggle("on", n === cur); li.classList.toggle("done", n < cur);
+      li.querySelector("b").textContent = n < cur ? "✓" : String(n);
+    }
+  }
+  const saved = JSON.parse(localStorage.getItem("mm:look") || "null") || { affe: 0, farbe: "gelb" };
+  let affeIdx = Math.max(0, MONKEYS.findIndex(m => m[0] === (saved.affeId || "")) >= 0 ? MONKEYS.findIndex(m => m[0] === saved.affeId) : saved.affe || 0);
+  let farbe = saved.farbe || "gelb";
+  $("name").value = localStorage.getItem("mm:name") || "";
+  updateSteps();
+
+  function paintMonkey() {
+    const m = MONKEYS[affeIdx];
+    $("mname").textContent = m[1];
+    $("mtitle").textContent = `„${m[2]}“`;
+    renderAvatar($("preview"), `${m[0]}.${farbe}`);
+    [...$("colors").children].forEach(sw => sw.classList.toggle("on", sw.dataset.c === farbe));
+  }
+  for (const [id, hex] of COLORS) {
+    const sw = MM.el(`<div class="swatch" data-c="${id}" style="background:${hex}"></div>`);
+    sw.onclick = () => { farbe = id; paintMonkey(); haptic(); };
+    $("colors").appendChild(sw);
+  }
+  $("prev").onclick = () => { affeIdx = (affeIdx + MONKEYS.length - 1) % MONKEYS.length; paintMonkey(); haptic(); };
+  $("next").onclick = () => { affeIdx = (affeIdx + 1) % MONKEYS.length; paintMonkey(); haptic(); };
+  $("saveProfile").onchange = () => $("pinRow").classList.toggle("hidden", !$("saveProfile").checked);
+  paintMonkey();
+
+  // Profiles known on this device (REST on the iPad).
+  const deviceToken = MM.deviceToken();
+  let chosenProfile = null;
+  fetch(`/api/profiles?device=${encodeURIComponent(deviceToken)}`).then(r => r.ok ? r.json() : []).then(list => {
+    if (!Array.isArray(list) || !list.length) return;
+    const box = $("profiles");
+    box.classList.remove("hidden");
+    box.innerHTML = `<h3>📱 Auf diesem Handy zuletzt:</h3>`;
+    for (const p of list) {
+      const b = MM.el(`<button class="btn secondary small" style="margin:4px 4px 0 0">${esc(p.name)} · Lv ${p.level} · ${p.atAktuell} AT ${p.hasPin ? "🔒" : ""}</button>`);
+      b.onclick = () => { chosenProfile = p; $("name").value = p.name; const i = MONKEYS.findIndex(m => m[0] === p.avatar.split(".")[0]); if (i >= 0) affeIdx = i; farbe = p.avatar.split(".")[1] || farbe; paintMonkey(); toast(`Weiter als ${p.name}`); };
+      box.appendChild(b);
+    }
+  }).catch(() => {});
+
+  $("loadProfile").onclick = async () => {
+    const name = prompt("Profil-Name?");
+    if (!name) return;
+    const pin = prompt("PIN (4 Ziffern, leer lassen falls keine):") || "";
+    const r = await fetch(`/api/profiles/find?name=${encodeURIComponent(name)}&pin=${encodeURIComponent(pin)}&device=${encodeURIComponent(deviceToken)}`);
+    if (!r.ok) { $("joinErr").textContent = "Profil nicht gefunden oder PIN falsch."; return; }
+    chosenProfile = await r.json();
+    chosenProfile.pinGiven = pin;
+    $("name").value = chosenProfile.name;
+    toast(`Profil ${chosenProfile.name} geladen`);
+  };
+
+  let session = JSON.parse(localStorage.getItem("mm:session") || "null");
+  let conn = null;
+  let helloPayload = null;
+
+  $("go").onclick = async () => {
+    const code = $("code").value.trim().toUpperCase();
+    const name = $("name").value.trim();
+    if (code.length !== 4) { $("joinErr").textContent = "Bitte den 4-stelligen Raum-Code eingeben."; return; }
+    if (!name && !chosenProfile) { $("joinErr").textContent = "Wie heißt du?"; return; }
+    localStorage.setItem("mm:name", name);
+    localStorage.setItem("mm:look", JSON.stringify({ affeId: MONKEYS[affeIdx][0], farbe }));
+    const avatar = `${MONKEYS[affeIdx][0]}.${farbe}`;
+    let profileId = chosenProfile ? chosenProfile.id : null;
+    let profilePin = chosenProfile ? chosenProfile.pinGiven || null : null;
+    if (!profileId && $("saveProfile").checked) {
+      try {
+        const r = await fetch("/api/profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, avatar, pin: $("pin").value || null, device: deviceToken }) });
+        if (r.ok) { const p = await r.json(); profileId = p.id; toast(`Profil angelegt: ${p.name} (+300 AT Willkommen)`); }
+      } catch (_) {}
+    } else if (profileId) {
+      // Persist the freshly chosen look on the profile before joining.
+      fetch(`/api/profiles/${profileId}/update`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ avatar, device: deviceToken, pin: profilePin }) }).catch(() => {});
+    }
+    helloPayload = { t: "hello", roomCode: code, role: "player", name, avatar, profileId, profilePin, deviceToken, sessionToken: session && session.code === code ? session.token : null };
+    startSocket();
+  };
+
+  // Auto-rejoin when a session for this room exists.
+  if (session && codeFromPath && session.code === codeFromPath.toUpperCase()) {
+    helloPayload = { t: "hello", roomCode: session.code, role: "player", sessionToken: session.token, name: $("name").value, avatar: `${MONKEYS[affeIdx][0]}.${farbe}` };
+    startSocket();
+  }
+
+  function startSocket() {
+    if (conn) return;
+    conn = MM.connect({
+      hello: () => helloPayload,
+      onStatus: ok => $("conn").classList.toggle("off", !ok),
+      onMessage: handle,
+    });
+  }
+
+  // ---------- game ----------
+  let view = null;
+  let lastMomentId = 0;
+  let lastWhisper = null;
+  let timerRaf = null;
+  let orderState = null;
+  let chipsState = null;
+  let taps = 0;
+
+  function handle(msg) {
+    if (msg.t === "welcome") {
+      session = { code: helloPayload.roomCode.toUpperCase(), token: msg.sessionToken };
+      localStorage.setItem("mm:session", JSON.stringify(session));
+      helloPayload.sessionToken = msg.sessionToken;
+      $("join").classList.add("hidden");
+      $("game").classList.remove("hidden");
+      return;
+    }
+    if (msg.t === "error") {
+      $("joinErr").textContent = msg.message;
+      if (msg.code === "room" || msg.code === "no-session") { localStorage.removeItem("mm:session"); session = null; $("join").classList.remove("hidden"); $("game").classList.add("hidden"); }
+      return;
+    }
+    if (msg.t === "closed") { toast("Der Raum wurde geschlossen."); localStorage.removeItem("mm:session"); return; }
+    if (msg.t === "profileEvent") { const e = msg.event; toast(`+${e.atDelta} AT${e.levelUp ? ` · LEVEL ${e.level}!` : ""}${e.quests.length ? " · Quest ✔" : ""}`); return; }
+    if (msg.t !== "player") return;
+    view = msg.view;
+    render();
+  }
+
+  function send(action) { conn.send({ t: "action", action, idem: Math.random().toString(36).slice(2) }); haptic(); }
+
+  function toast(text) {
+    const t = $("toast");
+    t.textContent = text;
+    t.classList.add("show");
+    clearTimeout(t._h);
+    t._h = setTimeout(() => t.classList.remove("show"), 2800);
+  }
+
+  // Count-up animation for the balance so money visibly arrives.
+  let shownBalance = null;
+  function animateBalance(to) {
+    const el = $("meBalance");
+    if (shownBalance === null) { shownBalance = to; el.textContent = fmtMM(to); return; }
+    const from = shownBalance;
+    if (from === to) return;
+    shownBalance = to;
+    const t0 = performance.now(), dur = 700;
+    el.classList.add(to > from ? "up" : "down");
+    const step = now => {
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmtMM(Math.round(from + (to - from) * e));
+      if (k < 1) requestAnimationFrame(step); else el.classList.remove("up", "down");
+    };
+    requestAnimationFrame(step);
+  }
+
+  $("jarChip").onclick = () => { $("jarSheet").classList.remove("hidden"); haptic(); };
+  $("jarClose").onclick = () => $("jarSheet").classList.add("hidden");
+  $("jarSheet").onclick = e => { if (e.target === $("jarSheet")) $("jarSheet").classList.add("hidden"); };
+
+  function render() {
+    if (!view) return;
+    const me = view.me;
+    $("meName").textContent = me.name;
+    animateBalance(me.balance);
+    const p0 = decode(view.prompt);
+    const noTimer = view.phase === "frage" && ["choice", "number", "order", "wager", "chips", "text", "bank"].includes(p0.kind) && !p0.deadline;
+    $("meStatus").textContent = view.statusText;
+    $("meStreak").textContent = me.streak >= 3 ? `🔥 Streak ${me.streak} (×${me.streak >= 5 ? 2 : 1.5})` : (me.streak > 0 ? `Serie: ${me.streak}` : "");
+    if ($("meAvatar").dataset.wire !== me.avatar) { $("meAvatar").dataset.wire = me.avatar; renderAvatar($("meAvatar"), me.avatar); }
+    $("progress").firstElementChild.style.width = `${Math.round((view.progress || 0) * 100)}%`;
+    // Jackpot jar chip + explanation (players kept asking what the jar is).
+    const jarOn = !!view.jackpotAktiv; // Quick Cash has no jackpot question — no jar to explain
+    $("jarChip").classList.toggle("hidden", !jarOn);
+    $("jarChip").classList.toggle("live", !!view.jackpotAktiv);
+    $("jarAmount").textContent = fmtMM(view.jackpotGlas || 0);
+    $("jarSheetAmount").textContent = fmtMM(view.jackpotGlas || 0);
+    $("jarSheetText").textContent = view.jackpotHinweis || "";
+    $("windChip").classList.toggle("hidden", !(view.rueckenwind > 1));
+    $("windChip").textContent = `🌬️ Rückenwind ×${view.rueckenwind}`;
+    $("timerChip").classList.toggle("hidden", !noTimer);
+    if (view.flash) { const f = $("flash"); f.className = "flash"; requestAnimationFrame(() => { f.className = "flash " + view.flash; }); }
+    if (view.haptic) haptic(view.haptic);
+    // Flüster-Tipp from the Show-Master: its own box above the prompt, so it shows up
+    // even when the prompt itself did not change.
+    const wbox = $("whisper");
+    wbox.classList.toggle("hidden", !view.whisper);
+    if (view.whisper && view.whisper !== lastWhisper) {
+      lastWhisper = view.whisper;
+      wbox.innerHTML = `<span class="w-label">Flüster-Tipp vom Show-Master</span><span class="w-text">${esc(view.whisper)}</span>`;
+      wbox.classList.remove("pop"); void wbox.offsetWidth; wbox.classList.add("pop");
+      haptic("success"); toast("🤫 Flüster-Tipp für dich!");
+    }
+    if (!view.whisper) lastWhisper = null;
+    const newest = view.moments && view.moments.length ? view.moments[view.moments.length - 1] : null;
+    if (newest && newest.id > lastMomentId) { lastMomentId = newest.id; if (newest.art !== "sound") toast(newest.text); }
+
+    // Jokers
+    const jk = $("jokers");
+    if (view.jokers && view.jokers.length) {
+      jk.classList.remove("hidden");
+      jk.innerHTML = "";
+      for (const j of view.jokers) {
+        const b = MM.el(`<button class="joker" ${j.nutzbar ? "" : "disabled"} title="${esc(j.beschreibung)}"><span class="e">${j.emoji}</span>${esc(j.name)}<span class="p">${j.ladungen > 0 ? `${j.ladungen}× frei` : (j.preis ? fmtMM(j.preis) : "gratis")}</span></button>`);
+        b.onclick = () => {
+          if (j.id === "schmiergeld") { const st = confirm("Stufe 2 (Hinweis, 35 %)? Abbrechen = Stufe 1 (Option weg, 25 %)") ? 2 : 1; send({ type: "joker", id: j.id, stufe: st }); }
+          else send({ type: "joker", id: j.id });
+        };
+        jk.appendChild(b);
+      }
+    } else jk.classList.add("hidden");
+
+    // Ranking card
+    const rank = $("rankCard");
+    if (["zwischenstand", "halbzeit", "siegerehrung", "ende", "pause"].includes(view.phase)) {
+      rank.classList.remove("hidden");
+      rank.querySelector("h3").textContent = ["siegerehrung", "ende"].includes(view.phase) ? "🏆 Endstand" : "Zwischenstand";
+      const medal = ["🥇", "🥈", "🥉"];
+      $("ranking").innerHTML = view.ranking.map(r => `<li class="${r.id === me.id ? "me" : ""}"><span class="mini" data-avatar="${esc(r.avatar)}"></span><span>${medal[r.platz - 1] || `${r.platz}.`} ${esc(r.name)}${r.id === me.id ? " (du)" : ""}</span><span class="mm">${fmtMM(r.balance)}</span></li>`).join("");
+      $("ranking").querySelectorAll("[data-avatar]").forEach(h => renderAvatar(h, h.dataset.avatar));
+    } else rank.classList.add("hidden");
+
+    renderPrompt(decode(view.prompt));
+  }
+
+  // Banknotes raining over the phone on a win.
+  function rain(n) {
+    const layer = document.createElement("div");
+    layer.className = "rain";
+    for (let i = 0; i < n; i++) {
+      const b = document.createElement("i");
+      b.style.left = `${Math.random() * 100}%`;
+      b.style.animationDelay = `${Math.random() * 900}ms`;
+      b.style.animationDuration = `${1800 + Math.random() * 1400}ms`;
+      b.style.setProperty("--r", `${Math.random() * 720 - 360}deg`);
+      if (i % 3 === 0) b.className = "coin";
+      layer.appendChild(b);
+    }
+    document.body.appendChild(layer);
+    setTimeout(() => layer.remove(), 3600);
+  }
+
+  function timerHtml(deadline) {
+    return deadline ? `<div class="timer" data-deadline="${deadline}"><div style="width:100%"></div></div>` : "";
+  }
+
+  function startTimers() {
+    cancelAnimationFrame(timerRaf);
+    const bars = [...document.querySelectorAll(".timer[data-deadline]")];
+    if (!bars.length) return;
+    const start = serverNow();
+    const step = () => {
+      const now = serverNow();
+      for (const bar of bars) {
+        const dl = Number(bar.dataset.deadline);
+        const total = Math.max(1000, dl - start + 1);
+        const remain = Math.max(0, dl - now);
+        bar.firstElementChild.style.width = `${Math.min(100, (remain / (bar._total || (bar._total = Math.max(total, remain)))) * 100)}%`;
+        bar.classList.toggle("hot", remain < 5000);
+      }
+      timerRaf = requestAnimationFrame(step);
+    };
+    step();
+  }
+
+
+  function renderPrompt(p) {
+    const main = $("main");
+    const key = JSON.stringify(p);
+    if (main.dataset.key === key) return;
+    main.dataset.key = key;
+    const kindChanged = main.dataset.kind !== p.kind;
+    main.dataset.kind = p.kind;
+    if (kindChanged) { orderState = null; chipsState = null; taps = 0; }
+    let html = "";
+    switch (p.kind) {
+      case "idle": {
+        // The player's own monkey waits with them — face by mood of the message.
+        const t = String(p.title || "");
+        const face = /💥|MATSCH|matschig|Falsch|❌/.test(t) ? "frust" : (/GEWONNEN|Richtig|✅|🎉|👑/.test(t) ? "jubel" : (/…|\.\.\.|dreht|wartet|Warte/i.test(t) ? "denk" : "neutral"));
+        html = `<div class="idle"><div class="own" data-avatar="${esc(view.me.avatar)}" data-face="${face}"></div><h2>${esc(p.title)}</h2><p>${esc(p.subtitle || "")}</p></div>`;
+        break;
+      }
+      case "choice": {
+        const locked = p.chosen !== null && p.chosen !== undefined && !p.secondTry;
+        const EMO = ["🍌", "🥥", "🐒", "🌴", "💎", "🎩", "🌊", "🔥"];
+        html = `${timerHtml(p.deadline)}${p.deadline ? "" : `<div class="notimer">⏱️ Kein Timer — lasst euch Zeit, der Show-Master löst auf</div>`}${p.hint ? `<div class="hint">${esc(p.hint)}</div>` : ""}<div class="question">${esc(p.question)}</div>
+          <div class="options ${locked ? "locked" : ""}">${p.options.map((o, i) => `<button class="opt ${o.removed ? "removed" : ""} ${p.chosen === o.id ? "chosen" : ""}" data-i="${i}" data-id="${o.id}" style="--d:${i * 60}ms"><span class="letter">${"ABCDEFGH"[i]}</span><span class="emo">${EMO[i % 8]}</span><span>${esc(o.text)}</span>${o.count != null ? `<span class="count">${o.count}</span>` : ""}${p.chosen === o.id ? `<span class="tick">✓</span>` : ""}</button>`).join("")}</div>
+          ${p.secondTry ? `<p class="hint">↩️ Rückgaberecht: wähle eine andere Antwort (50 % Gewinn)</p>` : ""}`;
+        break;
+      }
+      case "multiChoice":
+        html = `${timerHtml(p.deadline)}<div class="question">${esc(p.question)}</div><div class="options">${p.options.map((o, i) => `<button class="opt ${p.chosen.includes(o.id) ? "chosen" : ""}" data-i="${i}" data-id="${o.id}"><span class="letter">${"ABCDEFGH"[i]}</span><span>${esc(o.text)}</span></button>`).join("")}</div>`;
+        break;
+      case "reveal": {
+        const cls = p.correct === true ? "ok" : p.correct === false ? "nope" : "meh";
+        const face = p.correct === true ? "jubel" : (p.correct === false ? "frust" : "denk");
+        const parts = String(p.detail || "").split(" · ").filter(Boolean);
+        html = `<div class="reveal ${cls}"><div class="stamp">${esc(p.title)}</div><div class="reveal-row"><div class="own small" data-avatar="${esc(view.me.avatar)}" data-face="${face}"></div><div class="delta ${p.delta < 0 ? "neg" : (p.delta === 0 ? "zero" : "")}">${fmtDelta(p.delta)}</div></div>${p.streak >= 3 && p.correct === true ? `<div class="streak">🔥 Streak ${p.streak} — ×${p.streak >= 5 ? 2 : 1.5}</div>` : ""}<ul class="detail">${parts.map(d => `<li>${esc(d)}</li>`).join("")}</ul></div>`;
+        // Money rains only for a real win — never for the consolation banana.
+        if (p.correct === true && p.delta >= 50) rain(p.delta >= 500 ? 34 : 18);
+        break;
+      }
+      case "buzzer":
+        html = `${p.question ? `<div class="question center">${esc(p.question)}</div>` : ""}<button class="buzzer ${p.armed ? "" : "off"}" id="buzz" ${p.armed ? "" : "disabled"}>${p.pressed ? "GEBUZZERT!" : (p.armed ? "BUZZ!" : "…")}</button>${p.hint ? `<p class="hint center">${esc(p.hint)}</p>` : ""}`;
+        break;
+      case "number": {
+        const cur = p.current ?? (p.min + p.max) / 2;
+        html = `${timerHtml(p.deadline)}<div class="question">${esc(p.question)}</div><div class="slider-wrap"><div class="slider-value" id="numVal">${fmtNum(cur)}</div><div class="slider-unit">${esc(p.unit)}</div>
+          <input type="range" id="num" min="${p.min}" max="${p.max}" step="${p.step}" value="${cur}" ${p.locked ? "disabled" : ""}>
+          <div class="stepper"><button data-d="-10">−−</button><button data-d="-1">−</button><button data-d="1">+</button><button data-d="10">++</button></div>
+          <input type="number" id="numDirect" value="${cur}" ${p.locked ? "disabled" : ""} step="${p.step}">
+          <button class="btn" id="lockNum" ${p.locked ? "disabled" : ""} style="margin-top:12px">${p.locked ? "EINGELOGGT ✔" : "EINLOGGEN"}</button></div>`;
+        break;
+      }
+      case "order": {
+        if (!orderState) orderState = [...p.order];
+        html = `${timerHtml(p.deadline)}<div class="question">${esc(p.question)}</div><div class="order">${orderState.map((id, pos) => { const it = p.items.find(i => i.id === id); return `<div class="item" data-pos="${pos}"><span class="pos">${pos + 1}</span><span>${esc(it ? it.text : "")}</span><span class="mv"><button data-mv="-1" data-pos="${pos}">▲</button><button data-mv="1" data-pos="${pos}">▼</button></span></div>`; }).join("")}</div>
+          <button class="btn" id="lockOrder" ${p.locked ? "disabled" : ""} style="margin-top:12px">${p.locked ? "EINGELOGGT ✔" : "EINLOGGEN"}</button>`;
+        break;
+      }
+      case "wager": {
+        const cur = p.current ?? p.min;
+        html = `${timerHtml(p.deadline)}<div class="question">${esc(p.title)}</div>${p.subtitle ? `<p class="muted">${esc(p.subtitle)}</p>` : ""}<div class="slider-wrap"><div class="slider-value" id="numVal">${fmtMM(cur)}</div>
+          <input type="range" id="num" min="${p.min}" max="${p.max}" step="${p.step}" value="${cur}" ${p.locked ? "disabled" : ""}>
+          <div class="stepper"><button data-d="-1">−</button><button data-d="1">+</button></div>
+          <button class="btn" id="lockNum" ${p.locked ? "disabled" : ""}>${p.locked ? "EINGELOGGT ✔" : "EINSATZ SETZEN"}</button></div>`;
+        break;
+      }
+      case "text":
+        html = `${timerHtml(p.deadline)}<div class="question">${esc(p.question)}</div><input type="text" id="txt" maxlength="${p.maxLength}" placeholder="${esc(p.placeholder)}" ${p.submitted ? "disabled" : ""} value="${esc(p.submitted || "")}"><button class="btn" id="sendTxt" ${p.submitted ? "disabled" : ""} style="margin-top:12px">${p.submitted ? "ABGESCHICKT ✔" : "ABSCHICKEN"}</button>`;
+        break;
+      case "tapFrenzy":
+        html = `${timerHtml(p.deadline)}<div class="question center">${esc(p.title)}</div><div class="tap-count" id="tapCount">${taps}</div><button class="frenzy" id="frenzy" ${p.active ? "" : "disabled"}>🥥</button>`;
+        break;
+      case "chips": {
+        if (!chipsState) chipsState = [...p.placed];
+        const used = chipsState.reduce((a, b) => a + b, 0);
+        html = `${timerHtml(p.deadline)}<div class="question">${esc(p.question)}</div><div class="chips-left">${p.total - used} Chips übrig</div>${p.options.map((o, i) => `<div class="chip-row"><span class="lbl">${esc(o.text)}</span><button data-ch="-1" data-i="${i}" ${p.locked ? "disabled" : ""}>−</button><span class="n">${chipsState[i] || 0}</span><button data-ch="1" data-i="${i}" ${p.locked ? "disabled" : ""}>+</button></div>`).join("")}
+          <button class="btn" id="lockChips" ${p.locked || used !== p.total ? "disabled" : ""}>${p.locked ? "GESETZT ✔" : "SETZEN"}</button>`;
+        break;
+      }
+      case "pickPlayer":
+        html = `${timerHtml(p.deadline)}<div class="question">${esc(p.title)}</div>${p.subtitle ? `<p class="muted">${esc(p.subtitle)}</p>` : ""}<div class="players-grid">${p.candidates.map(c => `<button class="pcard ${p.chosen === c.id ? "on" : ""}" data-pid="${esc(c.id)}"><span class="mini" data-avatar="${esc(c.avatar)}"></span><span>${esc(c.name)}<small>${fmtMM(c.balance)}</small></span></button>`).join("")}</div>`;
+        break;
+      case "bank": {
+        const hot = /LETZTE FRAGE/.test(p.question || "") && p.pot > 0;
+        const q = String(p.question || "").replace(/^⏳ LETZTE FRAGE — BANK jetzt oder nie!\n?/, "");
+        html = `${timerHtml(p.deadline)}<div class="row" style="justify-content:space-between"><span class="chip gold">Pott: ${fmtMM(p.pot)}</span><span class="chip">Gesichert: ${fmtMM(p.banked)}</span></div>
+          ${hot ? `<div class="notimer hot">⏳ LETZTE FRAGE — BANK jetzt oder nie!</div>` : ""}
+          <button class="btn bank-btn ${hot ? "pulse-red" : ""}" id="bankBtn" ${p.pot > 0 ? "" : "disabled"}>🏦 BANK! ${fmtMM(p.pot)}</button>
+          ${q ? `<div class="question" style="margin-top:14px">${esc(q)}</div>` : ""}<div class="options ${p.chosen != null ? "locked" : ""}">${p.options.map((o, i) => `<button class="opt ${p.chosen === o.id ? "chosen" : ""} ${o.removed ? "removed" : ""}" data-i="${i}" data-id="${o.id}"><span class="letter">${"ABCD"[i]}</span><span>${esc(o.text)}</span></button>`).join("")}</div>`;
+        break;
+      }
+      case "cheer":
+        html = `<div class="question center">${esc(p.title)}</div>${p.subtitle ? `<p class="muted center">${esc(p.subtitle)}</p>` : ""}<button class="btn cheer-btn" id="cheerBtn">🥁 ANFEUERN!</button><div class="tap-count" id="cheerCount">${p.taps ? `${p.taps}× 🥁` : ""}</div>`;
+        break;
+      case "confirm":
+        html = `${timerHtml(p.deadline)}<div class="question center">${esc(p.title)}</div>${p.subtitle ? `<p class="muted center">${esc(p.subtitle)}</p>` : ""}${p.done ? `<div class="status-pill">✔ ${esc(p.button)}</div>` : `<button class="btn" id="confirmBtn">${esc(p.button)}</button>`}`;
+        break;
+      case "binary":
+        html = `${timerHtml(p.deadline)}<div class="question center">${esc(p.title)}</div>${p.subtitle ? `<p class="muted center">${esc(p.subtitle)}</p>` : ""}<div class="row"><button class="btn ${p.chosen === p.a ? "" : "secondary"}" data-bin="${esc(p.a)}" ${p.chosen ? "disabled" : ""}>${esc(p.a).toUpperCase()}</button><button class="btn ${p.chosen === p.b ? "" : "secondary"}" data-bin="${esc(p.b)}" ${p.chosen ? "disabled" : ""}>${esc(p.b).toUpperCase()}</button></div>`;
+        break;
+      case "vote":
+        html = `${timerHtml(p.deadline)}<div class="question">${esc(p.title)}</div><div class="options votes ${p.chosen ? "locked" : ""}">${p.options.map((o, i) => `<button class="opt ${p.chosen === o.id ? "chosen" : ""}" data-i="${i}" data-vote="${esc(o.id)}"><span class="letter">${o.emoji || "•"}</span><span>${esc(o.label)}</span><span class="count">${o.count || ""}</span></button>`).join("")}</div>`;
+        break;
+      case "explain": {
+        const rules = (p.regeln || []).map((r, i) => `<li style="--d:${120 + i * 90}ms"><b>${i + 1}</b><span>${esc(r)}</span></li>`).join("");
+        html = `${timerHtml(p.deadline)}<div class="explain"><h2>${esc(p.title)}</h2><p class="hook">${esc(p.text)}</p><ol class="rules">${rules}</ol>${p.gewinn ? `<div class="payout">💰 ${esc(p.gewinn)}</div>` : ""}<div class="row"><button class="btn" id="readyBtn" ${p.ready ? "disabled" : ""}>${p.ready ? "✔ Bereit" : "Bereit!"}</button><button class="btn secondary" id="strikeBtn" ${p.streik ? "disabled" : ""}>✊ Streik</button></div></div>`;
+        break;
+      }
+      case "actions":
+        html = `${timerHtml(p.deadline)}<div class="question">${esc(p.title)}</div>${p.lines.map(l => `<p class="muted" style="white-space:pre-line">${esc(l)}</p>`).join("")}<div class="options">${p.buttons.map(b => `<button class="btn ${b.style === "primary" ? "" : b.style} small" data-btn="${esc(b.id)}" ${b.enabled ? "" : "disabled"} style="width:100%">${esc(b.label)}</button>`).join("")}</div>`;
+        break;
+      case "cards":
+        html = `${timerHtml(p.deadline)}<div class="question">${esc(p.title)}</div>${p.hint ? `<p class="muted">${esc(p.hint)}</p>` : ""}<div class="hand">${p.cards.map(c => { const [f, w] = c.text.split(" "); return `<button class="ucard ${colorClass(f)} ${c.removed ? "removed" : ""}" data-id="${c.id}" ${c.removed ? "disabled" : ""}>${esc(w || "")}</button>`; }).join("")}</div>
+          <div class="row" style="margin-top:12px">${p.buttons.map(b => `<button class="btn ${b.style === "primary" ? "" : b.style} small" data-btn="${esc(b.id)}" ${b.enabled ? "" : "disabled"}>${esc(b.label)}</button>`).join("")}</div>`;
+        break;
+      case "feedback":
+        html = `<h2>📝 Presse-Stimmen</h2>${p.questions.map((q, i) => `<label class="f">${esc(q)}</label><input type="text" id="fb${i}" maxlength="80">`).join("")}<button class="btn" id="fbSend" style="margin-top:12px">Abschicken</button>`;
+        break;
+      default:
+        html = `<div class="idle"><h2>${esc(p.kind)}</h2></div>`;
+    }
+    main.innerHTML = html;
+    main.querySelectorAll("[data-avatar]").forEach(h => renderAvatar(h, h.dataset.avatar, h.dataset.face));
+    bind(p);
+    startTimers();
+  }
+
+  function colorClass(emoji) { return { "🔴": "rot", "🟡": "gelb", "🟢": "gruen", "🔵": "blau", "⚫": "schwarz" }[emoji] || "schwarz"; }
+  function fmtNum(v) { return Number.isInteger(v) ? v.toLocaleString("de-DE") : Number(v).toFixed(1); }
+
+  function bind(p) {
+    const main = $("main");
+    main.querySelectorAll(".opt[data-id]").forEach(b => b.onclick = () => {
+      if (p.kind === "multiChoice") { const id = Number(b.dataset.id); const set = new Set(p.chosen); set.has(id) ? set.delete(id) : set.add(id); send({ type: "multiChoose", list: [...set] }); return; }
+      send({ type: "choose", value: Number(b.dataset.id) });
+    });
+    main.querySelectorAll(".opt[data-vote]").forEach(b => b.onclick = () => send({ type: "vote", value: b.dataset.vote }));
+    main.querySelectorAll("[data-pid]").forEach(b => b.onclick = () => send({ type: "pickPlayer", id: b.dataset.pid }));
+    main.querySelectorAll("[data-bin]").forEach(b => b.onclick = () => send({ type: "binary", value: b.dataset.bin }));
+    main.querySelectorAll("[data-btn]").forEach(b => b.onclick = () => send({ type: "button", id: b.dataset.btn }));
+    main.querySelectorAll(".ucard[data-id]").forEach(b => b.onclick = () => send({ type: "choose", value: Number(b.dataset.id) }));
+    const buzz = $("buzz"); if (buzz) buzz.onclick = () => send({ type: "buzz", at: serverNow() });
+    const bank = $("bankBtn"); if (bank) bank.onclick = () => { send({ type: "bank" }); toast("BANK! gedrückt"); };
+    const cheer = $("cheerBtn");
+    if (cheer) {
+      let local = Number((($("cheerCount") || {}).textContent || "").replace(/\D/g, "")) || 0;
+      cheer.onclick = () => {
+        send({ type: "cheer" });
+        local += 1;
+        const c = $("cheerCount"); if (c) { c.textContent = `${local}× 🥁`; c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); }
+        cheer.classList.remove("hit"); void cheer.offsetWidth; cheer.classList.add("hit");
+      };
+    }
+    const conf = $("confirmBtn"); if (conf) conf.onclick = () => send({ type: "confirm" });
+    const ready = $("readyBtn"); if (ready) ready.onclick = () => send({ type: "ready", value: "bereit" });
+    const strike = $("strikeBtn"); if (strike) strike.onclick = () => { if (confirm("Streik: das Minispiel entfällt bei Mehrheit — ersatzweise eine Blitzfrage.")) send({ type: "ready", value: "streik" }); };
+    const num = $("num");
+    if (num) {
+      const val = $("numVal"), direct = $("numDirect");
+      const show = () => { val.textContent = p.kind === "wager" ? fmtMM(Number(num.value)) : fmtNum(Number(num.value)); if (direct) direct.value = num.value; };
+      num.oninput = show;
+      if (direct) direct.oninput = () => { num.value = direct.value; val.textContent = fmtNum(Number(num.value)); };
+      main.querySelectorAll("[data-d]").forEach(b => b.onclick = () => { num.value = Math.min(p.max, Math.max(p.min, Number(num.value) + Number(b.dataset.d) * Number(p.step))); show(); });
+      $("lockNum").onclick = () => send(p.kind === "wager" ? { type: "wager", value: Number(num.value) } : { type: "number", value: Number(num.value) });
+    }
+    main.querySelectorAll("[data-mv]").forEach(b => b.onclick = () => {
+      const pos = Number(b.dataset.pos), to = pos + Number(b.dataset.mv);
+      if (to < 0 || to >= orderState.length) return;
+      [orderState[pos], orderState[to]] = [orderState[to], orderState[pos]];
+      $("main").dataset.key = "";
+      renderPrompt(p);
+      send({ type: "order", list: orderState });
+    });
+    const lockOrder = $("lockOrder"); if (lockOrder) lockOrder.onclick = () => { send({ type: "order", list: orderState }); send({ type: "confirm" }); };
+    main.querySelectorAll("[data-ch]").forEach(b => b.onclick = () => {
+      const i = Number(b.dataset.i), d = Number(b.dataset.ch);
+      const used = chipsState.reduce((a, c) => a + c, 0);
+      if (d > 0 && used >= p.total) return;
+      chipsState[i] = Math.max(0, (chipsState[i] || 0) + d);
+      $("main").dataset.key = "";
+      renderPrompt(p);
+    });
+    const lockChips = $("lockChips"); if (lockChips) lockChips.onclick = () => { send({ type: "chips", list: chipsState }); send({ type: "confirm" }); };
+    const txt = $("sendTxt"); if (txt) txt.onclick = () => { const v = $("txt").value.trim(); if (v) send({ type: "text", value: v }); };
+    const frenzy = $("frenzy");
+    if (frenzy) {
+      let pending = 0;
+      frenzy.onpointerdown = e => { e.preventDefault(); taps++; pending++; $("tapCount").textContent = taps; };
+      clearInterval(frenzy._iv);
+      frenzy._iv = setInterval(() => { if (pending) { conn.send({ t: "action", action: { type: "taps", value: pending } }); pending = 0; } }, 1000);
+    }
+    const fb = $("fbSend"); if (fb) fb.onclick = () => send({ type: "feedback", list: p.questions.map((_, i) => $("fb" + i).value) });
+  }
+})();

@@ -1,0 +1,8 @@
+module CoreImage {
+  header "CoreImage.h"
+  export *
+  explicit module CIFilterBuiltins {
+    header "CIFilterBuiltins.h"
+    export *
+  }
+}

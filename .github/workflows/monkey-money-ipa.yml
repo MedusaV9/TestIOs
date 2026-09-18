@@ -1,0 +1,167 @@
+name: Monkey Money IPA
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+    paths:
+      - "MonkeyMoney/**"
+      - ".github/workflows/monkey-money-ipa.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: monkey-money-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  core-tests:
+    name: Core tests (Swift on Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: swift test (engine, formats, board games, protocol, meta)
+        run: swift test --package-path MonkeyMoney/ios 2>&1 | tail -40
+
+  typecheck:
+    name: Typecheck app + League Edition (Linux SDK simulation)
+    runs-on: ubuntu-latest
+    container: swift:6.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Typecheck
+        working-directory: MonkeyMoney/ios
+        run: scripts/typecheck/typecheck.sh
+      - name: Upload typecheck logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monkey-money-typecheck-logs
+          path: MonkeyMoney/ios/.typecheck-build/*.log
+          if-no-files-found: ignore
+
+  build-ipa:
+    name: Unsigned IPA (iOS, Xcode 26)
+    needs: [core-tests, typecheck]
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          XCODE_APP=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          echo "Using $XCODE_APP"
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: MonkeyMoney/ios
+        run: xcodegen generate
+
+      - name: Build (unsigned) — classic + League Edition
+        working-directory: MonkeyMoney/ios
+        shell: bash {0}
+        run: |
+          status=0
+          for scheme in MonkeyMoney MonkeyMoneyLeague; do
+            echo "::group::xcodebuild $scheme"
+            xcodebuild \
+              -project MonkeyMoney.xcodeproj \
+              -scheme "$scheme" \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath build \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              DEVELOPMENT_TEAM="" \
+              build 2>&1 | tee -a xcodebuild.log | grep -E "error:|\*\* BUILD"
+            s=${PIPESTATUS[0]}
+            echo "xcodebuild $scheme exit code: $s"
+            [[ $s -ne 0 ]] && status=$s
+            echo "::endgroup::"
+          done
+          exit $status
+
+      - name: Show errors on failure
+        if: failure()
+        working-directory: MonkeyMoney/ios
+        run: grep -B 2 -A 8 "error:" xcodebuild.log | head -400 || true
+
+      - name: Package IPAs
+        working-directory: MonkeyMoney/ios
+        run: |
+          mkdir -p dist
+          package() { # app-dir-name  ipa-name
+            local APP_DIR="build/Build/Products/Release-iphoneos/$1.app"
+            test -d "$APP_DIR"
+            ls -la "$APP_DIR" | head -40
+            test -f "$APP_DIR/Web/player.html"
+            test -f "$APP_DIR/Content/fragen.json"
+            test -d "$APP_DIR/Audio/Music"
+            rm -rf dist/Payload && mkdir -p dist/Payload
+            cp -R "$APP_DIR" dist/Payload/
+            (cd dist && zip -qry "$2" Payload)
+            rm -rf dist/Payload
+          }
+          package MonkeyMoney MonkeyMoney-unsigned.ipa
+          package MonkeyMoneyLeague MonkeyMoney-League-unsigned.ipa
+          ls -la dist
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonkeyMoney-unsigned-ipa
+          path: MonkeyMoney/ios/dist/MonkeyMoney-unsigned.ipa
+          if-no-files-found: error
+
+      - name: Upload League Edition IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonkeyMoney-League-unsigned-ipa
+          path: MonkeyMoney/ios/dist/MonkeyMoney-League-unsigned.ipa
+          if-no-files-found: error
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monkey-money-xcodebuild-log
+          path: MonkeyMoney/ios/xcodebuild.log
+          if-no-files-found: ignore
+
+  release-latest:
+    name: Rolling prerelease (IPA download)
+    needs: build-ipa
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    continue-on-error: true
+    steps:
+      - name: Download IPA artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: MonkeyMoney-*-ipa
+          merge-multiple: true
+      - name: Update rolling prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: monkeymoney-latest
+          name: "Monkey Money — latest unsigned IPA"
+          prerelease: true
+          body: |
+            Rolling unsigned builds from `${{ github.sha }}` (branch `${{ github.ref_name }}`).
+            Sideload with AltStore / SideStore / Sideloadly. Universal app: iPad = Bühne + Server, Handys spielen im Browser.
+            - `MonkeyMoney-unsigned.ipa` — die komplette Show (7.660 Fragen, alle Formate)
+            - `MonkeyMoney-League-unsigned.ipa` — **League Edition**: nur League-of-Legends-Fragen, eigene Bundle-ID (beide Apps nebeneinander installierbar)
+          files: |
+            MonkeyMoney-unsigned.ipa
+            MonkeyMoney-League-unsigned.ipa

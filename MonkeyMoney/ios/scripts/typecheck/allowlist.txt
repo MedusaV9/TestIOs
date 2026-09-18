@@ -1,0 +1,2 @@
+# Diagnostics that only occur in the Linux simulation, one regex per line.
+# Each entry must say WHY it is not a real error on iOS.
