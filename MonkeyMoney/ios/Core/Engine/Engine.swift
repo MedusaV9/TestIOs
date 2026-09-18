@@ -365,7 +365,24 @@ public struct Engine: Sendable {
                                schwierigkeiten: section.schwierigkeiten, typen: types, deAnteil: s.settings.deAnteil,
                                kidSafeOnly: s.settings.familienModus || s.players.contains { $0.kind }, allowAdult: s.settings.alkoholEdition,
                                mix: section.typ == .runde ? s.settings.fragenMix : .ausgewogen)
-        var picked = catalog.pick(opts, rng: &s.rng)
+        var picked: [Question] = []
+        if types.first == .bildPixel {
+            // Picture riddles are the point of the Pixel-Dschungel: take them from any
+            // category first (only a dozen exist), any difficulty, then fill up normally.
+            var pix = opts
+            pix.kategorien = []
+            pix.typen = [.bildPixel]
+            picked = catalog.pick(pix, rng: &s.rng)
+            if picked.count < count {
+                pix.schwierigkeiten = []
+                pix.used = used.union(picked.map { $0.id })
+                pix.anzahl = count - picked.count
+                picked += catalog.pick(pix, rng: &s.rng)
+            }
+            opts.used = used.union(picked.map { $0.id })
+            opts.anzahl = count - picked.count
+        }
+        if picked.count < count { picked += catalog.pick(opts, rng: &s.rng) }
         if picked.count < count {
             // Category exhausted: widen (any category), then any difficulty.
             opts.kategorien = []

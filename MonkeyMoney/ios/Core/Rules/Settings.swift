@@ -293,7 +293,7 @@ public enum Blueprints {
             return ModeBlueprint(runden: [
                 RoundBlueprint(.opener, "bananen-basics", 4, opener, .keine, false),
                 RoundBlueprint(.aufbau, "bananen-tresor", 4, aufbau, .voting, true),
-                RoundBlueprint(.aufbau, "pixel-dschungel", 4, aufbau, .voting, false),
+                RoundBlueprint(.aufbau, "pixel-dschungel", 4, aufbau, .keine, false),
                 RoundBlueprint(.geld, "affenbank", 4, geld, .voting, true),
                 RoundBlueprint(.konflikt, "stinkbanane", 4, konflikt, .letzter, true),
                 RoundBlueprint(.risiko, "alles-oder-banane", 4, risiko, .voting, false),
@@ -306,7 +306,7 @@ public enum Blueprints {
                 RoundBlueprint(.aufbau, "affenleiter", 4, aufbau, .voting, true),
                 RoundBlueprint(.geld, "affenbank", 4, geld, .voting, false),
                 RoundBlueprint(.geld, "monkey-market", 4, geld, .voting, false, v2: true),
-                RoundBlueprint(.aufbau, "pixel-dschungel", 4, aufbau, .voting, true),
+                RoundBlueprint(.aufbau, "pixel-dschungel", 4, aufbau, .keine, true),
                 RoundBlueprint(.aufbau, "song-rueckwaerts", 3, aufbau, .keine, false, v2: true),
                 RoundBlueprint(.aufbau, "musikvideo-raten", 3, aufbau, .keine, false, v2: true),
                 RoundBlueprint(.geld, "bananen-boerse", 4, geld, .voting, false, v2: true),
