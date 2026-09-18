@@ -188,6 +188,7 @@
     const rank = $("rankCard");
     if (["zwischenstand", "halbzeit", "siegerehrung", "ende", "pause"].includes(view.phase)) {
       rank.classList.remove("hidden");
+      rank.querySelector("h3").textContent = ["siegerehrung", "ende"].includes(view.phase) ? "🏆 Endstand" : "Zwischenstand";
       $("ranking").innerHTML = view.ranking.map(r => `<li><span>${r.platz}. ${esc(r.name)}${r.id === me.id ? " (du)" : ""}</span><span class="mm">${fmtMM(r.balance)}</span></li>`).join("");
     } else rank.classList.add("hidden");
 
