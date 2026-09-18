@@ -15,3 +15,4 @@ SoooDreamy/ios/SoooDreamy/Resources/Assets.xcassets/AppIcon-*.appiconset/icon_10
 MonkeyMoney/ios/MonkeyMoney.xcodeproj/
 MonkeyMoney/ios/.typecheck-build/
 MonkeyMoney/ios/dist/
+__pycache__/
