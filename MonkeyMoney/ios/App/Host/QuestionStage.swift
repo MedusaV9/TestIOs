@@ -153,7 +153,8 @@ struct QuestionStage: View {
         switch extra {
         case .none: return AnyView(EmptyView())
         case .sack(let current, let start, let frozen): return AnyView(sackView(current, start, frozen))
-        case .bankPot(let pot, let chain, let banked, let lastBanker, let majority, let durchgang): return AnyView(bankView(pot, chain, banked, lastBanker, majority, durchgang))
+        case .bankPot(let pot, let chain, let step, let banked, let lastBanker, let verdict, let durchgang, let durchgaenge, let runEndsAt, let letzteFrage, let gongFor):
+            return AnyView(bankView(pot, chain, step, banked, lastBanker, verdict, durchgang, durchgaenge, runEndsAt, letzteFrage, gongFor))
         case .bomb(let holder, let tension, let passes, let exploded, let durchgang): return AnyView(bombView(holder, tension, passes, exploded, durchgang))
         case .bets(let bets, let teaser, let phase): return AnyView(betsView(bets, teaser, phase))
         case .numberLine(let lo, let hi, let unit, let guesses, let truth, _): return AnyView(NumberLineView(lo: lo, hi: hi, unit: unit, guesses: guesses, truth: truth, players: players).frame(height: 150))
@@ -191,22 +192,43 @@ struct QuestionStage: View {
     }
 
     @ViewBuilder
-    func bankView(_ pot: Int, _ chain: Int, _ banked: [PlayerId: Int], _ lastBanker: PlayerId?, _ majority: Bool?, _ durchgang: Int) -> some View {
-
-            HStack(spacing: 24) {
-                VStack(spacing: 4) {
-                    Text("🏦").font(.system(size: 50))
-                    Text("POTT").font(.poppins(11, .bold)).tracking(2).foregroundStyle(MM.gold)
-                    Text(Money.format(pot)).font(.outfit(44, .black)).foregroundStyle(MM.gold).contentTransition(.numericText())
-                    HStack(spacing: 4) { ForEach(Array(Affenbank.chain.enumerated()), id: \.offset) { i, v in Text("\(v)").font(.poppins(11, .bold)).padding(.horizontal, 6).padding(.vertical, 3).background(Capsule().fill(i <= chain && pot > 0 ? MM.gold : Color.black.opacity(0.3))).foregroundStyle(i <= chain && pot > 0 ? MM.ink : MM.cream.opacity(0.6)) } }
-                    Text("Durchgang \(durchgang)/2").font(.poppins(12)).foregroundStyle(MM.cream.opacity(0.7))
-                    if let m = majority { Text(m ? "✅ Mehrheit richtig — Pott wächst!" : "❌ Mehrheit falsch — Pott verbrennt!").font(.poppins(14, .bold)).foregroundStyle(m ? MM.green : MM.red) }
+    func bankView(_ pot: Int, _ chain: [Int], _ step: Int, _ banked: [PlayerId: Int], _ lastBanker: PlayerId?, _ verdict: String?,
+                  _ durchgang: Int, _ durchgaenge: Int, _ runEndsAt: Millis, _ letzteFrage: Bool, _ gongFor: [PlayerId]) -> some View {
+        HStack(spacing: 24) {
+            VStack(spacing: 4) {
+                HStack(spacing: 10) {
+                    Text("🏦").font(.system(size: 44))
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("POTT").font(.poppins(11, .bold)).tracking(2).foregroundStyle(MM.gold)
+                        Text(Money.format(pot)).font(.outfit(44, .black)).foregroundStyle(MM.gold).contentTransition(.numericText())
+                    }
                 }
-                .padding(16).background(RoundedRectangle(cornerRadius: 18).fill(Color.black.opacity(0.3)))
-                if let b = lastBanker, let p = players.first(where: { $0.id == b }) {
-                    Text("\(p.name.uppercased()) SICHERT SICH \(Money.format(banked[b] ?? 0))!").font(.outfit(24, .black)).foregroundStyle(MM.gold).bouncy().id(banked[b] ?? 0)
+                HStack(spacing: 4) {
+                    ForEach(Array(chain.enumerated()), id: \.offset) { i, v in
+                        Text("\(v)").font(.poppins(12, .bold)).padding(.horizontal, 8).padding(.vertical, 4)
+                            .background(Capsule().fill(i <= step && pot > 0 ? MM.gold : Color.black.opacity(0.3)))
+                            .foregroundStyle(i <= step && pot > 0 ? MM.ink : MM.cream.opacity(0.6))
+                    }
+                }
+                HStack(spacing: 8) {
+                    if durchgaenge > 1 { Text("Durchgang \(durchgang)/\(durchgaenge)").font(.poppins(12)).foregroundStyle(MM.cream.opacity(0.7)) }
+                    Text("⏱").font(.system(size: 12)).foregroundStyle(MM.cream.opacity(0.7))
+                    CountdownText(deadline: runEndsAt, font: .outfit(16, .black))
+                }
+                if let v = verdict {
+                    Text(v == "waechst" ? "✅ Mehrheit richtig — Pott wächst!" : (v == "haelt" ? "🤝 Unentschieden — Pott hält" : "❌ Mehrheit falsch — Pott verbrennt!"))
+                        .font(.poppins(14, .bold)).foregroundStyle(v == "waechst" ? MM.green : (v == "haelt" ? MM.gold : MM.red))
+                } else if letzteFrage, pot > 0 {
+                    Text("⏳ LETZTE FRAGE — BANK jetzt oder nie!").font(.poppins(14, .bold)).foregroundStyle(MM.orange)
                 }
             }
+            .padding(16).background(RoundedRectangle(cornerRadius: 18).fill(Color.black.opacity(0.3)))
+            if !gongFor.isEmpty {
+                Text("🔔 SCHLUSS-GONG: \(gongFor.compactMap { id in players.first { $0.id == id }?.name }.joined(separator: ", ")) sichern den Pott!").font(.outfit(22, .black)).foregroundStyle(MM.gold).bouncy()
+            } else if let b = lastBanker, let p = players.first(where: { $0.id == b }) {
+                Text("\(p.name.uppercased()) SICHERT SICH \(Money.format(banked[b] ?? 0))!").font(.outfit(24, .black)).foregroundStyle(MM.gold).bouncy().id(banked[b] ?? 0)
+            }
+        }
     }
 
     @ViewBuilder

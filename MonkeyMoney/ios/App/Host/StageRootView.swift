@@ -255,32 +255,72 @@ struct KategorieScene: View {
 
 // MARK: - Explain card
 
+/// Explain card as a checklist: hook line, numbered rules that slide in one
+/// after another, payout plate — readable from the couch, no wall of text.
 struct ExplainScene: View {
     var card: ExplainCardView
     var players: [PlayerRef]
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             HStack(spacing: 12) {
                 Chip(text: "Runde \(card.rundenNummer)/\(card.rundenGesamt)", gold: true)
                 if let k = card.kategorie { Chip(text: "📚 \(k)") }
-                Chip(text: card.slot.rawValue.uppercased())
+                Chip(text: slotLabel)
             }
-            Text(card.emoji).font(.system(size: 90)).bouncy()
-            Text(card.name.uppercased()).font(.outfit(52, .black)).foregroundStyle(MM.gold).bouncy(delay: 0.1)
-            Text(card.text).font(.poppins(21)).foregroundStyle(MM.cream).multilineTextAlignment(.center).lineSpacing(5)
-                .frame(maxWidth: 900).padding(24)
-                .background(RoundedRectangle(cornerRadius: 22).fill(Color.black.opacity(0.3)).overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(MM.gold.opacity(0.3))))
-                .bouncy(delay: 0.2)
+            HStack(alignment: .center, spacing: 22) {
+                Text(card.emoji).font(.system(size: 84)).bouncy()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(card.name.uppercased()).font(.outfit(50, .black)).foregroundStyle(MM.gold).shadow(color: .black.opacity(0.5), radius: 8, y: 4).bouncy(delay: 0.05)
+                    Text(card.kurz).font(.poppins(20, .semibold)).foregroundStyle(MM.cream).bouncy(delay: 0.1)
+                }
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(Array(card.regeln.enumerated()), id: \.offset) { i, rule in
+                    HStack(alignment: .center, spacing: 16) {
+                        Text("\(i + 1)").font(.outfit(24, .black)).foregroundStyle(MM.ink).frame(width: 42, height: 42)
+                            .background(Circle().fill(MM.gold).shadow(color: MM.goldDark, radius: 0, y: 3))
+                        Text(rule).font(.poppins(23, .semibold)).foregroundStyle(MM.cream).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .bouncy(delay: 0.25 + Double(i) * 0.18)
+                }
+                if !card.gewinn.isEmpty {
+                    HStack(spacing: 12) {
+                        Coin(size: 30)
+                        Text(card.gewinn).font(.outfit(22, .bold)).foregroundStyle(MM.ink).lineLimit(2).minimumScaleFactor(0.8)
+                    }
+                    .padding(.horizontal, 18).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(MM.gold).shadow(color: MM.goldDark, radius: 0, y: 4))
+                    .padding(.top, 6)
+                    .bouncy(delay: 0.3 + Double(card.regeln.count) * 0.18)
+                }
+            }
+            .padding(26).frame(maxWidth: 960)
+            .background(RoundedRectangle(cornerRadius: 24).fill(LinearGradient(colors: [MM.panelDark.opacity(0.95), MM.bgDeep.opacity(0.95)], startPoint: .top, endPoint: .bottom))
+                .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(MM.gold.opacity(0.35), lineWidth: 2)).shadow(color: .black.opacity(0.45), radius: 22, y: 14))
             HStack(spacing: 18) {
                 ForEach(players) { p in
                     VStack(spacing: 2) {
-                        MonkeyImage(avatar: Avatar(wire: p.avatar), face: card.bereit.contains(p.id) ? "jubel" : "denk").frame(height: 80)
-                        Text(card.bereit.contains(p.id) ? "✅ bereit" : (card.streik.contains(p.id) ? "✊ Streik" : "…")).font(.poppins(12, .semibold)).foregroundStyle(MM.cream)
+                        MonkeyImage(avatar: Avatar(wire: p.avatar), face: card.bereit.contains(p.id) ? "jubel" : "denk").frame(height: 86)
+                        Text(card.bereit.contains(p.id) ? "✅ bereit" : (card.streik.contains(p.id) ? "✊ Streik" : "liest …")).font(.poppins(12, .semibold)).foregroundStyle(MM.cream)
                     }
                 }
+                VStack(spacing: 0) {
+                    Text("Los in").font(.poppins(11, .semibold)).foregroundStyle(MM.cream.opacity(0.7))
+                    CountdownText(deadline: card.deadline, font: .outfit(34, .black))
+                }.padding(.leading, 10)
             }
-            CountdownText(deadline: card.deadline)
+        }
+    }
+
+    var slotLabel: String {
+        switch card.slot {
+        case .opener: return "🍌 WARM-UP"
+        case .aufbau: return "🌿 AUFBAU"
+        case .geld: return "💰 GELD-RUNDE"
+        case .konflikt: return "⚔️ KONFLIKT"
+        case .risiko: return "🎰 RISIKO"
+        case .finale: return "🐊 FINALE"
         }
     }
 }

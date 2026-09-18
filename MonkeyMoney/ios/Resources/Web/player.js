@@ -326,9 +326,11 @@
       case "vote":
         html = `${timerHtml(p.deadline)}<div class="question">${esc(p.title)}</div><div class="options votes ${p.chosen ? "locked" : ""}">${p.options.map((o, i) => `<button class="opt ${p.chosen === o.id ? "chosen" : ""}" data-i="${i}" data-vote="${esc(o.id)}"><span class="letter">${o.emoji || "•"}</span><span>${esc(o.label)}</span><span class="count">${o.count || ""}</span></button>`).join("")}</div>`;
         break;
-      case "explain":
-        html = `${timerHtml(p.deadline)}<div class="explain"><h2>${esc(p.title)}</h2><p>${esc(p.text)}</p><div class="row"><button class="btn" id="readyBtn" ${p.ready ? "disabled" : ""}>${p.ready ? "✔ Bereit" : "Bereit!"}</button><button class="btn secondary" id="strikeBtn" ${p.streik ? "disabled" : ""}>✊ Streik</button></div></div>`;
+      case "explain": {
+        const rules = (p.regeln || []).map((r, i) => `<li style="--d:${120 + i * 90}ms"><b>${i + 1}</b><span>${esc(r)}</span></li>`).join("");
+        html = `${timerHtml(p.deadline)}<div class="explain"><h2>${esc(p.title)}</h2><p class="hook">${esc(p.text)}</p><ol class="rules">${rules}</ol>${p.gewinn ? `<div class="payout">💰 ${esc(p.gewinn)}</div>` : ""}<div class="row"><button class="btn" id="readyBtn" ${p.ready ? "disabled" : ""}>${p.ready ? "✔ Bereit" : "Bereit!"}</button><button class="btn secondary" id="strikeBtn" ${p.streik ? "disabled" : ""}>✊ Streik</button></div></div>`;
         break;
+      }
       case "actions":
         html = `${timerHtml(p.deadline)}<div class="question">${esc(p.title)}</div>${p.lines.map(l => `<p class="muted" style="white-space:pre-line">${esc(l)}</p>`).join("")}<div class="options">${p.buttons.map(b => `<button class="btn ${b.style === "primary" ? "" : b.style} small" data-btn="${esc(b.id)}" ${b.enabled ? "" : "disabled"} style="width:100%">${esc(b.label)}</button>`).join("")}</div>`;
         break;

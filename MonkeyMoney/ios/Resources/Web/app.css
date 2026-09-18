@@ -212,9 +212,15 @@ input[type=range] { width: 100%; margin: 18px 0; accent-color: var(--gold); heig
 /* Vote options */
 .votes .opt .letter { background: var(--panel); color: var(--cream); font-size: 20px; }
 
-/* Explain card */
+/* Explain card — hook line, numbered rules, payout plate */
 .explain { padding: 6px 0; }
 .explain p { font-size: 15px; line-height: 1.45; white-space: pre-line; }
+.explain .hook { font-weight: 600; color: var(--cream); margin: 0 0 12px; }
+.explain .rules { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
+.explain .rules li { display: flex; align-items: flex-start; gap: 12px; font-size: 15px; line-height: 1.35; animation: slideIn .35s both cubic-bezier(.2,1.2,.4,1); animation-delay: var(--d, 0ms); }
+.explain .rules li b { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--gold); color: var(--ink); display: grid; place-items: center; font-family: "Outfit"; font-weight: 900; font-size: 14px; box-shadow: 0 3px 0 var(--gold-dark); }
+.explain .rules li span { padding-top: 3px; }
+.explain .payout { background: var(--gold); color: var(--ink); font-family: "Outfit"; font-weight: 800; font-size: 15px; padding: 10px 14px; border-radius: 12px; box-shadow: 0 4px 0 var(--gold-dark); margin-bottom: 14px; }
 
 /* Cards (UNO) */
 .hand { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }

@@ -246,10 +246,19 @@ struct PromptView: View {
                         }.buttonStyle(PressStyle()).disabled(chosen != nil && chosen != o.id).opacity(chosen != nil && chosen != o.id ? 0.55 : 1)
                     }
                 }
-            case .explain(let title, let body, let ready, let streik, let deadline):
+            case .explain(let title, let body, let regeln, let gewinn, let ready, let streik, let deadline):
                 timer(deadline)
                 Text(title).font(.outfit(24, .black)).foregroundStyle(MM.gold)
-                Text(body).font(.poppins(14)).foregroundStyle(MM.cream).lineSpacing(3)
+                Text(body).font(.poppins(14, .semibold)).foregroundStyle(MM.cream).lineSpacing(3)
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(regeln.enumerated()), id: \.offset) { i, r in
+                        HStack(alignment: .top, spacing: 10) {
+                            Text("\(i + 1)").font(.outfit(14, .black)).foregroundStyle(MM.ink).frame(width: 24, height: 24).background(Circle().fill(MM.gold))
+                            Text(r).font(.poppins(14)).foregroundStyle(MM.cream).lineSpacing(2)
+                        }
+                    }
+                }
+                if let g = gewinn { Text("💰 \(g)").font(.poppins(13, .bold)).foregroundStyle(MM.gold).padding(10).frame(maxWidth: .infinity, alignment: .leading).background(RoundedRectangle(cornerRadius: 12).fill(MM.gold.opacity(0.12))) }
                 HStack { GoldButton(title: ready ? "✔ Bereit" : "Bereit!") { send(.ready("bereit")) }.disabled(ready); GoldButton(title: "✊ Streik", style: .ghost) { send(.ready("streik")) }.disabled(streik) }
             case .actions(let title, let lines, let buttons, let deadline):
                 timer(deadline); question(title)
