@@ -29,6 +29,29 @@ nur League-of-Legends-Fragen, eigene Bundle-ID — beide Apps passen nebeneinand
 | Meta | Profile (PIN/Geräte-Erkennung), 85-Item-Shop, 4 Bestenlisten, Daily-/Monats-Quests, Bananen-Pass, Meilensteine |
 | Audio | 22 eigene Musik-Tracks (Sonauto/Treblo v3), CC0/CC-BY-SFX, 50 Song-Snippets für die Musik-Formate; **Sound-Regie**: Stinger pro Phase, Auflösungs-Dreiklang (Zap → Trommelwirbel → Stille → Fanfare + Applaus-Stufe nach Gewinn), Siegerehrungs-Wirbel, Rad-Ticks |
 
+## Screenshots
+
+Aufgenommen im Browser gegen den Dev-Server (`tools/web/*.mjs`, iPad 11" quer bzw. iPhone hoch).
+
+| | |
+|---|---|
+| ![Hauptmenü](docs/screenshots/01-hauptmenue.jpg) Hauptmenü | ![Modus](docs/screenshots/02-modus.jpg) Show wählen |
+| ![Lobby](docs/screenshots/03-lobby.jpg) Lobby mit QR | ![Erklärkarte](docs/screenshots/04-erklaerkarte.jpg) Erklärkarte |
+| ![Frage](docs/screenshots/05-frage.jpg) Frage (Kokosnuss-Uhr) | ![Auflösung](docs/screenshots/06-aufloesung.jpg) Auflösung (Schätzen) |
+| ![Zwischenstand](docs/screenshots/07-zwischenstand.jpg) Zwischenstand | ![Glücksrad](docs/screenshots/08-gluecksrad.jpg) Glücksrad |
+| ![Affenbank](docs/screenshots/09-affenbank.jpg) Affenbank | ![Stinkbanane](docs/screenshots/10-stinkbanane.jpg) Stinkbanane |
+| ![Lianen-Finale](docs/screenshots/11-lianen-finale.jpg) Lianen-Finale | ![Siegerehrung](docs/screenshots/12-siegerehrung.jpg) Siegerehrung |
+| ![Abspann](docs/screenshots/13-abspann.jpg) Abspann | ![Spiel geladen](docs/screenshots/16-spiel-geladen.jpg) Spielstand geladen |
+| ![UNO](docs/screenshots/14-uno.jpg) Bananen-Batsche (UNO) mit iPad-Sitz | ![Siedler](docs/screenshots/15-siedler.jpg) Siedler vom Bananenhain |
+
+**Handy**
+
+![Handy](docs/screenshots/20-handy.jpg)
+
+**Show-Master-Cockpit & Übungsmodus**
+
+![Show-Master](docs/screenshots/21-showmaster.jpg)
+
 ## Ordner
 
 ```

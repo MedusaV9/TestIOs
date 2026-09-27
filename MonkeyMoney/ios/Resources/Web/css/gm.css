@@ -71,3 +71,7 @@
 
 .chev { display: inline-block; transform: rotate(90deg); font-weight: 900; transition: transform .2s; }
 .chev.up { transform: rotate(-90deg); }
+
+.spick-head { display: flex; gap: 8px; min-width: 0; }
+.spick-head .chip:first-child { flex-shrink: 0; }
+.spick-head .chip { display: block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
