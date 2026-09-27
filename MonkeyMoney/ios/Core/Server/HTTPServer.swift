@@ -15,6 +15,9 @@ public final class HTTPServer: @unchecked Sendable {
         public var query: [String: String]
         public var headers: [String: String]
         public var body: Data
+        /// Peer IPv4 address ("127.0.0.1" for the iPad's own web view).
+        public var remoteAddress: String = ""
+        public var isLoopback: Bool { remoteAddress.hasPrefix("127.") || remoteAddress == "::1" }
     }
 
     public struct Response {
@@ -110,7 +113,11 @@ public final class HTTPServer: @unchecked Sendable {
             var nosig: Int32 = 1
             setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &nosig, socklen_t(MemoryLayout<Int32>.size))
             #endif
-            let t = Thread { [weak self] in self?.serve(fd: fd) }
+            var ipBuf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+            var inAddr = addr.sin_addr
+            inet_ntop(AF_INET, &inAddr, &ipBuf, socklen_t(INET_ADDRSTRLEN))
+            let remote = String(cString: ipBuf)
+            let t = Thread { [weak self] in self?.serve(fd: fd, remote: remote) }
             t.name = "mm-http-conn"
             t.start()
         }
@@ -143,7 +150,7 @@ public final class HTTPServer: @unchecked Sendable {
         return true
     }
 
-    private func serve(fd: Int32) {
+    private func serve(fd: Int32, remote: String) {
         var buffer: [UInt8] = []
         defer { close(fd) }
         while true {
@@ -156,6 +163,7 @@ public final class HTTPServer: @unchecked Sendable {
             let headerBytes = buffer[0..<headerEnd]
             guard let head = String(bytes: headerBytes, encoding: .utf8) else { return }
             var req = parseHead(head)
+            req.remoteAddress = remote
             let contentLength = Int(req.headers["content-length"] ?? "0") ?? 0
             let bodyStart = headerEnd + 4
             while buffer.count < bodyStart + contentLength {
@@ -168,12 +176,31 @@ public final class HTTPServer: @unchecked Sendable {
                 handleWebSocket(fd: fd, req: req, leftover: buffer)
                 return
             }
-            let resp = handler(req)
+            var resp = handler(req)
+            // Byte ranges (Safari's <audio>/<video> insist on them for media).
+            if resp.status == 200, let range = req.headers["range"], range.hasPrefix("bytes=") {
+                let spec = range.dropFirst(6).split(separator: ",").first.map(String.init) ?? ""
+                let bounds = spec.split(separator: "-", omittingEmptySubsequences: false).map { Int($0.trimmingCharacters(in: .whitespaces)) }
+                let total = resp.body.count
+                var lo = 0, hi = total - 1
+                if bounds.count == 2 {
+                    if let a = bounds[0] { lo = a; if let b = bounds[1] { hi = min(b, total - 1) } }
+                    else if let suffix = bounds[1] { lo = max(0, total - suffix) }
+                }
+                if total > 0, lo <= hi, lo < total {
+                    resp.body = resp.body.subdata(in: lo..<(hi + 1))
+                    resp.status = 206
+                    resp.headers["Content-Range"] = "bytes \(lo)-\(hi)/\(total)"
+                }
+            }
+            if resp.status == 200 || resp.status == 206 { resp.headers["Accept-Ranges"] = "bytes" }
             var out = "HTTP/1.1 \(resp.status) \(statusText(resp.status))\r\n"
             var headers = resp.headers
             headers["Content-Length"] = String(resp.body.count)
             headers["Connection"] = "keep-alive"
-            headers["Cache-Control"] = headers["Cache-Control"] ?? (req.path.hasPrefix("/api") ? "no-store" : "public, max-age=300")
+            let ext = (req.path as NSString).pathExtension.lowercased()
+            let isCode = ext.isEmpty || ["html", "js", "css", "json"].contains(ext)
+            headers["Cache-Control"] = headers["Cache-Control"] ?? (req.path.hasPrefix("/api") ? "no-store" : (isCode ? "no-cache" : "public, max-age=3600"))
             headers["Access-Control-Allow-Origin"] = "*"
             for (k, v) in headers { out += "\(k): \(v)\r\n" }
             out += "\r\n"
@@ -218,6 +245,7 @@ public final class HTTPServer: @unchecked Sendable {
         switch s {
         case 200: return "OK"
         case 204: return "No Content"
+        case 206: return "Partial Content"
         case 302: return "Found"
         case 400: return "Bad Request"
         case 401: return "Unauthorized"
@@ -362,6 +390,11 @@ public final class HTTPServer: @unchecked Sendable {
         case "ogg": return "audio/ogg"
         case "mp4": return "video/mp4"
         case "webm": return "video/webm"
+        case "woff": return "font/woff"
+        case "otf": return "font/otf"
+        case "mjs": return "application/javascript; charset=utf-8"
+        case "ico": return "image/x-icon"
+        case "txt": return "text/plain; charset=utf-8"
         default: return "application/octet-stream"
         }
     }

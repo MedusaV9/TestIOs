@@ -410,6 +410,12 @@ public struct BoardgameStageView: Codable, Equatable, Sendable {
     public var aktuellerSpieler: String?
     public var lokalerPrompt: String?
     public var sitze: [String]
+    /// Pass-and-play seat on turn (the stage renders its prompt and answers via `boardgameLocal`).
+    public var lokalSitz: String? = nil
+    public var lokalName: String? = nil
+    public var lokalPrompt: PlayerPrompt? = nil
+    /// Display names per seat (phones and pass-and-play seats).
+    public var sitzNamen: [String: String] = [:]
 }
 
 public struct StageView: Codable, Equatable, Sendable {

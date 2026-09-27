@@ -1,0 +1,70 @@
+/* Monkey Money — Show-Master cockpit. */
+.gm { max-width: 720px; margin: 0 auto; min-height: 100vh; padding: env(safe-area-inset-top) 14px 90px; }
+.gm-login { display: flex; flex-direction: column; gap: 14px; padding-top: 40px; text-align: center; }
+.gm-top { position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: center; padding: 12px 2px; background: linear-gradient(180deg, #1d0f4a 70%, transparent); }
+.gm-top div { display: flex; flex-direction: column; }
+.gm-top small { color: var(--muted); font-size: 12px; }
+.gm-main { padding-bottom: 20px; }
+.gm-stack { display: flex; flex-direction: column; gap: 12px; }
+.gm-main-card, .gm-block { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.gm-block h3 { font-size: 17px; }
+.gm-block h4 { font-size: 13px; color: var(--gold); text-transform: uppercase; letter-spacing: 0.1em; }
+.gm-actions { display: flex; flex-direction: column; gap: 10px; }
+.gm-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.gm-tip { padding: 10px 12px; border-radius: 12px; background: rgba(255, 201, 60, 0.1); border: 1px solid rgba(255, 201, 60, 0.35); font-size: 14px; }
+.drama { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
+.drama-bar { flex: 1; height: 8px; border-radius: 9px; background: rgba(0, 0, 0, 0.35); overflow: hidden; }
+.drama-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--leaf), var(--gold), var(--red)); }
+.spick-head { display: flex; gap: 6px; }
+.spick-q { font-weight: 600; }
+.spick-a { padding: 10px 12px; border-radius: 12px; background: rgba(43, 217, 138, 0.2); border: 1.5px solid var(--leaf); font-weight: 800; font-size: 18px; }
+.spick-tips { margin: 0; padding: 0; list-style: none; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+.gm-answers, .gm-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.gm-answers li { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); font-size: 14px; }
+.gm-answers li b { width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-answers li span { flex: 1; color: var(--muted); }
+.gm-answers li.ok { background: rgba(43, 217, 138, 0.15); } .gm-answers li.ok span { color: #8dffc4; }
+.gm-answers li.no { background: rgba(255, 77, 109, 0.12); } .gm-answers li.no span { color: #ffb3c1; }
+.gm-answers .monkey, .gm-players .monkey { width: 34px !important; height: 42px !important; }
+.gm-log li { font-size: 13px; color: var(--muted); }
+.mini-btn { width: 36px; height: 36px; border-radius: 10px; background: rgba(0, 0, 0, 0.35); font-size: 17px; flex: none; }
+.gm-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.gm-grid.sub { width: 100%; padding: 6px 0 4px 16px; }
+.kat-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pick:disabled { opacity: 0.4; }
+.gm-players { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.pp { display: flex; flex-direction: column; align-items: center; padding: 6px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); border: 2px solid transparent; width: 76px; }
+.pp small { font-size: 11px; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp.on { border-color: var(--gold); background: rgba(255, 201, 60, 0.15); }
+.gm-amount { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.gm-amount b { min-width: 80px; text-align: center; font-family: var(--font-display); font-size: 26px; }
+.gm-player { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
+.gm-player.off { opacity: 0.5; }
+.gp-info { flex: 1; display: flex; flex-direction: column; }
+.gp-info .money { color: var(--gold); font-weight: 800; }
+.gp-btns { display: flex; gap: 6px; }
+.tool-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tool { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 6px; border-radius: 16px; background: rgba(255, 255, 255, 0.07); border: 1px solid var(--line); text-align: center; }
+.tool span { font-size: 26px; }
+.tool b { font-size: 13px; }
+.tool small { font-size: 11px; color: var(--muted); }
+.gm-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; justify-content: center; gap: 4px; padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: rgba(13, 8, 34, 0.94); border-top: 1px solid var(--line); backdrop-filter: blur(10px); }
+.gm-tabs button { flex: 1; max-width: 130px; display: flex; flex-direction: column; align-items: center; padding: 6px; border-radius: 12px; color: var(--muted); }
+.gm-tabs button span { font-size: 22px; }
+.gm-tabs button small { font-size: 11px; font-weight: 700; }
+.gm-tabs button.on { background: rgba(255, 201, 60, 0.16); color: var(--gold); }
+.gm-sheet { align-items: stretch; text-align: left; max-height: 86vh; overflow-y: auto; }
+.gm-sheet h2 { text-align: center; }
+.toggle { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); }
+.toggle span { display: flex; flex-direction: column; }
+.toggle small { color: var(--muted); font-size: 12px; }
+.toggle input { display: none; }
+.toggle i { width: 50px; height: 28px; border-radius: 99px; background: rgba(255, 255, 255, 0.15); position: relative; flex: none; }
+.toggle i::after { content: ""; position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+.toggle input:checked + i { background: var(--leaf); }
+.toggle input:checked + i::after { transform: translateX(22px); }
+.toggle.locked { opacity: 0.5; }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(0, 0, 0, 0.3); }
+.seg button { flex: 1; padding: 8px 10px; border-radius: 9px; font-weight: 600; font-size: 13px; color: var(--muted); }
+.seg button.on { background: var(--gold); color: var(--ink); }
+.seg button:disabled { opacity: 0.4; }

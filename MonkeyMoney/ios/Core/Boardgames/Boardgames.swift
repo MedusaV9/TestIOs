@@ -308,7 +308,10 @@ public enum Boardgames {
         var lokalerPrompt: String? = nil
         if let c = current, c.hasPrefix("lokal_"), box.subphase == "spiel" { lokalerPrompt = "📲 Gib das iPad an \(ctx.name(c))!" }
         return BoardgameStageView(id: box.id, name: plugin.meta.name, subphase: box.subphase, howto: plugin.meta.howto, howtoEndsAt: box.howtoEndsAt, view: encoded,
-                                  ergebnis: box.ergebnis, aktuellerSpieler: current.map { ctx.name($0) }, lokalerPrompt: lokalerPrompt, sitze: box.sitze)
+                                  ergebnis: box.ergebnis, aktuellerSpieler: current.map { ctx.name($0) }, lokalerPrompt: lokalerPrompt, sitze: box.sitze,
+                                  lokalSitz: lokalerPrompt != nil ? current : nil, lokalName: lokalerPrompt != nil ? current.map { ctx.name($0) } : nil,
+                                  lokalPrompt: lokalerPrompt != nil ? current.flatMap { plugin.prompt(box.data, $0, ctx) } : nil,
+                                  sitzNamen: Dictionary(box.sitze.map { ($0, ctx.name($0)) }, uniquingKeysWith: { a, _ in a }))
     }
 
     /// Typed scene for the native stage (avoids the JSON round trip).

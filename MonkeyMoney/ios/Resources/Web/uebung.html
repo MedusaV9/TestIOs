@@ -1,43 +1,28 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
-  <meta name="theme-color" content="#0E2F24">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#1a0d47" />
   <title>Monkey Money — Übungsmodus</title>
-  <link rel="icon" href="/img/favicon.svg">
-  <link rel="stylesheet" href="/app.css">
+  <link rel="icon" href="/img/favicon.svg" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/prompts.css" />
+  <link rel="stylesheet" href="/css/player.css" />
+  <style>
+    .uebung { gap: 14px; padding-top: 18px; }
+    .u-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .u-stats div { padding: 10px; border-radius: 14px; background: rgba(0, 0, 0, 0.3); text-align: center; display: flex; flex-direction: column; }
+    .u-stats b { font-family: var(--font-display); font-size: 26px; color: var(--gold); }
+    .u-stats small { color: var(--muted); font-size: 12px; }
+    .u-filter { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .u-filter select { flex: 1; min-width: 140px; padding: 10px; border-radius: 12px; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line); }
+    .p-opt.u-ok { background: var(--leaf); color: #04241a; box-shadow: 0 0 0 3px #b9ffdc, 0 0 30px rgba(43, 217, 138, 0.6); }
+    .p-opt.u-bad { background: var(--red); color: #fff; }
+  </style>
 </head>
-<body>
-  <div class="toast" id="toast"></div>
-  <div class="flash" id="flash"></div>
-  <div class="app">
-    <div class="top">
-      <a class="chip" href="/">‹ Zurück</a>
-      <div class="brand"><img src="/img/favicon.svg" alt=""> MONKEY MONEY</div>
-    </div>
-    <div class="hero">
-      <span class="spark s1">✦</span><span class="spark s2">✦</span>
-      <h1>ÜBUNGS<span>MODUS</span></h1>
-      <p>SOLO · OHNE RAUM · OHNE DRUCK</p>
-    </div>
-    <div class="card practice-head">
-      <div class="pstat"><b id="sSerie">0</b><span>Serie 🔥</span></div>
-      <div class="pstat"><b id="sRichtig">0 / 0</b><span>richtig</span></div>
-      <div class="pstat"><b id="sBeste">0</b><span>beste Serie</span></div>
-    </div>
-    <div class="card">
-      <div class="row">
-        <select id="kat"><option value="">Alle Kategorien</option></select>
-        <select id="schw"><option value="">Alle Schwierigkeiten</option><option value="easy">Leicht</option><option value="medium">Mittel</option><option value="hard">Schwer</option><option value="ultrahard">Ultra</option></select>
-      </div>
-      <label class="f" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="familie" style="width:20px;height:20px"> 👨‍👩‍👧 Nur kindgerechte Fragen</label>
-    </div>
-    <div class="card" id="main"><div class="idle"><div class="eye">🐵</div><h2>Bereit?</h2><p>Die erste Frage kommt sofort …</p></div></div>
-    <button class="btn hidden" id="nextBtn" style="margin-top:12px">Nächste Frage ▶</button>
-    <div class="foot">MONKEY MONEY · FRAGEN · FREUNDE · FÜR IMMER</div>
-  </div>
-  <script src="/common.js"></script>
-  <script src="/uebung.js"></script>
+<body class="phone-body">
+  <div id="app"></div>
+  <script type="module" src="/uebung/app.js"></script>
 </body>
 </html>

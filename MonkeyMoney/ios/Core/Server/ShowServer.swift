@@ -18,7 +18,7 @@ public final class ShowServer: @unchecked Sendable {
     }
 
     public let http: HTTPServer
-    public let hub: RoomHub
+    public private(set) var hub: RoomHub
     public let queue = DispatchQueue(label: "mm.show")
     public var meta: MetaStore
     public var onMetaChanged: ((MetaStore) -> Void)?
@@ -42,6 +42,14 @@ public final class ShowServer: @unchecked Sendable {
         self.hub = hub
         self.meta = meta
         self.roots = roots
+        wireProfileHook(hub)
+        http.handler = { [weak self] req in self?.route(req) ?? .notFound() }
+        http.onWebSocketOpen = { _, _ in }
+        http.onWebSocketMessage = { [weak self] id, text in self?.queue.async { self?.wsMessage(id, text) } }
+        http.onWebSocketClose = { [weak self] id in self?.queue.async { guard let self = self else { return }; self.deliver(self.hub.connectionClosed(id, now: self.clock())) } }
+    }
+
+    private func wireProfileHook(_ hub: RoomHub) {
         hub.profileHook = ProfileHook(
             login: { [weak self] id, pin, device in
                 guard let self = self else { return .failure("Server weg") }
@@ -60,10 +68,15 @@ public final class ShowServer: @unchecked Sendable {
                     self.pushProfileEvent(event, playerId: player.id)
                 }
             })
-        http.handler = { [weak self] req in self?.route(req) ?? .notFound() }
-        http.onWebSocketOpen = { _, _ in }
-        http.onWebSocketMessage = { [weak self] id, text in self?.queue.async { self?.wsMessage(id, text) } }
-        http.onWebSocketClose = { [weak self] id in self?.queue.async { guard let self = self else { return }; self.deliver(self.hub.connectionClosed(id, now: self.clock())) } }
+    }
+
+    /// Swap in a fresh room (new show / loaded save). Must run on `queue`.
+    /// Every open socket is closed so clients reconnect into the new room.
+    public func replaceHubOnQueue(_ newHub: RoomHub) {
+        for id in http.openConnections { http.closeConnection(id) }
+        wireProfileHook(newHub)
+        hub = newHub
+        lastStageSeq = -1
     }
 
     public func start() throws {
@@ -133,6 +146,7 @@ public final class ShowServer: @unchecked Sendable {
         let path = req.path
         if let extra = extraRoutes?(req) { return extra }
         if path == "/" || path.hasPrefix("/j/") || path == "/player" || path == "/player.html" { return file(roots.web.appendingPathComponent("player.html")) }
+        if path == "/stage" || path == "/stage.html" || path == "/buehne" { return file(roots.web.appendingPathComponent("stage.html")) }
         if path == "/gm" || path == "/gm.html" { return file(roots.web.appendingPathComponent("gm.html")) }
         if path == "/uebung" || path == "/uebung.html" { return file(roots.web.appendingPathComponent("uebung.html")) }
         if path == "/healthz" { return .text("ok") }

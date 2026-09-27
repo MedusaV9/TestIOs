@@ -104,6 +104,8 @@ jobs:
             test -d "$APP_DIR"
             ls -la "$APP_DIR" | head -40
             test -f "$APP_DIR/Web/player.html"
+            test -f "$APP_DIR/Web/stage.html"
+            test -f "$APP_DIR/Web/vendor/preact-htm.js"
             test -f "$APP_DIR/Content/fragen.json"
             test -d "$APP_DIR/Audio/Music"
             rm -rf dist/Payload && mkdir -p dist/Payload

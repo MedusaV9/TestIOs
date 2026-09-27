@@ -66,6 +66,7 @@ build_module() {
 build_module DarwinShims
 build_module Combine "${IMPLICIT[@]}"
 build_module UIKit "${IMPLICIT[@]}"
+build_module WebKit "${IMPLICIT[@]}"
 build_module Security "${IMPLICIT[@]}"
 build_module UniformTypeIdentifiers "${IMPLICIT[@]}"
 build_module CoreTransferable "${IMPLICIT[@]}"
