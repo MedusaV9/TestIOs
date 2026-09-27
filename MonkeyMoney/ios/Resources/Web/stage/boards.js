@@ -52,7 +52,7 @@ export function BoardgameScene({ view, b }) {
           <${Prompt} p=${decode(b.lokalPrompt)} send=${a => StageCtx.cmd({ boardgameLocal: { sitz: b.lokalSitz, action: a } })} compact=${true} />
         </div>`
         : b.lokalerPrompt && html`<p class="local-title">${b.lokalerPrompt}</p>`}
-      <button class="btn ghost small" onClick=${() => StageCtx.cmd({ boardgameAbort: {} })}>✕ Spiel abbrechen</button>
+      <button class="btn ghost small" onClick=${() => StageCtx.cmd({ boardgameAbort: {} })}>× Spiel abbrechen</button>
     </aside>
   </div>`;
 }
@@ -105,7 +105,7 @@ export function UnoCard({ card, color, small }) {
 
 function Uno({ v, ctx }) {
   return html`<div class="uno">
-    <div class="chip-row center"><span class="chip">${v.direction > 0 ? "↻" : "↺"} Richtung</span><span class="chip">🂠 Stapel ${v.drawPile}</span>${v.deadline && html`<span class="chip">⏱ <${Countdown} deadline=${v.deadline} /></span>`}</div>
+    <div class="chip-row center"><span class="chip">${v.direction > 0 ? "🔃" : "🔄"} Richtung</span><span class="chip">🃏 Stapel ${v.drawPile}</span>${v.deadline && html`<span class="chip">⏱ <${Countdown} deadline=${v.deadline} /></span>`}</div>
     <${SeatRing} ctx=${ctx} current=${v.current} hands=${v.hands} center=${html`<div class="uno-center"><${UnoCard} card=${v.topCard} color=${v.color} /></div>`} />
     ${v.lastEvent && html`<p class="board-event pop-in" key=${v.lastEvent}>${v.lastEvent}</p>`}
   </div>`;

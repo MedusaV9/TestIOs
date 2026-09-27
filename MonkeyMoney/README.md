@@ -42,11 +42,16 @@ MonkeyMoney/ios
 │  ├─ Protocol/   ClientMessage/ServerMessage, RoomHub (Sessions, Rechte, Broadcast)
 │  ├─ Meta/       Profile, Shop, Bestenlisten, Quests
 │  └─ Server/     HTTP/1.1 + WebSocket auf BSD-Sockets, ShowServer (Routen, REST-API)
-├─ App/           SwiftUI — Host (iPad), Player (iPhone), Design (StageCanvas, Props, Effects), Audio (Regie)
-├─ Resources/     Web (Browser-Client), Fonts, Content, Audio, Monkeys (PNG-Puppen), Assets
+│                 ShowHost = Menü/Lobby/Match-Lebenszyklus, Spielstände, Bots, Host-API (/api/host/*)
+├─ App/           dünne SwiftUI-Hüllen: iPad = WKWebView auf /stage, iPhone = WebView-Beitreten
+├─ Resources/     Web (die komplette Oberfläche), Fonts, Content, Audio, Monkeys, Assets
+│  └─ Web/        Preact + htm (vendored, kein Build-Schritt)
+│     ├─ stage/   Bühne: Menü, Lobby, alle Szenen, Extras, Brettspiele, Sound-Regie (regie.js)
+│     ├─ player/  Handy-Controller      ├─ gm/      Show-Master-Cockpit
+│     ├─ uebung/  Übungsmodus           └─ lib/     core, ui (Affen-SVGs), audio (Web Audio), prompts
 ├─ CoreTests/     swift test (Bot-Matches, Regeln, Protokoll, Meta)
 ├─ DevServer/     mm-dev-server — der echte Server auf Linux/macOS für Browser-Tests
-├─ scripts/typecheck/  Linux-"SDK-Simulation" für die SwiftUI-Targets
+├─ scripts/typecheck/  Linux-"SDK-Simulation" für die SwiftUI-Targets (inkl. WebKit-Shim)
 ├─ project.yml    XcodeGen (Targets MonkeyMoney + MonkeyMoneyLeague, universal iPhone/iPad)
 └─ Package.swift  SwiftPM (Core + Tests + DevServer)
 ```
@@ -58,9 +63,9 @@ MonkeyMoney/ios
 2. **Handys**: QR scannen. Safari öffnet `http://<ipad-ip>:8080/j/CODE` — Name, Affe, Farbe, „Rein da!“.
    Das Handy zeigt Runde, Fortschritt, das Jackpot-Glas (antippen = Erklärung), Erklärkarten als
    nummerierte Regeln mit Gewinn-Zeile und den eigenen Affen in jeder Wartephase.
-3. **Show-Master (optional)**: In der Lobby „Show-Master-Code einblenden“ → zweiter QR + PIN.
+3. **Show-Master (optional)**: In der Lobby „Show-Master · Code zeigen“ → zweiter QR + PIN.
    Das Handy zeigt das Regiepult (Spickzettel, Antworten, Werkzeuge). Ohne Show-Master führt das iPad
-   („Starten, wenn alle da sind!“, Weiter-Knopf unten rechts) — Auto-Regie verlängert Timer und pickt Kategorien.
+   („Starten, wenn alle da sind!“, Weiter-Knopf oben rechts oder Leertaste) — Auto-Regie verlängert Timer und pickt Kategorien.
 4. **Fragen-Set**: In Modus-Auswahl, Lobby-Einstellungen, iPad-Regiepult und Browser-Cockpit (Tab „Fragen“) den
    Pool wählen — Preset antippen oder unter „Eigene Auswahl“ Kategorien/Unterkategorien an- und abwählen. Der
    Show-Master kann das auch mitten in der Show tun (gilt ab der nächsten Runde).
@@ -73,13 +78,15 @@ MonkeyMoney/ios
 
 Alle Geräte müssen im selben WLAN sein. Kein Internet nötig.
 
-### Bühne (iPad)
+### Bühne (iPad) — eine Web-App
 
-Die Host-Oberfläche wird auf einer festen Bühnen-Leinwand (1180 × 820 pt) komponiert und uniform auf das
-Display skaliert (`StageCanvas`) — 11", 13", iPad mini und der Anzeige-Zoom „Mehr Platz“ zeigen dieselbe
-Komposition: Fragenwand mittig, Podeste mit großen Puppen davor, Kulisse (Schilder, Kisten, TV, Glas,
-Publikum) in den Kulissen-Streifen. Podeste morphen zwischen den Szenen (matchedGeometry), das Glücksrad ist
-ein Lichterlauf-Feld, das deterministisch ausrollt und pro Schritt tickt.
+Die gesamte Oberfläche (Bühne, Handys, Show-Master, Übungsmodus, Sounds) ist eine Web-App in
+`Resources/Web`, ausgeliefert vom Swift-`ShowHost`. Die iPad-App startet den Host und zeigt
+`http://127.0.0.1:<port>/stage` in einem WKWebView; genau dieselbe Seite läuft im Browser gegen den
+Dev-Server. Die Bühne ist eine 1000 Einheiten hohe Leinwand (1400–1800 breit), uniform skaliert.
+Menü, Spielstände und Show-Start laufen über die Host-API (`/api/host/state|start|load|save|delete|close|bots`,
+auf dem iPad nur von Loopback erreichbar). Sounds: Web-Audio-Engine + `stage/regie.js` (Port der Swift-SoundRegie:
+Auflösungs-Dreischlag, Trommelwirbel, Rad-Ticks, Momente). Tastatur: Leertaste/→ = Weiter, P = Pause.
 
 ### Warum kein App Clip?
 
@@ -96,10 +103,17 @@ swift test --package-path MonkeyMoney/ios
 # Linux-Typecheck des SwiftUI-Targets (klassisch + League Edition mit -D LEAGUE_EDITION)
 MonkeyMoney/ios/scripts/typecheck/typecheck.sh
 
-# Echter Server ohne iPad — Browser-Client testen
-swift run --package-path MonkeyMoney/ios mm-dev-server 8080 quick
-#  → http://<ip>:8080/j/CODE (Spieler), /gm?code=CODE (Regie), /api/dev/next (Bühnen-„Weiter“)
-swift run --package-path MonkeyMoney/ios mm-dev-server 8081 klassik normal league   # League-Edition-Katalog
+# Echter Server ohne iPad — komplette UI im Browser
+swift run --package-path MonkeyMoney/ios mm-dev-server 8080
+#  → http://localhost:8080/stage (Bühne inkl. Menü), /j/CODE (Handy), /gm?code=CODE (Regie), /uebung
+# Optionen: league · demo=quick|klassik|marathon · bots=N · tempo=zackig · autostart · storage=DIR
+swift run --package-path MonkeyMoney/ios mm-dev-server 8081 league demo=klassik bots=4 autostart
+# Dev-API: /api/dev/next · stage · gm · player?id= · pin · code · formats?ids=a,b&fragen=2
+
+# Browser-Tests (Playwright, starten den Dev-Server selbst; Screenshots + Audio-Log)
+node tools/web/shoot.mjs  OUT                     # Host-Flow: Menü, Lobby, Regie, Spielstände, Übung
+node tools/web/match.mjs  OUT klassik 780 4       # ganzes Match mit Bots (env FORMATS=a,b für einzelne Formate)
+node tools/web/boards.mjs OUT                     # alle Brettspiele inkl. iPad-Sitz
 
 # League-Fragenpaket neu erzeugen (schreibt fragen.json + taxonomie.json)
 python3 tools/content/league_questions.py            # --dry-run zeigt nur die Statistik

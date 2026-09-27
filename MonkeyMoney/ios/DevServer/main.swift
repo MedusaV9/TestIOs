@@ -42,6 +42,11 @@ host.extraRoutes = { req in
         let id = req.query["id"] ?? ""
         return .json(server.withHub { hub in Wire.encode(hub.engine.playerView(hub.state, player: id, now: nowMs())) })
     case "/api/dev/pin": return .text(server.withHub { $0.state.gmPin })
+    case "/api/dev/formats":
+        let ids = (req.query["ids"] ?? "").split(separator: ",").map(String.init)
+        let n = Int(req.query["fragen"] ?? "2") ?? 2
+        server.withHub { $0.devOverrideFormats(ids, fragen: n) }
+        return .text("ok")
     case "/api/dev/code": return .text(server.withHub { $0.state.roomCode })
     default: return .notFound()
     }

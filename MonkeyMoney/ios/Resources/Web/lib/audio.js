@@ -167,7 +167,10 @@ class AudioEngine {
     log.push({ t: Date.now(), kind: "snippet", id: `${songId}/${snippet}` });
     if (!this.unlocked) return;
     const url = `${BASE}/Songs/${songId}/${snippet}.m4a`;
-    this.load(url).then(buf => {
+    const bedTrack = String(songId).startsWith("s_bett_");
+    (bedTrack ? Promise.resolve(null) : this.load(url)).then(async buf => {
+      // Songs without cut snippets (the bed tracks) are cut and, for „rückwärts“, reversed here.
+      if (!buf) buf = await this.cutFromBed(songId, snippet);
       if (!buf) return;
       const src = this.ctx.createBufferSource();
       src.buffer = buf;
@@ -178,6 +181,23 @@ class AudioEngine {
       this.snippet = src;
       src.onended = () => { if (this.snippet === src) this.snippet = null; this.buffers.delete(url); };
     });
+  }
+
+  async cutFromBed(songId, snippet) {
+    const bed = await this.load(`${BASE}/Beds/${songId}.m4a`);
+    if (!bed) return null;
+    const name = String(snippet);
+    const secs = Math.max(1, Math.min(15, Number((name.match(/(\d+)s/) || [])[1] || 5)));
+    const start = name.startsWith("intro") ? 0 : Math.max(0, Math.min(bed.duration - secs, bed.duration * 0.35));
+    const len = Math.min(Math.floor(secs * bed.sampleRate), bed.length);
+    const off = Math.min(Math.floor(start * bed.sampleRate), bed.length - len);
+    const out = this.ctx.createBuffer(bed.numberOfChannels, len, bed.sampleRate);
+    const rev = name.includes("rueckwaerts");
+    for (let c = 0; c < bed.numberOfChannels; c++) {
+      const src = bed.getChannelData(c).subarray(off, off + len), dst = out.getChannelData(c);
+      if (rev) for (let i = 0; i < src.length; i++) dst[i] = src[src.length - 1 - i]; else dst.set(src);
+    }
+    return out;
   }
 
   stopSnippet() { try { this.snippet && this.snippet.stop(); } catch (_) {} this.snippet = null; }

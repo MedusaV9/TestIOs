@@ -62,7 +62,7 @@ function Choice({ p, send }) {
     <div class=${cx("p-opts", p.options.length > 4 && "many")}>${p.options.map((o, i) => html`<${OptButton} o=${o} i=${i} chosen=${p.chosen === o.id} locked=${locked}
       onClick=${() => { if (!locked && !o.removed) { haptic(); send({ type: "choose", value: o.id }); } }} />`)}</div>
     ${p.secondTry && html`<p class="p-hint">↩️ Rückgaberecht: wähle eine andere Antwort (50 % Gewinn)</p>`}
-    ${locked && html`<p class="p-locked-note">✓ Eingeloggt — Daumen drücken!</p>`}
+    ${locked && html`<p class="p-locked-note">✔️ Eingeloggt — Daumen drücken!</p>`}
   </div>`;
 }
 
@@ -103,7 +103,7 @@ function NumberInput({ p, send }) {
   const fromSlider = f => (p.log ? Math.exp(Math.log(p.min) + f * (Math.log(p.max) - Math.log(p.min))) : p.min + f * (p.max - p.min));
   const snap = v => Math.min(p.max, Math.max(p.min, Math.round(v / p.step) * p.step));
   const [v, setV] = useState(p.current != null ? p.current : snap((p.min + p.max) / 2));
-  if (p.locked || p.current != null && p.locked) return html`<div class="p-locked"><${Q} t=${p.question} /><div class="big-val">${fmtNum(p.current)} ${p.unit}</div><p class="p-locked-note">✓ Eingeloggt</p></div>`;
+  if (p.locked || p.current != null && p.locked) return html`<div class="p-locked"><${Q} t=${p.question} /><div class="big-val">${fmtNum(p.current)} ${p.unit}</div><p class="p-locked-note">✔️ Eingeloggt</p></div>`;
   return html`<div class="p-number">
     <${Timer} d=${p.deadline} /><${Q} t=${p.question} />
     <div class="big-val">${fmtNum(v)} <small>${p.unit}</small></div>
@@ -117,7 +117,7 @@ function NumberInput({ p, send }) {
 
 function Wager({ p, send }) {
   const [v, setV] = useState(p.current != null ? p.current : p.min);
-  if (p.locked) return html`<div class="p-locked"><h2>${p.title}</h2><div class="big-val">${fmtMM(p.current || 0)}</div><p class="p-locked-note">✓ Einsatz steht</p></div>`;
+  if (p.locked) return html`<div class="p-locked"><h2>${p.title}</h2><div class="big-val">${fmtMM(p.current || 0)}</div><p class="p-locked-note">✔️ Einsatz steht</p></div>`;
   return html`<div class="p-number">
     <${Timer} d=${p.deadline} /><h2 class="p-title">${p.title}</h2>${p.subtitle && html`<p class="muted center">${p.subtitle}</p>`}
     <div class="big-val gold-text">${fmtMM(v)}</div>
@@ -135,15 +135,15 @@ function Order({ p, send }) {
     <${Timer} d=${p.deadline} /><${Q} t=${p.question} />
     <ol class="order-list">${order.map((id, pos) => html`<li class=${cx(p.locked && "locked")} key=${id}>
       <span class="ord-n">${pos + 1}</span><span class="ord-t">${(byId[id] || {}).text}</span>
-      ${!p.locked && html`<span class="ord-btns"><button onClick=${() => mv(pos, -1)} disabled=${pos === 0}>▲</button><button onClick=${() => mv(pos, 1)} disabled=${pos === order.length - 1}>▼</button></span>`}
+      ${!p.locked && html`<span class="ord-btns"><button onClick=${() => mv(pos, -1)} disabled=${pos === 0}><span class="chev up">›</span></button><button onClick=${() => mv(pos, 1)} disabled=${pos === order.length - 1}><span class="chev">›</span></button></span>`}
     </li>`)}</ol>
-    ${p.locked ? html`<p class="p-locked-note">✓ Reihenfolge eingeloggt</p>` : html`<button class="btn green block" onClick=${() => { send({ type: "order", list: order }); send({ type: "confirm" }); haptic("success"); }}>🔒 Reihenfolge einloggen</button>`}
+    ${p.locked ? html`<p class="p-locked-note">✔️ Reihenfolge eingeloggt</p>` : html`<button class="btn green block" onClick=${() => { send({ type: "order", list: order }); send({ type: "confirm" }); haptic("success"); }}>🔒 Reihenfolge einloggen</button>`}
   </div>`;
 }
 
 function TextInput({ p, send }) {
   const [v, setV] = useState("");
-  if (p.submitted) return html`<div class="p-locked"><${Q} t=${p.question} /><div class="big-val small">„${p.submitted}“</div><p class="p-locked-note">✓ Abgeschickt</p></div>`;
+  if (p.submitted) return html`<div class="p-locked"><${Q} t=${p.question} /><div class="big-val small">„${p.submitted}“</div><p class="p-locked-note">✔️ Abgeschickt</p></div>`;
   return html`<div class="p-text">
     <${Timer} d=${p.deadline} /><${Q} t=${p.question} />
     <input class="text-in" maxlength=${p.maxLength} placeholder=${p.placeholder} value=${v} onInput=${e => setV(e.target.value)} onKeyDown=${e => e.key === "Enter" && v.trim() && send({ type: "text", value: v.trim() })} />
@@ -177,7 +177,7 @@ function Chips({ p, send }) {
       <span class="p-opt-badge"><b>${st.l}</b></span><span class="cl-t">${o.text}</span>
       ${!p.locked && html`<button onClick=${() => add(i, -1)}>−</button>`}<b class="cl-n">${placed[i]}</b>${!p.locked && html`<button onClick=${() => add(i, 1)}>+</button>`}
     </div>`; })}
-    ${p.locked ? html`<p class="p-locked-note">✓ Chips liegen</p>` : html`<button class="btn green block" onClick=${() => { send({ type: "chips", list: placed }); send({ type: "confirm" }); }}>🔒 Chips setzen</button>`}
+    ${p.locked ? html`<p class="p-locked-note">✔️ Chips liegen</p>` : html`<button class="btn green block" onClick=${() => { send({ type: "chips", list: placed }); send({ type: "confirm" }); }}>🔒 Chips setzen</button>`}
   </div>`;
 }
 
@@ -209,7 +209,7 @@ function Cheer({ p, send, me }) {
 function Confirm({ p, send }) {
   return html`<div class="p-confirm">
     <${Timer} d=${p.deadline} /><h2 class="p-title">${p.title}</h2>${p.subtitle && html`<p class="muted center">${p.subtitle}</p>`}
-    <button class=${cx("btn big block", p.done ? "ghost" : "green")} disabled=${p.done} onClick=${() => { haptic("success"); send({ type: "confirm" }); }}>${p.done ? "✓ " : ""}${p.button}</button>
+    <button class=${cx("btn big block", p.done ? "ghost" : "green")} disabled=${p.done} onClick=${() => { haptic("success"); send({ type: "confirm" }); }}>${p.done ? "✔️ " : ""}${p.button}</button>
   </div>`;
 }
 
@@ -248,7 +248,7 @@ function Explain({ p, send }) {
     ${p.text && html`<p class="muted center">${p.text}</p>`}
     <ol class="p-rules">${p.regeln.map((r, i) => html`<li style=${`animation-delay:${i * 0.12}s`}><span>${i + 1}</span>${r}</li>`)}</ol>
     ${p.gewinn && html`<div class="p-gewinn">💰 ${p.gewinn}</div>`}
-    <button class=${cx("btn block big", p.ready ? "ghost" : "green")} disabled=${p.ready} onClick=${() => { haptic("success"); send({ type: "ready", value: "bereit" }); }}>${p.ready ? "✓ Bereit — warte auf die anderen" : "👍 Verstanden, bereit!"}</button>
+    <button class=${cx("btn block big", p.ready ? "ghost" : "green")} disabled=${p.ready} onClick=${() => { haptic("success"); send({ type: "ready", value: "bereit" }); }}>${p.ready ? "✔️ Bereit — warte auf die anderen" : "👍 Verstanden, bereit!"}</button>
     ${!p.ready && !p.streik && html`<button class="btn ghost small block" onClick=${() => send({ type: "ready", value: "streik" })}>✊ Streik (bei Mehrheit: Blitzfrage statt Minispiel)</button>`}
     ${p.streik && html`<p class="p-hint">✊ Du streikst.</p>`}
   </div>`;

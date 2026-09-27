@@ -68,3 +68,6 @@
 .seg button { flex: 1; padding: 8px 10px; border-radius: 9px; font-weight: 600; font-size: 13px; color: var(--muted); }
 .seg button.on { background: var(--gold); color: var(--ink); }
 .seg button:disabled { opacity: 0.4; }
+
+.chev { display: inline-block; transform: rotate(90deg); font-weight: 900; transition: transform .2s; }
+.chev.up { transform: rotate(-90deg); }

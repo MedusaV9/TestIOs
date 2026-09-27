@@ -12,6 +12,7 @@ export function extraPlacement(extra, wall) {
     case "pixel": return extra.image ? "left" : null;
     case "bomb": case "sack": case "buzzers": return "side";
     case "bankPot": return "below";
+    case "lianen": case "pies": return "side";
     case "song": return "left";
     default: return wall && wall.options && wall.options.length > 0 ? "below" : "below";
   }
@@ -30,8 +31,9 @@ export function extraTileInfo(extra, scene, view) {
     case "duel": tags[extra.a] = { text: "⚔️", cls: "gold", hot: true }; tags[extra.b] = { text: "⚔️", cls: "gold", hot: true }; break;
     case "oneVsAll": tags[extra.solist] = { text: "🦸 Solo", cls: "gold", hot: true }; break;
     case "steal": if (extra.thief) tags[extra.thief] = { text: "🦹", cls: "gold" }; if (extra.victim) tags[extra.victim] = { text: "😱", cls: "out" }; break;
-    case "pies": for (const pid of extra.out || []) tags[pid] = { text: "🥧 raus", cls: "out" }; break;
-    case "steps": for (const [pid, v] of Object.entries(extra.banked || {})) if (v) tags[pid] = { text: "✓ " + fmtNum(v), cls: "bank" }; break;
+    case "pies": for (const [pid, d] of Object.entries(extra.dirt || {})) if (d > 0) tags[pid] = { text: "🥧".repeat(Math.min(d, 5)), cls: "pie" }; for (const pid of extra.out || []) tags[pid] = { text: "🥧 raus", cls: "out" }; break;
+    case "lianen": return { tags, locked, ropes: extra.lengths || {} };
+    case "steps": for (const [pid, v] of Object.entries(extra.banked || {})) if (v) tags[pid] = { text: "✔️ " + fmtNum(v), cls: "bank" }; break;
     case "auction": if (extra.leader) tags[extra.leader] = { text: "🔨 " + fmtNum((extra.bids || {})[extra.leader] || 0), cls: "gold", hot: true }; break;
     default: break;
   }
@@ -144,6 +146,9 @@ function Ladder({ x, pm, revealed }) {
 }
 
 function Lianen({ x, pm, revealed, view }) {
+  return html`<div class="x-lianen-side"><div class="lianen-w">🐊 W = ${fmtMM(x.w)}</div><p class="muted">Richtig: +W · Falsch: −½ W<br />Die Liane zeigt, wie weit ihr vom Krokodil weg seid.</p><div class="croc">🐊🐊</div></div>`;
+}
+function LianenWide({ x, pm, revealed, view }) {
   const ids = view.players.map(p => p.id).filter(id => x.lengths[id] != null);
   return html`<div class="x-lianen">
     <div class="lianen-w">W = ${fmtMM(x.w)}</div>
@@ -186,6 +191,7 @@ function Auction({ x, pm }) {
   const bids = Object.entries(x.bids || {}).sort((a, b) => b[1] - a[1]);
   return html`<div class="x-auction">
     <div class="auc-head">🔨 Auktion ${x.endsAt && html`<span class="chip">⏱ <${Countdown} deadline=${x.endsAt} /></span>`}</div>
+    ${!bids.length && html`<p class="muted">🔨 Bietet auf euren Handys — wer am meisten bietet, darf antworten!</p>`}
     <div class="auc-bids">${bids.map(([id, v], i) => html`<div class=${cx("auc-bid", id === x.leader && "lead")}><${Face} p=${pm[id]} size=${46} /><b>${(pm[id] || {}).name}</b><span>${fmtMM(v)}</span></div>`)}</div>
   </div>`;
 }
@@ -197,7 +203,7 @@ function Bluff({ x, pm }) {
     <span class="be-l">${OPTION_STYLE[i % 8].l}</span><span class="be-t">${e.text}</span>
     ${votes[e.id] && html`<span class="chip">🗳 ${votes[e.id]}</span>`}
     ${x.authors && x.authors[e.id] && pm[x.authors[e.id]] && html`<span class="be-author">🤥 ${pm[x.authors[e.id]].name}</span>`}
-    ${x.truthIndex === e.id && html`<span class="chip green">✓ Wahrheit</span>`}
+    ${x.truthIndex === e.id && html`<span class="chip green">✔️ Wahrheit</span>`}
   </div>`)}${!x.entries.length && html`<p class="muted center">✍️ Alle schreiben eine glaubwürdige Lüge …</p>`}</div>`;
 }
 
@@ -205,9 +211,9 @@ function Duel({ x, pm }) {
   const A = pm[x.a], B = pm[x.b];
   const bar = v => `${(v / Math.max(1, x.maxScore)) * 100}%`;
   return html`<div class="x-duel">
-    <div class="duel-side a"><${Face} p=${A} face="denk" anim="idle" size=${110} /><b>${A && A.name}</b><div class="hp"><i style=${`width:${bar(x.scoreA)}`}></i></div><span>${x.scoreA}</span></div>
-    <div class="duel-vs">${x.label || "VS"}</div>
-    <div class="duel-side b"><${Face} p=${B} face="denk" anim="idle" size=${110} /><b>${B && B.name}</b><div class="hp"><i style=${`width:${bar(x.scoreB)}`}></i></div><span>${x.scoreB}</span></div>
+    <div class="duel-side a"><${Face} p=${A} face="denk" anim="idle" size=${86} /><b>${A && A.name}</b><div class="hp"><i style=${`width:${bar(x.scoreA)}`}></i></div><span>${x.scoreA}</span></div>
+    <div class=${cx("duel-vs", (x.label || "").length > 6 && "long")}>${x.label || "VS"}</div>
+    <div class="duel-side b"><${Face} p=${B} face="denk" anim="idle" size=${86} /><b>${B && B.name}</b><div class="hp"><i style=${`width:${bar(x.scoreB)}`}></i></div><span>${x.scoreB}</span></div>
   </div>`;
 }
 
@@ -217,6 +223,9 @@ function Steps({ x, pm }) {
 }
 
 function Pies({ x, pm }) {
+  return html`<div class="x-lianen-side"><div class="pie-big">🥧</div><p class="muted">Falsch = Torte ins Gesicht.<br />Bei ${x.maxDirt} Torten ist man raus.</p></div>`;
+}
+function PiesWide({ x, pm }) {
   return html`<div class="x-pies">${Object.entries(x.dirt || {}).map(([id, d]) => html`<div class=${cx("pie-p", (x.out || []).includes(id) && "out")}>
     <${Face} p=${pm[id]} face=${d > 0 ? "frust" : "neutral"} size=${56} /><div class="pie-bar">${Array.from({ length: x.maxDirt }, (_, i) => html`<i class=${i < d ? "on" : ""}>🥧</i>`)}</div></div>`)}</div>`;
 }
@@ -232,7 +241,7 @@ function Telegram({ x, pm }) {
 function OneVsAll({ x, pm }) {
   const S = pm[x.solist];
   return html`<div class="x-ova">
-    <div class="ova-solo"><${Face} p=${S} face=${x.solistCorrect === false ? "frust" : x.solistCorrect ? "jubel" : "denk"} anim="idle" size=${110} /><b>${S && S.name}</b>${x.solistCorrect != null && html`<span class=${cx("chip", x.solistCorrect ? "green" : "red")}>${x.solistCorrect ? "✓ richtig" : "✗ falsch"}</span>`}</div>
+    <div class="ova-solo"><${Face} p=${S} face=${x.solistCorrect === false ? "frust" : x.solistCorrect ? "jubel" : "denk"} anim="idle" size=${72} /><b>${S && S.name}</b>${x.solistCorrect != null && html`<span class=${cx("chip", x.solistCorrect ? "green" : "red")}>${x.solistCorrect ? "✔️ richtig" : "✗ falsch"}</span>`}</div>
     <div class="duel-vs">VS</div>
     <div class="ova-crowd"><b>${x.crowdCorrect}</b><span>aus dem Publikum richtig</span><small class="muted">Frage ${x.frage}</small></div>
   </div>`;
@@ -247,9 +256,10 @@ function Song({ x }) {
 }
 
 function Steal({ x, pm }) {
+  if (!x.thief && !x.victim) return null;
   return html`<div class="x-steal">
     <div class="steal-p"><${Face} p=${pm[x.thief]} face="jubel" anim="idle" size=${96} /><b>${(pm[x.thief] || {}).name || "?"}</b><small>Taschendieb</small></div>
-    <div class="steal-arrow">${x.betrag ? html`<span>🤑 ${fmtMM(x.betrag)}</span>` : "🦹 →"}</div>
+    <div class="steal-arrow">${x.betrag ? html`<span>🤑 ${fmtMM(x.betrag)}</span>` : "🦹 ➡️"}</div>
     <div class="steal-p"><${Face} p=${pm[x.victim]} face=${x.victim ? "frust" : "neutral"} anim="idle" size=${96} /><b>${(pm[x.victim] || {}).name || "?"}</b><small>Opfer</small></div>
     ${!x.victim && x.candidates.length > 0 && html`<div class="chip-row center">${x.candidates.map(id => html`<span class="chip">${(pm[id] || {}).name}</span>`)}</div>`}
   </div>`;

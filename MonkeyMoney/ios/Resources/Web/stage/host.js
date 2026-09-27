@@ -64,13 +64,13 @@ export function ModeScreen({ host, back }) {
   const league = !!host.edition;
   const start = () => hostCall("/api/host/start", { modus, patch: { fragenSet: set, tempo, familienModus: familie } });
   return html`<div class="modes">
-    <header class="screen-head"><button class="btn ghost small" onClick=${back}>← Zurück</button><h1>Welche Show heute?</h1><span></span></header>
+    <header class="screen-head"><button class="btn ghost small" onClick=${back}>‹ Zurück</button><h1>Welche Show heute?</h1><span></span></header>
     <div class="mode-cards">
       ${host.modes.map((m, i) => html`<button class=${cx("mode-card", modus === m.id && "on")} style=${`--accent:${MODE_ART[m.id][1]};animation-delay:${i * 90}ms`} onClick=${() => setModus(m.id)}>
         <span class="mode-emoji">${MODE_ART[m.id][0]}</span>
         <h2>${m.title}</h2>
         <p>${m.subtitle}</p>
-        ${modus === m.id && html`<span class="mode-check">✓</span>`}
+        ${modus === m.id && html`<span class="mode-check">✔️</span>`}
       </button>`)}
     </div>
     <div class="mode-options card">
@@ -89,7 +89,7 @@ export function ModeScreen({ host, back }) {
 export function SavesScreen({ host, back }) {
   const all = [host.autosave && { ...host.autosave, auto: true }, ...host.slots.map((s, i) => s || { id: i + 1, empty: true })].filter(Boolean);
   return html`<div class="saves">
-    <header class="screen-head"><button class="btn ghost small" onClick=${back}>← Zurück</button><h1>💾 Spielstände</h1><span></span></header>
+    <header class="screen-head"><button class="btn ghost small" onClick=${back}>‹ Zurück</button><h1>💾 Spielstände</h1><span></span></header>
     <div class="save-grid">${all.map((s, i) => html`<div class=${cx("save-card card rise-in", s.empty && "empty")} style=${`animation-delay:${i * 70}ms`}>
       <h3>${s.auto ? "⏱ Autosave" : `Slot ${s.id}`}</h3>
       ${s.empty ? html`<p class="muted">Leer — während der Show über ⚙️ speichern.</p>` : html`
@@ -106,7 +106,7 @@ export function BoardsScreen({ back }) {
   useEffect(() => { api("/api/boards").then(setB).catch(() => setB({})); }, []);
   const col = (title, list) => html`<div class="board card"><h3>${title}</h3>${list && list.length ? html`<ol>${list.map((e, i) => html`<li><span class="rank">${i + 1}</span><${Monkey} wire=${e.avatar} anim="none" size=${40} /><span class="n">${e.name}</span><b>${e.anzeige}</b></li>`)}</ol>` : html`<p class="muted">Noch niemand — spielt mit Profil, dann wandert ihr hier rein.</p>`}</div>`;
   return html`<div class="boards">
-    <header class="screen-head"><button class="btn ghost small" onClick=${back}>← Zurück</button><h1>🏆 Bestenlisten</h1><span></span></header>
+    <header class="screen-head"><button class="btn ghost small" onClick=${back}>‹ Zurück</button><h1>🏆 Bestenlisten</h1><span></span></header>
     ${!b ? html`<p class="muted center">Lade …</p>` : html`<div class="board-grid">${col("💰 Money-Boss", b.moneyBoss)}${col("⚡ Blitz-Buzzer", b.blitzBuzzer)}${col("🚀 Comeback-König", b.comebackKoenig)}</div>`}
   </div>`;
 }
@@ -120,7 +120,7 @@ export function HowtoScreen({ back }) {
     ["🐊", "Finale & Siegerehrung", "Im Lianen-Finale entscheidet sich alles. Danach gibt es Podest, Awards und eine Revanche auf Knopfdruck."],
   ];
   return html`<div class="howto">
-    <header class="screen-head"><button class="btn ghost small" onClick=${back}>← Zurück</button><h1>❓ So funktioniert's</h1><span></span></header>
+    <header class="screen-head"><button class="btn ghost small" onClick=${back}>‹ Zurück</button><h1>❓ So funktioniert's</h1><span></span></header>
     <div class="howto-steps">${steps.map(([e, t, d], i) => html`<div class="howto-step card rise-in" style=${`animation-delay:${i * 90}ms`}><span class="howto-n">${i + 1}</span><span class="howto-e">${e}</span><h3>${t}</h3><p class="muted">${d}</p></div>`)}</div>
   </div>`;
 }
@@ -138,7 +138,7 @@ export function LobbyScene({ view, lobby, host }) {
   const cmd = StageCtx.cmd;
   return html`<div class="lobby">
     <header class="lobby-head">
-      <button class="btn ghost small" onClick=${() => StageCtx.ask("Lobby schließen und zurück ins Menü?", () => hostCall("/api/host/close"))}>← Menü</button>
+      <button class="btn ghost small" onClick=${() => StageCtx.ask("Lobby schließen und zurück ins Menü?", () => hostCall("/api/host/close", {}))}>‹ Menü</button>
       <div class="brand big"><span class="brand-mark">🐵</span><span class="brand-word">MONKEY<b>MONEY</b></span>${host.edition && html`<span class="chip gold">${host.edition}</span>`}</div>
       <div class="lobby-head-r">
         <button class="btn ghost small" onClick=${() => hostCall("/api/host/bots", { add: 1 })}>🤖 Bot</button>
@@ -162,7 +162,7 @@ export function LobbyScene({ view, lobby, host }) {
             return html`<div class="seat" key=${p.id}>
               <div class="seat-drop"><${Monkey} wire=${p.avatar} anim=${p.connected ? "idle" : "none"} face=${p.connected ? "jubel" : "frust"} size=${118} delay=${i * 170} /></div>
               <div class="seat-plate"><b>${p.name}</b>${!p.connected && html`<small>offline</small>`}</div>
-              <button class="seat-kick" title="Rauswerfen" onClick=${() => StageCtx.ask(p.name + " rauswerfen?", () => cmd({ kick: { _0: p.id } }))}>✕</button>
+              <button class="seat-kick" title="Rauswerfen" onClick=${() => StageCtx.ask(p.name + " rauswerfen?", () => cmd({ kick: { _0: p.id } }))}>×</button>
             </div>`;
           })}
         </div>
@@ -214,7 +214,7 @@ function GameSheet({ g, close }) {
     ${g.varianten.length > 0 && html`<div class="seg">${g.varianten.map(v => html`<button class=${cx(variante === v && "on")} onClick=${() => setVariante(v)}>${v === "kurz" ? "Kurze Partie" : v === "klassisch" ? "Klassisch" : v}</button>`)}</div>`}
     ${!g.phonesOnly && html`<div class="seat-input"><input value=${draft} placeholder="iPad-Sitz (Name)" onInput=${e => setDraft(e.target.value)} onKeyDown=${e => { if (e.key === "Enter" && draft.trim()) { setSeats([...seats, draft.trim()]); setDraft(""); } }} />
       <button class="btn ghost small" onClick=${() => { if (draft.trim()) { setSeats([...seats, draft.trim()]); setDraft(""); } }}>+ Sitz</button>
-      ${seats.map(n => html`<span class="chip" onClick=${() => setSeats(seats.filter(x => x !== n))}>📱 ${n} ✕</span>`)}</div>`}
+      ${seats.map(n => html`<span class="chip" onClick=${() => setSeats(seats.filter(x => x !== n))}>📱 ${n} ×</span>`)}</div>`}
     <p class="muted small">${g.hinweis}</p>
     <div class="menu-row"><button class="btn" disabled=${!g.startbar && seats.length === 0} onClick=${start}>▶ Los geht's</button><button class="btn ghost" onClick=${close}>Abbrechen</button></div>
   </div></div>`;
@@ -232,7 +232,7 @@ export function SettingsDrawer({ view, host, close }) {
   const setTimer = v => set(v === "aus" ? { timerAus: true } : v === "auto" ? { timerAus: false, fragenZeit: null } : { timerAus: false, fragenZeit: Number(v) });
   return html`<div class="drawer-veil" onClick=${e => e.target === e.currentTarget && close()}>
     <aside class="drawer">
-      <header><h2>⚙️ Einstellungen</h2><button class="icon-btn" onClick=${close}>✕</button></header>
+      <header><h2>⚙️ Einstellungen</h2><button class="icon-btn" onClick=${close}>×</button></header>
       <div class="drawer-body">
         <section><h4>Ton (dieses Gerät)</h4>
           <label class="toggle"><span><b>Musik</b></span><input type="checkbox" checked=${audio.musicOn} onChange=${e => audio.setMusicOn(e.target.checked)} /><i></i></label>
@@ -268,7 +268,7 @@ export function SettingsDrawer({ view, host, close }) {
           </div>
           <div class="menu-row">
             ${!inLobby && html`<button class="btn ghost small" onClick=${() => StageCtx.cmd({ flowSkipOpening: {} })}>⏭ Intro überspringen</button>`}
-            <button class="btn red small" onClick=${() => StageCtx.ask("Show beenden und zurück ins Hauptmenü? Der Autosave bleibt erhalten.", () => { close(); hostCall("/api/host/close"); })}>⏹ Zurück ins Menü</button>
+            <button class="btn red small" onClick=${() => StageCtx.ask("Show beenden und zurück ins Hauptmenü? Der Autosave bleibt erhalten.", () => { close(); hostCall("/api/host/close", {}); })}>⏹ Zurück ins Menü</button>
           </div>
         </section>
       </div>

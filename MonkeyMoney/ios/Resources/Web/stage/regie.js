@@ -114,7 +114,7 @@ export class Regie {
       if (extra.playAt && extra.playAt !== this.lastSnippetAt) {
         this.lastSnippetAt = extra.playAt;
         const delay = Math.max(0, extra.playAt - serverNow());
-        this.later(delay, () => audio.playSnippet(extra.songId, extra.snippet));
+        if (!String(extra.snippet).startsWith("video")) this.later(delay, () => audio.playSnippet(extra.songId, extra.snippet));
       }
     } else {
       this.lastExploded = null;

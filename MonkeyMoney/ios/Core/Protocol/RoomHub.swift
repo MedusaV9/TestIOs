@@ -293,3 +293,26 @@ public struct ProfileHook: Sendable {
         self.matchEnded = matchEnded
     }
 }
+
+// MARK: - Dev tooling
+
+extension RoomHub {
+    /// Dev server only: replace the upcoming rounds with the given formats
+    /// (`fragen` questions each) so a browser run can visit every format.
+    public func devOverrideFormats(_ ids: [String], fragen: Int = 2) {
+        guard !ids.isEmpty, let template = state.plan.first(where: { $0.typ == .runde }) else { return }
+        let keep = Array(state.plan.prefix(state.sectionIndex + 1))
+        let tail = state.plan.dropFirst(state.sectionIndex + 1).filter { $0.typ != .runde }
+        var added: [Section] = []
+        for (i, id) in ids.enumerated() {
+            var s = template
+            s.minigameId = id
+            s.fragen = fragen
+            s.radDanach = i == 0
+            s.kategorieWahl = .keine
+            s.rundenNummer = keep.filter { $0.typ == .runde }.count + i + 1
+            added.append(s)
+        }
+        state.plan = keep + added + tail
+    }
+}

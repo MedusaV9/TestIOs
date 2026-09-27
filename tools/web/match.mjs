@@ -11,7 +11,8 @@ const MODUS = process.argv[3] || "klassik";
 const MAX = Number(process.argv[4] || 1500) * 1000;
 const BOTS = Number(process.argv[5] || 4);
 mkdirSync(OUT, { recursive: true });
-const PORT = 8124;
+const PORT = Number(process.env.PORT || 8124);
+const FORMATS = process.env.FORMATS || "";
 const srv = await startServer(PORT);
 const browser = await launch();
 const errors = [];
@@ -54,6 +55,7 @@ try {
   await stage.screenshot({ path: `${OUT}/stage-000-lobby.png` });
   await phone.screenshot({ path: `${OUT}/phone-001-lobby.png` });
   await stage.click(".start-btn");
+  if (FORMATS) { await sleep(500); await api(PORT, `/api/dev/formats?ids=${FORMATS}&fragen=2`); log("formats", FORMATS); }
 
   const seen = new Set(), pseen = new Set();
   let n = 1, last = "", since = Date.now();

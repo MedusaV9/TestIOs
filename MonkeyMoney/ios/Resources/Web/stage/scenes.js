@@ -27,7 +27,7 @@ export function useRevealed(scene) {
 }
 
 export function sceneWantsPodium(scene) {
-  return ["frage", "aufloesung", "kategorieWahl", "erklaerkarte", "rad", "brettspiel"].includes(scene.kind);
+  return ["frage", "aufloesung", "kategorieWahl", "erklaerkarte", "rad"].includes(scene.kind);
 }
 
 export function playerMap(view) { return Object.fromEntries(view.players.map(p => [p.id, p])); }
@@ -84,6 +84,7 @@ export function Podium({ view, scene }) {
         ${badge}
         ${answered && html`<span class="lock-badge pop-in">✔</span>`}
         ${tag && html`<span class=${cx("tile-tag", tag.cls)}>${tag.text}</span>`}
+        ${info.ropes && info.ropes[p.id] != null && html`<div class="tile-rope" style=${`height:${24 + info.ropes[p.id] * 110}px`}></div>`}
         <div class="tile-monkey"><${Monkey} wire=${p.avatar} face=${face} anim=${anim} size=${size} delay=${i * 230} /></div>
         <div class="tile-plate">
           <b class="tile-name">${p.name}</b>
@@ -300,9 +301,9 @@ function WheelScene({ view, w }) {
 function Pause({ view, s }) {
   return html`<div class="pause-scene">
     <div class="pause-card card pop-in">
-      <div class="pause-emoji">🍌</div>
-      <h1>${s.text || "Pause"}</h1>
-      ${s.endsAt ? html`<p class="pause-count">Weiter in <${Countdown} deadline=${s.endsAt} /> s</p>` : html`<p class="muted">Weiter mit ▶</p>`}
+      <div class="pause-emoji">${(s.text || "").startsWith("💾") ? "💾" : "🍌"}</div>
+      <h1>${(s.text || "Pause").replace(/^💾\s*/, "").replace(/\s*—\s*weiter mit ▶$/i, "")}</h1>
+      ${s.endsAt ? html`<p class="pause-count">Weiter in <${Countdown} deadline=${s.endsAt} /> s</p>` : html`<p class="pause-hint">Weiter mit <b>▶ Weiter</b> oben rechts oder Leertaste</p>`}
     </div>
     <ol class="mini-stand">${(s.standings || []).map((e, i) => html`<li><span>${i + 1}.</span><${Monkey} wire=${e.player.avatar} anim="idle" size=${48} delay=${i * 200} /><b>${e.player.name}</b><${Money} value=${e.player.balance} /></li>`)}</ol>
   </div>`;

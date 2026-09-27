@@ -88,7 +88,8 @@ function App() {
     if (inShow) regie.update(view, view && decodeMusic(view));
     else { regie.reset(); audio.playMusic(active ? null : "theme_main"); }
   }, [view, inShow, active]);
-  useEffect(() => { if (!active) setScreen(s => (["menu", "modes", "saves", "boards", "howto"].includes(s) ? s : "menu")); }, [active]);
+  const wasActive = useRef(false);
+  useEffect(() => { if (wasActive.current && !active) setScreen("menu"); wasActive.current = !!active; }, [active]);
 
   // Keyboard: space/→ advances (handy on a laptop), P pauses.
   useEffect(() => {

@@ -29,7 +29,7 @@ export function chromePath() {
 
 export async function startServer(port, args = []) {
   const bin = path.join(IOS, ".build/debug/mm-dev-server");
-  const proc = spawn(bin, [String(port), ...args, "storage=/tmp/mm-web-check"], { stdio: ["ignore", "pipe", "pipe"] });
+  const proc = spawn(bin, [String(port), ...args, `storage=/tmp/mm-web-check-${port}`], { stdio: ["ignore", "pipe", "pipe"] });
   let out = "";
   proc.stdout.on("data", d => (out += d));
   proc.stderr.on("data", d => (out += d));

@@ -170,7 +170,8 @@ public final class ShowHost: @unchecked Sendable {
 
     private func writeSlot(_ n: Int) {
         let state = server.hub.state
-        let runde = state.phase == .lobby ? "Lobby" : "Runde \(state.currentSection?.rundenNummer ?? 0)"
+        let nr = state.currentSection?.rundenNummer ?? 0
+        let runde = state.phase == .lobby ? "Lobby" : (nr > 0 ? "Runde \(nr)" : "Showstart")
         let label = "\(state.settings.modus.title) · \(state.players.count) Spieler · \(runde)"
         let slot = SaveSlot(id: n, savedAt: clock(), state: state, label: label)
         if let d = try? JSONEncoder().encode(slot) { try? d.write(to: slotURL(n), options: .atomic) }

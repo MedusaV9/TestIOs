@@ -47,7 +47,7 @@ function Login({ code0, err, onGo }) {
   const [pin, setPin] = useState("");
   return html`<div class="gm-login">
     <div class="j-logo">🎬 <span>SHOW</span><b>MASTER</b></div>
-    <p class="muted">Die PIN steht in der Lobby auf dem iPad („Show-Master → Code zeigen“).</p>
+    <p class="muted">Die PIN steht in der Lobby auf dem iPad („Show-Master · Code zeigen“).</p>
     <input class="code-in" maxlength="4" placeholder="RAUM" value=${code} onInput=${e => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))} />
     <input class="code-in" inputmode="numeric" maxlength="4" placeholder="PIN" value=${pin} onInput=${e => setPin(e.target.value.replace(/\D/g, ""))} onKeyDown=${e => e.key === "Enter" && onGo(code, pin)} />
     ${err && html`<p class="j-err">${err}</p>`}
@@ -216,7 +216,7 @@ function Spieler({ view, cmd, open, close }) {
   return html`<div class="gm-stack">${view.stage.players.map(p => { const f = full[p.id] || {};
     return html`<div class=${cx("card gm-player", !p.connected && "off")}>
       <${Monkey} wire=${p.avatar} anim="none" size=${54} />
-      <div class="gp-info"><b>${p.platz}. ${p.name}</b><${Money} value=${p.balance} /><small class="muted">${f.stats ? `${f.stats.richtig}✔ ${f.stats.falsch}✘` : ""}${p.streak >= 2 ? ` · 🔥${p.streak}` : ""}${f.isBot ? " · Bot" : ""}${!p.connected ? " · offline" : ""}</small></div>
+      <div class="gp-info"><b>${p.platz}. ${p.name}</b><${Money} value=${p.balance} /><small class="muted">${f.stats ? `${f.stats.richtig} richtig · ${f.stats.falsch} falsch` : ""}${p.streak >= 2 ? ` · 🔥${p.streak}` : ""}${f.isBot ? " · Bot" : ""}${!p.connected ? " · offline" : ""}</small></div>
       <div class="gp-btns">
         <button class="mini-btn" onClick=${() => open(html`<${Whisper} view=${view} cmd=${cmd} pid=${p.id} close=${close} />`)}>🤫</button>
         <button class="mini-btn" onClick=${() => open(html`<${Confirm} title="Rauswerfen?" text=${p.name + " verlässt den Raum."} label="Rauswerfen" onYes=${() => cmd({ kick: { _0: p.id } })} close=${close} />`)}>🚪</button>
@@ -261,10 +261,10 @@ function Fragen({ view, cmd }) {
     <div class="gm-grid">${view.fragenSets.map(s => html`<button class=${cx("pick", s.aktiv && "on")} onClick=${() => set({ fragenSet: s.id })}>${s.emoji} ${s.name} <small>${fmtNum(s.anzahl)}</small></button>`)}</div>
     <div class="card gm-block"><h3>Kategorien</h3>${view.kategorien.map(k => html`<div class="kat-line">
       <button class=${cx("pick", k.gewaehlt && "on")} onClick=${() => toggle(k.id)}>${k.emoji} ${k.name} <small>${k.anzahl}</small></button>
-      ${k.unter.length > 0 && html`<button class="mini-btn" onClick=${() => setOpen(open === k.id ? null : k.id)}>${open === k.id ? "▲" : "▼"}</button>`}
+      ${k.unter.length > 0 && html`<button class="mini-btn" onClick=${() => setOpen(open === k.id ? null : k.id)}><span class=${cx("chev", open === k.id && "up")}>›</span></button>`}
       ${open === k.id && html`<div class="gm-grid sub">${k.unter.map(u => html`<button class=${cx("pick", u.gewaehlt && "on")} onClick=${() => toggle(u.id)}>${u.name} <small>${u.anzahl}</small></button>`)}</div>`}
     </div>`)}</div>
-    ${view.regal.length > 0 && html`<div class="card gm-block"><h3>🗄️ Als Nächstes</h3><ol class="gm-log">${view.regal.slice(0, 8).map(q => html`<li>${q.text} <small class="muted">→ ${q.korrekt}</small></li>`)}</ol></div>`}
+    ${view.regal.length > 0 && html`<div class="card gm-block"><h3>🗄️ Als Nächstes</h3><ol class="gm-log">${view.regal.slice(0, 8).map(q => html`<li>${q.text} <small class="muted">· ${q.korrekt}</small></li>`)}</ol></div>`}
   </div>`;
 }
 

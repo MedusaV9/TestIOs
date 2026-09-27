@@ -29,12 +29,12 @@ function App() {
     catch (_) { next(); }
   }
   return html`<div class="phone uebung">
-    <header class="join-head"><div class="j-logo">🎯 <span>ÜBUNGS</span><b>MODUS</b></div><a class="chip" href="/">← Mitspielen</a></header>
+    <header class="join-head"><div class="j-logo">🎯 <span>ÜBUNGS</span><b>MODUS</b></div><a class="chip" href="/">‹ Mitspielen</a></header>
     <div class="u-stats"><div><b>${stats.serie}</b><small>Serie 🔥</small></div><div><b>${stats.richtig}/${stats.gespielt}</b><small>richtig</small></div><div><b>${stats.beste}</b><small>Rekord</small></div></div>
     <div class="u-filter">
-      <select value=${kat} onChange=${e => { setKat(e.target.value); next(e.target.value, schw, familie); }}><option value="">🌍 Alle Kategorien</option>${kats.map(k => html`<option value=${k.id}>${k.emoji} ${k.name}</option>`)}</select>
-      <select value=${schw} onChange=${e => { setSchw(e.target.value); next(kat, e.target.value, familie); }}><option value="">Jede Schwierigkeit</option>${Object.entries(DIFF).map(([id, [l]]) => html`<option value=${id}>${l}</option>`)}</select>
-      <label class="j-save"><input type="checkbox" checked=${familie} onChange=${e => { setFamilie(e.target.checked); next(kat, schw, e.target.checked); }} /> kindgerecht</label>
+      <select value=${kat} onChange=${e => { setKat(e.target.value); next(e.target.value, schw, familie); }}><option value="">🌍 Alle Themen</option>${kats.map(k => html`<option value=${k.id}>${k.emoji} ${k.name}</option>`)}</select>
+      <select value=${schw} onChange=${e => { setSchw(e.target.value); next(kat, e.target.value, familie); }}><option value="">🎚️ Alle Stufen</option>${Object.entries(DIFF).map(([id, [l]]) => html`<option value=${id}>${l}</option>`)}</select>
+      <label class="j-save"><input type="checkbox" checked=${familie} onChange=${e => { setFamilie(e.target.checked); next(kat, schw, e.target.checked); }} /> 👪 nur kindgerechte Fragen</label>
     </div>
     ${none && html`<div class="p-idle"><div class="big-emoji">🙈</div><h2>Keine Frage gefunden</h2><p class="muted">Andere Kategorie oder Schwierigkeit wählen.</p></div>`}
     ${q && html`<div class="p-choice" key=${q.id}>
