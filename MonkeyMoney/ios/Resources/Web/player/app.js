@@ -295,17 +295,21 @@ function Game({ view, send, say, leave }) {
   const extra = { phase: view.phase, ergebnis: view.ergebnis, stats: view.stats, players: n, ohneScreen: view.ohneScreen };
   const mainKey = p.kind + (["choice", "multiChoice", "number", "order", "text", "chips", "wager", "reveal"].includes(p.kind) ? "|" + (p.question || p.title || "") : "");
   const toggleMute = () => { const v = !muted; setMuted(v); setMute(v); if (!v) { unlock(); fx("lock"); } };
+  // Joker dock: fade the right edge only while more jokers hide off-screen.
+  const dock = useRef(null);
+  const dockEdge = () => { const el = dock.current; if (!el) return; el.classList.toggle("scrolls", el.scrollWidth > el.clientWidth + 2); el.classList.toggle("at-end", el.scrollLeft + el.clientWidth >= el.scrollWidth - 4); };
+  useEffect(() => { dockEdge(); addEventListener("resize", dockEdge); return () => removeEventListener("resize", dockEdge); });
   return html`<div class=${cx("game", "ph-" + view.phase, "pk-" + p.kind, hasJokers && "has-jokers")}>
     <header class="g-head">
-      <button class="g-me" onClick=${() => setMenu(true)} aria-label="Mein Menü"><span class="g-av"><${Monkey} wire=${me.avatar} anim="none" size=${44} /></span><span class="g-who"><b>${me.name}</b>
+      <button class="g-me" onClick=${() => setMenu(true)} aria-label=${`Mein Menü — ${me.name}, Platz ${me.platz} von ${n}`}><span class="g-av"><${Monkey} wire=${me.avatar} anim="none" size=${44} /></span><span class="g-who"><b>${me.name}</b>
         <small class=${cx("g-rank", platzDir)} key=${me.platz}>${me.platz <= 3 ? MEDAL[me.platz - 1] + " " : ""}Platz ${me.platz}<i>/${n}</i>${platzDir && html` <i class=${"tri " + platzDir}></i>`}</small></span></button>
-      <div class="g-money"><span class="g-coin">🍌</span><${Money} value=${me.balance} suffix="" /><small>MM</small></div>
+      <div class="g-money" role="img" aria-label=${`Kontostand ${fmtMM(me.balance)}`}><span class="g-coin" aria-hidden="true">🍌</span><${Money} value=${me.balance} suffix="" /><small>MM</small></div>
     </header>
     <div class="g-sub">
       <span class="g-section">${view.sectionLabel}</span>
       ${me.streak >= 2 && html`<span class=${cx("chip gold", me.streak >= 3 && "flame")}>🔥 ${me.streak}${me.streak >= 5 ? " ×2" : me.streak >= 3 ? " ×1,5" : ""}</span>`}
       ${view.rueckenwind > 1 && html`<span class="chip green">🌬️ ×${fmtNum(view.rueckenwind)}</span>`}
-      ${view.jackpotAktiv && html`<button class="chip jar-chip" onClick=${() => setJar(true)}>🫙 ${fmtMM(view.jackpotGlas)}</button>`}
+      ${view.jackpotAktiv && html`<button class="jar-btn" onClick=${() => setJar(true)} aria-label=${`Jackpot-Glas: ${fmtMM(view.jackpotGlas)}`}><span class="chip jar-chip">🫙 ${fmtMM(view.jackpotGlas)}</span></button>`}
     </div>
     <div class="g-progress" aria-hidden="true"><i style=${`width:${Math.round((view.progress || 0) * 100)}%`}></i></div>
     ${view.paused && html`<div class="g-pause">⏸ ${view.pauseText || "Pause"}</div>`}
@@ -314,8 +318,9 @@ function Game({ view, send, say, leave }) {
       <${Prompt} p=${p} send=${send} me=${me} extra=${extra} />
       ${rankPhase && html`<${Ranking} view=${view} snap=${snap.current} />`}
     </main>
-    ${hasJokers && html`<nav class="jokers" aria-label="Joker">${view.jokers.map(j => html`<button class=${cx("joker", j.nutzbar && "ready", j.ladungen === 0 && !j.kaufbar && "empty")} onClick=${() => { feel("tap"); setJoker(j); }} aria-label=${j.name}>
-      <span class="jk-e">${j.emoji}</span>${j.ladungen > 0 ? html`<span class="jk-n">${j.ladungen}</span>` : null}<small>${j.ladungen > 0 ? "frei" : j.kaufbar ? fmtNum(j.preis) : "–"}</small></button>`)}</nav>`}
+    ${hasJokers && html`<nav class="jokers" aria-label="Joker" ref=${dock} onScroll=${dockEdge}>${view.jokers.map(j => html`<button class=${cx("joker", j.nutzbar && "ready", j.ladungen === 0 && !j.kaufbar && "empty")} onClick=${() => { feel("tap"); setJoker(j); }}
+        aria-label=${`${j.name}: ${j.ladungen > 0 ? `${j.ladungen}× frei` : j.kaufbar ? `kaufen für ${fmtMM(j.preis)}` : "gerade nicht verfügbar"}${j.nutzbar ? ", jetzt einsetzbar" : ""}`}>
+      <span class="jk-e" aria-hidden="true">${j.emoji}</span>${j.ladungen > 0 ? html`<span class="jk-n" aria-hidden="true">${j.ladungen}</span>` : null}<small aria-hidden="true">${j.ladungen > 0 ? "frei" : j.kaufbar ? fmtNum(j.preis) : "–"}</small></button>`)}</nav>`}
     ${jar && html`<${Sheet} close=${() => setJar(false)}><div class="big-emoji jar-big">🫙</div><h2>${fmtMM(view.jackpotGlas)}</h2><p>${view.jackpotHinweis}</p><button class="btn block" onClick=${() => setJar(false)}>Alles klar</button><//>`}
     ${joker && html`<${JokerSheet} j=${view.jokers.find(x => x.id === joker.id) || joker} send=${send} close=${() => setJoker(null)} balance=${me.balance} />`}
     ${menu && html`<${Sheet} close=${() => setMenu(false)}>
@@ -330,7 +335,16 @@ function Game({ view, send, say, leave }) {
 }
 
 function Sheet({ close, children }) {
-  return html`<div class="sheet-veil" onClick=${e => e.target === e.currentTarget && close()}><div class="p-sheet sheet-up"><span class="sheet-grab" onClick=${close}></span>${children}</div></div>`;
+  const ref = useRef(null);
+  // Dialog semantics: focus moves into the sheet, Escape closes, focus returns afterwards.
+  useEffect(() => {
+    const back = document.activeElement;
+    ref.current && ref.current.focus({ preventScroll: true });
+    const key = e => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", key);
+    return () => { document.removeEventListener("keydown", key); back && back.focus && back.focus({ preventScroll: true }); };
+  }, []);
+  return html`<div class="sheet-veil" onClick=${e => e.target === e.currentTarget && close()}><div class="p-sheet sheet-up" role="dialog" aria-modal="true" tabindex="-1" ref=${ref}><button class="sheet-grab" onClick=${close} aria-label="Schließen"></button>${children}</div></div>`;
 }
 
 function Ranking({ view, snap }) {

@@ -218,3 +218,82 @@ body.gm-noscroll { overflow: hidden; }
 /* catalogue inside the cockpit */
 .gm .kt-sum { background: linear-gradient(135deg, rgba(91, 43, 214, 0.45), rgba(46, 211, 198, 0.14)); }
 .gm-sheet .kt { font-size: 15px; }
+
+
+/* ======================================================================
+   v2 — run-of-show card, small phones (320–430), a11y
+   ====================================================================== */
+.gm-ablauf { gap: 8px; }
+.gm-ab-dots { display: flex; flex-wrap: wrap; gap: 5px; }
+.gm-ab-dots i { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 50%; font-style: normal; font-family: var(--font-display); font-size: 12px; font-weight: 800; color: var(--muted); background: rgba(0, 0, 0, 0.3); border: 1.5px solid var(--line); }
+.gm-ab-dots i.done { background: rgba(43, 217, 138, 0.25); border-color: rgba(43, 217, 138, 0.6); color: #b9ffdc; }
+.gm-ab-dots i.now { background: var(--gold); border-color: var(--gold); color: var(--ink); box-shadow: 0 0 12px rgba(255, 201, 60, 0.6); animation: kt-pulse 1.6s ease-in-out infinite; }
+.gm-ab-dots i.special { width: auto; padding: 0 8px; border-radius: 99px; font-size: 14px; }
+.gm-ab-now { display: flex; flex-direction: column; gap: 1px; }
+.gm-ab-now b { font-size: 16px; }
+.gm-ab-now small { font-size: 13px; color: var(--muted); }
+.gm-ab-bar { position: relative; height: 22px; border-radius: 99px; background: rgba(0, 0, 0, 0.32); overflow: hidden; }
+.gm-ab-bar i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, var(--leaf), var(--gold)); transition: width 0.8s var(--ease-out); }
+.gm-ab-bar span { position: relative; display: block; text-align: center; font-size: 12px; font-weight: 800; line-height: 22px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
+
+/* readable minimums */
+.gm-tabs button small { font-size: 12px; }
+.gm-top-l small { font-size: 13px; }
+.gm-log li { font-size: 14px; }
+.gm-set b { font-size: 13px; }
+.gm-set small, .gm-bot small, .tool small, .pp small { font-size: 12px; }
+.kpi span, .gm-deltas small { font-size: 13px; }
+.gm-block h4, .gm-h4 { font-size: 13px; }
+.drama { font-size: 12px; }
+.seg button { min-height: 44px; font-size: 14px; }
+.toggle small { font-size: 13px; }
+
+/* focus */
+.gm button:focus-visible, .gm a:focus-visible, .gm select:focus-visible, .gm input:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+/* every sheet/grid adapts down to 320 px */
+.gm-main, .gm-stack, .gm-block { min-width: 0; }
+.gm-block-head { flex-wrap: wrap; }
+.gm-shift button { min-width: 0; padding: 0 2px; }
+.gm-players .pp { min-height: 44px; }
+@media (max-width: 380px) {
+  .gm { padding-left: 8px; padding-right: 8px; }
+  .gm-top { margin: 0 -8px; padding-left: 10px; padding-right: 10px; }
+  .gm-top-r { gap: 5px; }
+  .gm-phase { padding: 4px 8px; font-size: 12px; }
+  .gm-clock { font-size: 14px; padding: 4px 7px; }
+  .gm-block { padding: 12px 10px; }
+  .gm-btn-grid { gap: 6px; }
+  .gm-act { gap: 6px; padding: 8px; font-size: 13px; }
+  .gm-act span { font-size: 18px; }
+  .gm-quick { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .gm-quick .gm-act { flex-direction: row; justify-content: flex-start; font-size: 13px; }
+  .tool-grid { grid-template-columns: repeat(2, 1fr); }
+  .gm-shift { gap: 4px; }
+  .gm-shift button { font-size: 13px; }
+  .gm-dock-row { gap: 8px; padding: 8px 8px 4px; }
+  .gm-dock-pause { width: 52px; height: 54px; }
+  .gm-next { height: 54px; font-size: 17px !important; padding: 0 10px !important; }
+  .gm-tabs { padding-left: 4px; padding-right: 4px; }
+  .gm-tabs button { padding: 4px 2px; }
+  .gm-tabs button small { font-size: 11.5px; letter-spacing: -0.01em; }
+  .gm-sheet-body { padding-left: 12px; padding-right: 12px; }
+  .gm-sheet h2 { font-size: 21px; padding: 0 44px; }
+  .gm-kpis { gap: 5px; }
+  .kpi b { font-size: 19px; }
+  .gm-deltas li { gap: 6px; padding: 6px 8px; }
+  .gm-deltas em { min-width: 46px; }
+  .gm-answers li { gap: 6px; }
+  .gm-answers .ms { display: none; }
+  .gm-player { gap: 8px; padding: 8px; }
+  .gp-btns { gap: 2px; }
+  .gm-player .monkey { width: 36px !important; height: 46px !important; }
+  .gm-regal-body { padding-left: 12px; }
+  .gm-sets { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+  .seg button { padding: 8px 6px; font-size: 13px; }
+  .gm-amount { flex-wrap: wrap; }
+  .gm-ab-dots i { width: 24px; height: 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gm-ab-dots i.now, .gm-clock.hot { animation: none; }
+}

@@ -1,10 +1,14 @@
 // Stage effects: scene transitions (curtain / wipe / iris / slide), a cheap
-// beat clock for choreographies, bursts and FLIP helpers.
-import { html, useState, useEffect, useRef } from "../vendor/preact-htm.js";
+// beat clock for choreographies, bursts and FLIP helpers, plus the stage's
+// low-cost timers (CSS-driven arcs/fuses that re-render at most once a second)
+// and FitBox (scales a widget down so it never runs into the podium).
+import { html, useState, useEffect, useLayoutEffect, useRef } from "../vendor/preact-htm.js";
 import { serverNow, cx } from "../lib/core.js";
 
 export const reducedMotion = () => !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
 export const TRANSITION_MS = 640;
+/** The latest scene switch (read synchronously by entering scenes to time their own entrance). */
+export const lastSwitch = { at: 0, variant: null };
 
 const isQ = k => k === "frage" || k === "aufloesung";
 function variantFor(from, to) {
@@ -28,6 +32,7 @@ export function SceneSwitch({ k, kind, data, render }) {
       s.leaving = { k: s.k, kind: s.kind, data: s.data };
       s.variant = variantFor(s.kind, kind);
       s.id++;
+      lastSwitch.at = Date.now(); lastSwitch.variant = s.variant;
     } else s.leaving = null;
     s.k = k; s.kind = kind;
   }
@@ -108,4 +113,121 @@ export function useFlip(ref, from, delay, deps = []) {
     }, delay);
     return () => clearTimeout(t);
   }, deps);
+}
+
+
+// ---------- cheap timers ----------
+/**
+ * Remaining ms until `deadline` (server clock). Re-renders only on whole-second
+ * boundaries — never per frame. Returns 0 without a deadline.
+ */
+export function useSecondsLeft(deadline, active = true) {
+  const [, force] = useState(0);
+  const remain = deadline ? deadline - serverNow() : 0;
+  useEffect(() => {
+    if (!deadline || !active) return;
+    const r = deadline - serverNow();
+    if (r <= -50) return;
+    const next = r > 0 ? (r % 1000 || 1000) : 60;
+    const id = setTimeout(() => force(x => x + 1), next + 6);
+    return () => clearTimeout(id);
+  });
+  return remain;
+}
+
+/** Whole seconds left (1 Hz) — the stage's replacement for the per-frame Countdown. */
+export function Secs({ deadline, paused }) {
+  const r = useSecondsLeft(deadline, !paused);
+  if (!deadline) return null;
+  return html`<span class="countdown">${Math.max(0, Math.ceil(r / 1000))}</span>`;
+}
+
+/** First sight of a deadline → total length and how far in we already are (stable per deadline). */
+function useTiming(deadline, total) {
+  const ref = useRef({ deadline: null });
+  if (deadline && ref.current.deadline !== deadline) {
+    const rem = Math.max(0, deadline - serverNow());
+    const tot = Math.max(1000, total || rem);
+    ref.current = { deadline, tot, ago: Math.max(0, Math.min(tot, tot - rem)) };
+  }
+  return ref.current;
+}
+
+/**
+ * Countdown ring: the arc drains via a CSS animation (no re-render per frame),
+ * the number updates once a second. Levels: calm → warn (≤10 s or ⅓) → hot (≤5 s).
+ */
+export function StageTimer({ deadline, total, size = 150, paused, label, class: klass }) {
+  const tm = useTiming(deadline, total);
+  const remain = useSecondsLeft(deadline, !paused);
+  if (!deadline) return null;
+  const rem = Math.max(0, remain);
+  const secs = Math.ceil(rem / 1000);
+  const frac = rem / tm.tot;
+  const lvl = rem <= 0 ? "done" : rem <= 5000 ? "hot" : rem <= 10000 || frac < 0.34 ? "warn" : "calm";
+  const anim = `--dur:${tm.tot}ms;animation-delay:-${tm.ago}ms`;
+  return html`<div class=${cx("st-timer", "lvl-" + lvl, paused && "paused", klass)} style=${`--size:${size}px`}>
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle class="st-track" cx="50" cy="50" r="44" />
+      <circle class="st-ticks" cx="50" cy="50" r="36" />
+      <circle class="st-glow" key=${"g" + deadline} cx="50" cy="50" r="44" style=${anim} />
+      <circle class="st-arc" key=${"a" + deadline} cx="50" cy="50" r="44" style=${anim} />
+    </svg>
+    <div class="st-core"><b class="st-secs" key=${secs}>${secs}</b>${label && html`<small>${label}</small>`}</div>
+  </div>`;
+}
+
+/** A draining fuse bar (CSS-driven). Used on the question card and the explain card. */
+export function StageBar({ deadline, total, paused, class: klass }) {
+  const tm = useTiming(deadline, total);
+  const remain = useSecondsLeft(deadline, !paused);
+  if (!deadline) return null;
+  const hot = remain <= 5000;
+  return html`<div class=${cx("stage-bar", hot && "hot", paused && "paused", klass)}>
+    <i key=${deadline} style=${`--dur:${tm.tot}ms;animation-delay:-${tm.ago}ms`}></i>
+  </div>`;
+}
+
+// ---------- FitBox ----------
+/**
+ * Takes the space its parent flex column leaves and scales its content down
+ * (never up) when the content would overflow — widgets of any size stay clear
+ * of the podium. Measures on resize/content change only (ResizeObserver).
+ */
+export function FitBox({ children, class: klass, min = 0.5, center = false }) {
+  const outer = useRef(), inner = useRef();
+  const [k, setK] = useState(1);
+  useLayoutEffect(() => {
+    const o = outer.current, i = inner.current;
+    if (!o || !i) return;
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      const H = o.clientHeight, W = o.clientWidth;
+      const h = i.offsetHeight, w = Math.max(i.offsetWidth, i.scrollWidth);
+      let s = 1;
+      if (H > 20 && h > H + 1) s = Math.min(s, H / h);
+      if (W > 20 && w > W + 1) s = Math.min(s, W / w);
+      s = Math.max(min, Math.floor(s * 100) / 100);
+      setK(prev => (Math.abs(prev - s) >= 0.01 ? s : prev));
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => { if (!raf) raf = requestAnimationFrame(measure); });
+    ro.observe(o); ro.observe(i);
+    return () => { ro.disconnect(); if (raf) cancelAnimationFrame(raf); };
+  }, []);
+  return html`<div class=${cx("fit", center && "fit-center", k < 1 && "fit-scaled", klass)} ref=${outer}>
+    <div class="fit-in" ref=${inner} style=${k < 1 ? `transform:scale(${k})` : ""}>${children}</div>
+  </div>`;
+}
+
+/** Remembers the first time a key was shown on this stage (module-wide, survives re-mounts). */
+const firstSeen = new Map();
+export function seenAt(key) {
+  if (!firstSeen.has(key)) {
+    firstSeen.set(key, Date.now());
+    if (firstSeen.size > 80) firstSeen.delete(firstSeen.keys().next().value);
+  }
+  return firstSeen.get(key);
 }

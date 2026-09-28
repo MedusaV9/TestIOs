@@ -68,6 +68,7 @@ html:has(.phone-body), .phone-body { touch-action: manipulation; }
 @keyframes pop-in-x { from { transform: translateX(-50%) translateY(14px) scale(0.8); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
 
 /* ---------- haptic stand-ins ---------- */
+.fx-ripple-clip { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; z-index: 0; }
 .fx-ripple { position: absolute; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.18) 40%, transparent 70%); transform: scale(0); animation: fx-ripple 0.6s ease-out forwards; z-index: 0; }
 @keyframes fx-ripple { to { transform: scale(1); opacity: 0; } }
 html.fx-ok .phone-body::after, html.fx-bad .phone-body::after, html.fx-lock .phone-body::after, html.fx-heavy .phone-body::after {
@@ -261,4 +262,65 @@ html.fx-lock .g-main { animation: fx-thump 0.3s ease-out; }
 @media (prefers-reduced-motion: reduce) {
   .phone-body::before { display: none; }
   html.fx-bad .phone, html.fx-heavy .phone, html.fx-lock .g-main { animation: none; }
+}
+
+
+/* ======================================================================
+   v2 — phone chrome QA (small phones, landscape, keyboard, a11y)
+   ====================================================================== */
+.phone { overflow-x: clip; }
+.jar-btn { min-height: 44px; margin: -8px 0; padding: 0 2px; display: grid; place-items: center; }
+.jar-btn .jar-chip { min-height: 30px; }
+.sheet-grab { width: 120px; height: 34px; }
+.p-sheet { padding-top: 34px; }
+.menu-stats small, .mini-stats small { font-size: 12px; }
+.rn em { font-size: 11px; }
+.joker small { font-size: 11px; }
+.g-rank { font-size: 13px; }
+.g-section { font-size: 14px; }
+.j-link { font-size: 15px; }
+/* the joker dock hides while typing (iOS pins fixed bars above the keyboard) */
+.game:has(input:focus, textarea:focus) .jokers { display: none; }
+.game:has(input:focus, textarea:focus) .g-main { padding-bottom: 12px; }
+/* hint that the joker dock scrolls sideways when it does not fit */
+.jokers.scrolls:not(.at-end) { -webkit-mask: linear-gradient(90deg, #000 calc(100% - 30px), rgba(0, 0, 0, 0.25)); mask: linear-gradient(90deg, #000 calc(100% - 30px), rgba(0, 0, 0, 0.25)); }
+
+/* keyboard focus */
+.phone-body button:focus-visible, .phone-body a:focus-visible, .phone-body [role=switch]:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.p-sheet:focus { outline: none; }
+
+/* iPhone SE (320 wide) */
+@media (max-width: 350px) {
+  .phone { padding-left: calc(10px + env(safe-area-inset-left)); padding-right: calc(10px + env(safe-area-inset-right)); }
+  .g-head { gap: 6px; min-height: 48px; }
+  .g-me { padding-right: 8px; }
+  .g-who b { max-width: 34vw; }
+  .g-money { font-size: 22px; padding: 5px 10px 5px 8px; }
+  .g-money small { font-size: 12px; }
+  .g-coin { font-size: 15px; }
+  .joker { min-width: 48px; }
+  .j-logo { font-size: 22px; }
+  .p-sheet { padding-left: 14px; padding-right: 14px; }
+}
+@media (max-height: 600px) {
+  .idle-stage { width: 180px; height: 170px; }
+  .idle-stage .monkey { width: 118px !important; height: 157px !important; }
+  .rev-top .monkey { width: 84px !important; height: 112px !important; }
+  .has-jokers .g-main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .joker { min-height: 50px; }
+}
+
+/* landscape phones: wider column, compact chrome */
+@media (orientation: landscape) and (max-height: 500px) {
+  .phone { max-width: 760px; padding-top: calc(env(safe-area-inset-top) + 4px); }
+  .g-head { min-height: 44px; }
+  .g-progress { display: none; }
+  .idle-stage { width: 150px; height: 140px; }
+  .idle-stage .monkey { width: 96px !important; height: 128px !important; }
+  .rev-top .monkey { width: 72px !important; height: 96px !important; }
+  .p-reveal { padding: 12px; gap: 8px; }
+  .jokers { width: min(640px, calc(100vw - 20px)); padding: 5px; }
+  .joker { min-height: 46px; }
+  .has-jokers .g-main { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+  .p-sheet { max-height: calc(100dvh - 10px); }
 }

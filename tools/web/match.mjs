@@ -27,7 +27,7 @@ try {
   await stage.mouse.click(10, 10); // unlock audio
   await stage.click("text=Neue Show starten");
   await sleep(500);
-  await stage.click(`.mode-card:has-text("${{ quick: "Quick", klassik: "Klassik", marathon: "Marathon" }[MODUS]}")`);
+  await stage.click(`.mode-card[data-mode="${MODUS}"]`);
   await stage.click("text=Zackig");
   await stage.click("text=Lobby öffnen");
   await sleep(1000);

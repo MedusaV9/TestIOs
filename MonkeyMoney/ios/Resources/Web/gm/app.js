@@ -120,15 +120,52 @@ function Clock({ deadline, paused }) {
 }
 
 // ---------- Regie ----------
+const MODUS = { quick: "⚡ Quick", klassik: "🎩 Klassik", marathon: "🏃 Marathon" };
+let lastRounds = 0; // remembered across tab switches (jackpot/finale labels carry no round count)
+/** Compact run-of-show: round dots from "Runde n/m · Format", section + question numbers, overall progress. */
+function Ablauf({ st, scene }) {
+  const label = st.sectionLabel || "";
+  const m = /^Runde\s+(\d+)\s*\/\s*(\d+)\s*(?:·\s*(.+))?$/.exec(label);
+  const cardN = scene.kind === "erklaerkarte" || scene.kind === "zwischenstand" ? scene.rundenNummer || (scene._0 && scene._0.rundenNummer) : null;
+  const cardT = scene.kind === "erklaerkarte" || scene.kind === "zwischenstand" ? scene.rundenGesamt || (scene._0 && scene._0.rundenGesamt) : null;
+  const round = m ? Number(m[1]) : cardN || 0;
+  const rounds = m ? Number(m[2]) : cardT || lastRounds;
+  if (rounds) lastRounds = rounds;
+  const special = !m && /Jackpot|Finale/i.test(label);
+  const format = m ? m[3] : special ? label : null;
+  const wall = scene.wall;
+  const pct = Math.round((st.progress || 0) * 100);
+  const lobby = st.phase === "lobby";
+  const ex = scene.kind === "erklaerkarte" ? scene._0 || scene : null;
+  const done = special ? rounds : Math.max(0, round - 1);
+  return html`<div class="card gm-block gm-ablauf">
+    <div class="gm-block-head"><h3>🧭 Ablauf</h3><span class="chip">${MODUS[st.modus] || st.modus}</span></div>
+    ${lobby ? html`<p class="gm-ab-now"><b>Show startet gleich</b><small>Die Runden werden beim Start aus den Einstellungen geplant.</small></p>` : html`
+      ${rounds > 0 && html`<div class="gm-ab-dots" role="img" aria-label=${special ? `Alle ${rounds} Runden gespielt` : `Runde ${round} von ${rounds}`}>
+        ${Array.from({ length: Math.min(rounds, 16) }, (_, i) => html`<i class=${cx(i < done && "done", !special && i === round - 1 && "now")}>${i + 1}</i>`)}
+        ${special && html`<i class="now special">${/Jackpot/i.test(label) ? "💰" : "🐊"}</i>`}
+      </div>`}
+      <p class="gm-ab-now">
+        <b>${special ? format : rounds ? `Runde ${round || "–"} von ${rounds}` : label || "Show"}</b>
+        <small>${[!special && format, wall && wall.gesamt ? `Frage ${wall.nummer}/${wall.gesamt}` : null, ex && ex.name ? `gleich: ${ex.emoji || ""} ${ex.name}` : null, phaseName(st.phase)].filter(Boolean).join(" · ")}</small>
+      </p>
+      <div class="gm-ab-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow=${pct} aria-label="Fortschritt der Show"><i style=${`width:${pct}%`}></i><span>${pct} %</span></div>`}
+  </div>`;
+}
+
 function Regie(ctx) {
   const { view, cmd, open, close } = ctx;
   const st = view.stage;
   const scene = decode(st.scene);
+  // While a question runs the live cards come first; the run-of-show card follows them.
+  const live = !!view.spickzettel && ["erklaerkarte", "frage", "aufloesung"].includes(st.phase);
   return html`<div class="gm-stack">
     ${view.empfehlung && html`<p class="gm-tip">🧠 ${view.empfehlung}</p>`}
+    ${!live && html`<${Ablauf} st=${st} scene=${scene} />`}
     ${scene.kind === "kategorieWahl" && html`<div class="card gm-block"><h3>🗂️ Kategorie festlegen</h3><div class="gm-grid">${scene.optionen.map(o => html`<button class="pick" onClick=${() => cmd({ kategoriePick: { _0: o.id } })}>${o.emoji} ${o.label} <small>${o.count}</small></button>`)}</div></div>`}
     ${view.spickzettel && html`<${LiveQuestion} ...${ctx} scene=${scene} />`}
     ${scene.kind === "aufloesung" && scene.reveal && html`<${RevealCard} view=${view} r=${scene.reveal} deltas=${scene.deltas} />`}
+    ${live && html`<${Ablauf} st=${st} scene=${scene} />`}
     <${AnswersCard} ...${ctx} scene=${scene} />
     ${view.vote && html`<div class="card gm-block"><h3>🗳️ ${view.vote.frage}</h3>${view.vote.optionen.map((o, i) => { const n = Object.values(view.vote.stimmen).filter(v => v === i).length; const all = Object.keys(view.vote.stimmen).length || 1;
       return html`<div class="gm-dist"><span>${o}</span><i style=${`width:${(n / all) * 100}%`}></i><b>${n}</b></div>`; })}</div>`}

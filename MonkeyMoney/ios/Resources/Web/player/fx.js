@@ -89,12 +89,16 @@ export function installTouch() {
     if (reduced()) return;
     const r = b.getBoundingClientRect();
     const d = Math.max(r.width, r.height) * 2.2;
+    // The ripple lives in a clipping layer, so it never widens the page (horizontal scroll on small phones).
+    const clip = document.createElement("span");
+    clip.className = "fx-ripple-clip";
     const s = document.createElement("span");
     s.className = "fx-ripple";
     s.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px`;
     if (getComputedStyle(b).position === "static") b.style.position = "relative";
-    b.appendChild(s);
-    setTimeout(() => s.remove(), 620);
+    clip.appendChild(s);
+    b.appendChild(clip);
+    setTimeout(() => clip.remove(), 620);
   }, { passive: true, capture: true });
   // No pinch zoom / double-tap zoom / long-press callouts during the show.
   document.addEventListener("gesturestart", e => e.preventDefault());

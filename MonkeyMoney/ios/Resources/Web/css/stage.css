@@ -654,3 +654,12 @@
 
 .pause-hint { font-size: 22px; color: rgba(255,255,255,.7); margin-top: 14px; }
 .pause-hint b { color: var(--gold); }
+
+/* ---------- mode screen with 7 shows: compact 4-column grid, scrollable ---------- */
+.modes { padding: 110px 60px 40px; gap: 22px; overflow-y: auto; max-height: 100%; }
+.mode-cards { grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.mode-card { padding: 20px 22px 18px; border-radius: 22px; }
+.mode-emoji { font-size: 42px; margin-bottom: 4px; }
+.mode-card h2 { font-size: 26px; }
+.mode-card p { font-size: 14px; margin-top: 4px; line-height: 1.35; }
+.mode-card .mode-check { top: 12px; right: 12px; }

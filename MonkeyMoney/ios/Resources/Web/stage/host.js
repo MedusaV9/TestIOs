@@ -68,14 +68,16 @@ export function MenuScreen({ host, go }) {
     </div>
     <div class="menu-dancers right">${dancers.slice(3).map(([w, d], i) => html`<${Monkey} wire=${w} anim="dance" delay=${d} size=${150 - i * 18} class=${"dancer d" + i} />`)}</div>
     <footer class="menu-foot">
-      <span>🧠 ${fmtNum(host.questionCount)} Fragen</span><span>🎮 27 Formate</span><span>🎲 6 Brettspiele</span><span>👤 ${host.profileCount} Profile</span>
+      <span>🧠 ${fmtNum(host.questionCount)} Fragen</span><span>🎮 ${(host.formate || []).length || 33} Formate</span><span>🎲 6 Brettspiele</span><span>👤 ${host.profileCount} Profile</span>
       <span class="muted">Gleiches WLAN · Handys scannen · los geht's</span>
     </footer>
   </div>`;
 }
 
 // ---------- mode choice ----------
-const MODE_ART = { quick: ["⚡", "#2bd98a"], klassik: ["🎩", "#ffc93c"], marathon: ["🏃", "#ff6bd6"] };
+const MODE_ART_KNOWN = { quick: ["⚡", "#2bd98a"], klassik: ["🎩", "#ffc93c"], marathon: ["🏃", "#ff6bd6"], blitz: ["🌩️", "#5fc4ff"], party: ["🎉", "#ff8a3d"], profi: ["🎓", "#b18cff"], eigen: ["🛠️", "#9be15d"] };
+/** Emoji + accent colour of a mode — unknown ids get the server emoji and a neutral gold. */
+const modeArt = m => MODE_ART_KNOWN[m.id] || [m.emoji || "🎬", "#ffc93c"];
 export function ModeScreen({ host, back }) {
   const [modus, setModus] = useState("klassik");
   const [set, setSet] = useState(host.defaults[modus].fragenSet);
@@ -92,8 +94,8 @@ export function ModeScreen({ host, back }) {
   return html`<div class="modes">
     <header class="screen-head"><button class="btn ghost small" onClick=${back}>‹ Zurück</button><h1>Welche Show heute?</h1><span></span></header>
     <div class="mode-cards">
-      ${host.modes.map((m, i) => html`<button class=${cx("mode-card", modus === m.id && "on")} style=${`--accent:${MODE_ART[m.id][1]};animation-delay:${i * 90}ms`} onClick=${() => setModus(m.id)}>
-        <span class="mode-emoji">${MODE_ART[m.id][0]}</span>
+      ${host.modes.map((m, i) => html`<button class=${cx("mode-card", modus === m.id && "on")} data-mode=${m.id} style=${`--accent:${modeArt(m)[1]};animation-delay:${i * 90}ms`} onClick=${() => setModus(m.id)}>
+        <span class="mode-emoji">${modeArt(m)[0]}</span>
         <h2>${m.title}</h2>
         <p>${m.subtitle}</p>
         ${modus === m.id && html`<span class="mode-check">✔️</span>`}

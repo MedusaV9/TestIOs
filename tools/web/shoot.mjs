@@ -80,7 +80,10 @@ try {
   watchConsole(u, "uebung", errors);
   await u.goto(`http://127.0.0.1:${PORT}/uebung`);
   await sleep(1200);
-  await u.click(".p-opt");
+  await shot(u, "14a-uebung-start");
+  await u.click(".u-go");
+  await u.waitForSelector(".u-q .p-opt", { timeout: 5000 });
+  await u.click(".u-q .p-opt");
   await sleep(800);
   await shot(u, "14-uebung");
 } finally {

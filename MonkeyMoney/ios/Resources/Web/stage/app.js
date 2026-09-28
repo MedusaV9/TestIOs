@@ -48,7 +48,23 @@ function App() {
   const [toast, setToast] = useState(null);
   const [ask, setAsk] = useState(null);
   const conn = useRef(null);
+  const backdrop = useRef(null);
   useAudioState();
+  // Subtle jungle parallax: pointer position → two CSS variables (rAF-throttled, transform-only layers).
+  useEffect(() => {
+    let raf = 0, px = 0, py = 0;
+    const on = e => {
+      px = (e.clientX / window.innerWidth) * 2 - 1; py = (e.clientY / window.innerHeight) * 2 - 1;
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const b = backdrop.current;
+        if (b) { b.style.setProperty("--px", px.toFixed(3)); b.style.setProperty("--py", py.toFixed(3)); }
+      });
+    };
+    window.addEventListener("pointermove", on, { passive: true });
+    return () => { window.removeEventListener("pointermove", on); if (raf) cancelAnimationFrame(raf); };
+  }, []);
 
   const refreshHost = useCallback(async () => {
     try { const s = await api("/api/host/state"); setHost(s); return s; } catch (e) { return null; }
@@ -118,10 +134,12 @@ function App() {
 
   const sc = inShow ? decode(view.scene) : null;
   const sk = sc && sc.sectionKind && sc.sectionKind !== "runde" ? "sk-" + sc.sectionKind : "";
+  const menuish = !inShow || (sc && sc.kind === "lobby");
   return html`
-    <div class=${cx("backdrop", inShow ? "phase-" + view.phase : "phase-menu", sk)}>
+    <div class=${cx("backdrop", inShow ? "phase-" + view.phase : "phase-menu", sk, menuish && "jungle-on")} ref=${backdrop}>
       <div class="tint t-gold"></div><div class="tint t-red"></div><div class="tint t-wheel"></div><div class="tint t-spot"></div>
       <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
+      <${Jungle} />
       <div class="leaves l"></div><div class="leaves r"></div>
       <div class="floor"></div>
     </div>
@@ -138,6 +156,32 @@ function App() {
     </div>`;
 }
 
+// ---------- jungle parallax (menu + lobby): three static SVG layers, moved only by transforms ----------
+const frond = (x, y, r, len, fill) => {
+  const w = len * 0.22;
+  return `<g transform="translate(${x},${y}) rotate(${r})"><path d="M0,0 C${len * 0.25},${-w} ${len * 0.75},${-w} ${len},0 C${len * 0.75},${w} ${len * 0.25},${w} 0,0Z" fill="${fill}"/><path d="M0,0 L${len},0" stroke="rgba(0,0,0,.28)" stroke-width="3"/></g>`;
+};
+const cluster = (x, y, base, n, len, fills, flip = 1) => Array.from({ length: n }, (_, i) => frond(x, y, flip * (base + i * (70 / n)) + (flip < 0 ? 180 : 0), len * (0.8 + ((i * 37) % 10) / 25), fills[i % fills.length])).join("");
+const vine = (x, len, sway, fill) => {
+  let s = `<path d="M${x},-10 C${x + sway},${len * 0.35} ${x - sway},${len * 0.65} ${x + sway * 0.4},${len}" fill="none" stroke="${fill}" stroke-width="7" stroke-linecap="round"/>`;
+  for (let k = 1; k < 6; k++) { const yy = (len / 6) * k, xx = x + Math.sin(k * 1.7) * sway * 0.5; s += frond(xx, yy, k % 2 ? 30 : 150, 46, fill); }
+  return s;
+};
+const svgLayer = inner => `<svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${inner}</svg>`;
+const JUNGLE = {
+  far: svgLayer(cluster(-40, 1040, -80, 7, 520, ["#0a2f2a", "#0c3a31"]) + cluster(1640, 1040, -80, 7, 520, ["#0a2f2a", "#0c3a31"], -1) + cluster(800, 1100, -130, 9, 360, ["#0a2a27"])),
+  mid: svgLayer(cluster(-20, -40, 10, 6, 380, ["#0f4a3c", "#0d5a45"]) + cluster(1620, -40, 10, 6, 380, ["#0f4a3c", "#0d5a45"], -1)),
+  near: svgLayer(vine(120, 420, 30, "#12664f") + vine(300, 260, 22, "#0f5a46") + vine(1320, 300, 26, "#0f5a46") + vine(1480, 460, 30, "#12664f")),
+};
+function Jungle() {
+  return html`<div class="jungle" aria-hidden="true">
+    <div class="j-layer j-far"><div class="j-drift" dangerouslySetInnerHTML=${{ __html: JUNGLE.far }}></div></div>
+    <div class="j-layer j-mid"><div class="j-drift" dangerouslySetInnerHTML=${{ __html: JUNGLE.mid }}></div></div>
+    <div class="j-layer j-near"><div class="j-drift" dangerouslySetInnerHTML=${{ __html: JUNGLE.near }}></div></div>
+    <div class="fireflies">${Array.from({ length: 14 }, (_, i) => html`<i style=${`left:${(i * 73) % 100}%;top:${20 + ((i * 41) % 60)}%;animation-delay:${-i * 0.9}s;animation-duration:${7 + (i % 5)}s`}></i>`)}</div>
+  </div>`;
+}
+
 function decodeMusic(view) {
   const s = decode(view.scene);
   if (s.kind === "lobby") return s.settings ? s.settings.musik !== false : true;
@@ -148,8 +192,9 @@ function decodeMusic(view) {
 function ShowLayout({ view, host }) {
   const scene = decode(view.scene);
   const podium = sceneWantsPodium(scene);
+  const n = view.players.length;
   return html`
-    <div class=${cx("show", "scene-" + scene.kind, podium && "with-podium")}>
+    <div class=${cx("show", "scene-" + scene.kind, podium && "with-podium", n > 6 ? "crowd-l" : n <= 3 ? "crowd-s" : "crowd-m")}>
       ${scene.kind !== "lobby" && html`<${TopBar} view=${view} host=${host} />`}
       <main class="stage-main">
         <${SceneSwitch} k=${sceneKey(view, scene)} kind=${scene.kind} data=${{ view, scene, host }} render=${renderScene} />
@@ -173,6 +218,7 @@ function sceneKey(view, scene) {
 function TopBar({ view, host }) {
   const code = view.roomCode;
   const hostPart = (host.baseURL || "").replace(/^https?:\/\//, "");
+  const pct = Math.round((view.progress || 0) * 100);
   return html`
     <header class="topbar">
       <div class="top-left">
@@ -180,8 +226,8 @@ function TopBar({ view, host }) {
         ${view.jackpotAktiv && html`<div class="jar" title="Jackpot-Glas"><span class="jar-ico">🫙</span><div><small>Jackpot</small><${Money} value=${view.jackpotGlas} /></div></div>`}
       </div>
       <div class="section">
-        <div class="section-label">${view.sectionLabel}</div>
-        <div class="progress"><i style=${`width:${Math.round((view.progress || 0) * 100)}%`}></i></div>
+        <div class="section-label" key=${view.sectionLabel}>${view.sectionLabel}</div>
+        <div class="progress"><i style=${`transform:scaleX(${pct / 100})`}></i><b style=${`left:${pct}%`}></b></div>
       </div>
       <div class="top-right">
         <${Controls} view=${view} />

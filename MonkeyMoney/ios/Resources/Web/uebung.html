@@ -2,27 +2,25 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-  <meta name="theme-color" content="#1a0d47" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+  <meta name="theme-color" content="#1d0f4a" />
+  <meta name="color-scheme" content="dark" />
   <title>Monkey Money — Übungsmodus</title>
   <link rel="icon" href="/img/favicon.svg" />
+  <link rel="apple-touch-icon" href="/img/favicon.svg" />
+  <link rel="modulepreload" href="/vendor/preact-htm.js" />
+  <link rel="modulepreload" href="/lib/core.js" />
+  <link rel="modulepreload" href="/lib/prompts.js" />
   <link rel="stylesheet" href="/css/base.css" />
   <link rel="stylesheet" href="/css/prompts.css" />
   <link rel="stylesheet" href="/css/player.css" />
-  <style>
-    .uebung { gap: 14px; padding-top: 18px; }
-    .u-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .u-stats div { padding: 10px; border-radius: 14px; background: rgba(0, 0, 0, 0.3); text-align: center; display: flex; flex-direction: column; }
-    .u-stats b { font-family: var(--font-display); font-size: 26px; color: var(--gold); }
-    .u-stats small { color: var(--muted); font-size: 12px; }
-    .u-filter { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .u-filter select { flex: 1; min-width: 140px; padding: 10px; border-radius: 12px; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line); }
-    .p-opt.u-ok { background: var(--leaf); color: #04241a; box-shadow: 0 0 0 3px #b9ffdc, 0 0 30px rgba(43, 217, 138, 0.6); }
-    .p-opt.u-bad { background: var(--red); color: #fff; }
-  </style>
+  <link rel="stylesheet" href="/uebung/uebung.css" />
 </head>
 <body class="phone-body">
-  <div id="app"></div>
+  <div id="app"><div class="phone"><div class="p-wait"><div class="spin-banana">🎯</div><p>Übungsmodus lädt …</p></div></div></div>
   <script type="module" src="/uebung/app.js"></script>
 </body>
 </html>
