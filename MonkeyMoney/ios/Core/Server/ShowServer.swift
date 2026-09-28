@@ -214,6 +214,8 @@ public final class ShowServer: @unchecked Sendable {
             return .json((try? enc.encode(Info(code: hub.state.roomCode, phase: hub.state.phase.rawValue, players: hub.state.players.count, joinURL: hub.joinURL, edition: edition))) ?? Data())
         case ("GET", "/api/kategorien"):
             return .json((try? enc.encode(hub.engine.catalog.categories)) ?? Data("[]".utf8))
+        case ("GET", "/api/fragen"):
+            return questionBrowser(req)
         case ("GET", "/api/uebung/frage"):
             return practiceQuestion(req)
         case ("POST", "/api/uebung/antwort"):
@@ -223,6 +225,7 @@ public final class ShowServer: @unchecked Sendable {
         }
         // /api/profiles/:id/(update|kaufe|ruestung|karte)
         let parts = req.path.split(separator: "/").map(String.init)
+        if req.method == "GET", parts.count == 3, parts[0] == "api", parts[1] == "fragen" { return questionBrowser(req, id: parts[2]) }
         if parts.count == 4, parts[0] == "api", parts[1] == "profiles" {
             let id = parts[2]
             guard let p = meta.profile(id) else { return .text("not found", status: 404) }
@@ -254,6 +257,74 @@ public final class ShowServer: @unchecked Sendable {
             }
         }
         return .notFound()
+    }
+
+    // MARK: Question browser (settings screen + GM cockpit)
+
+    struct BrowserQuestion: Codable {
+        var id: String; var kat: String; var sub: String; var pfad: String; var schw: String; var typ: String; var alter: String
+        var text: String; var antworten: [String]?; var korrekt: String; var erkl: String; var aus: Bool; var gebannt: Bool
+    }
+
+    /// Answers are exposed — only the host iPad (loopback) or whoever knows the room's GM PIN.
+    func questionBrowserAllowed(_ req: HTTPServer.Request) -> Bool {
+        if req.isLoopback { return true }
+        let pin = hub.state.gmPin
+        guard let given = req.query["pin"], !given.isEmpty, pin.count == 4, Int(pin) != nil else { return false }
+        return given == pin
+    }
+
+    /// `GET /api/fragen?kat=&sub=&schw=&typ=&q=&nurAus=1&offset=0&limit=50` and `GET /api/fragen/:id`.
+    func questionBrowser(_ req: HTTPServer.Request, id: String? = nil) -> HTTPServer.Response {
+        guard questionBrowserAllowed(req) else { return .text("Nur für den Show-Master (PIN).", status: 403) }
+        let catalog = hub.engine.catalog
+        let settings = hub.state.settings
+        let filter = settings.questionFilter
+        let banned = Set(settings.fragenAus)
+        func out(_ q: Question) -> BrowserQuestion {
+            let answers: [String]? = q.typ == .sortier ? q.elemente : (q.typ == .schaetz ? nil : q.choiceOptions)
+            let aus = !filter.allows(q) || !ContentCatalog.inPool(q, settings.kategorienPool) || (settings.familienModus && !q.isKidSafe)
+            return BrowserQuestion(id: q.id, kat: q.kat, sub: q.sub, pfad: catalog.categoryPath(q), schw: q.schw.rawValue, typ: q.typ.rawValue, alter: q.alter,
+                                   text: q.displayText, antworten: answers, korrekt: q.correctDisplay, erkl: q.erkl, aus: aus, gebannt: banned.contains(q.id))
+        }
+        if let id = id {
+            guard let q = catalog.question(id) else { return .text("not found", status: 404) }
+            return .json(Wire.encode(out(q)))
+        }
+        struct Page: Codable { var gesamt: Int; var offset: Int; var fragen: [BrowserQuestion] }
+        let kat = req.query["kat"].flatMap { $0.isEmpty ? nil : $0 }
+        let sub = req.query["sub"].flatMap { $0.isEmpty ? nil : $0 }
+        let schw = req.query["schw"].flatMap(Difficulty.init(rawValue:))
+        let typ = req.query["typ"].flatMap(QuestionType.init(rawValue:))
+        let nurAus = req.query["nurAus"] == "1" || req.query["nurAus"] == "true"
+        let needle = (req.query["q"] ?? "").trimmingCharacters(in: .whitespaces)
+        let opts: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        func matches(_ q: Question) -> Bool {
+            if let k = kat, q.kat != k, q.sub != k { return false }
+            if let s = sub, q.sub != s { return false }
+            if let d = schw, q.schw != d { return false }
+            if let t = typ, q.typ != t { return false }
+            if !needle.isEmpty {
+                let hay = [q.text, q.emojis ?? ""] + (q.antworten ?? []) + (q.elemente ?? [])
+                if !hay.contains(where: { $0.range(of: needle, options: opts) != nil }) { return false }
+            }
+            return true
+        }
+        var list = catalog.questions.filter(matches).map(out)
+        if nurAus { list = list.filter { $0.aus || $0.gebannt } }
+        let katOrder = Dictionary(uniqueKeysWithValues: catalog.categories.enumerated().map { ($0.element.id, $0.offset) })
+        list.sort { a, b in
+            let ka = katOrder[a.kat] ?? Int.max, kb = katOrder[b.kat] ?? Int.max
+            if ka != kb { return ka < kb }
+            if a.sub != b.sub { return a.sub < b.sub }
+            let ra = Difficulty(rawValue: a.schw)?.rank ?? 9, rb = Difficulty(rawValue: b.schw)?.rank ?? 9
+            if ra != rb { return ra < rb }
+            return a.id < b.id
+        }
+        let offset = max(0, Int(req.query["offset"] ?? "") ?? 0)
+        let limit = min(500, max(1, Int(req.query["limit"] ?? "") ?? 50))
+        let page = offset < list.count ? Array(list[offset..<min(list.count, offset + limit)]) : []
+        return .json(Wire.encode(Page(gesamt: list.count, offset: offset, fragen: page)))
     }
 
     // MARK: Übungsmodus

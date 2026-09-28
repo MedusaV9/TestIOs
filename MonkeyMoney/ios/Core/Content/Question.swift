@@ -1,6 +1,6 @@
 import Foundation
 
-public enum QuestionType: String, Codable, Sendable {
+public enum QuestionType: String, Codable, CaseIterable, Sendable {
     case choice
     case wahrFalsch = "wahr_falsch"
     case emoji

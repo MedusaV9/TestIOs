@@ -29,7 +29,8 @@ extension Engine {
     func standings(_ s: EngineState) -> [StandingEntry] {
         let leader = s.leader?.balance ?? 0
         return refs(s).sorted { $0.platz < $1.platz }.map { r in
-            StandingEntry(player: r, delta: s.lastDeltas[r.id] ?? 0, rueckenwind: Economy.tailwindFactor(own: r.balance, leader: leader))
+            StandingEntry(player: r, delta: s.lastDeltas[r.id] ?? 0, rueckenwind: Economy.tailwindFactor(own: r.balance, leader: leader),
+                          rundenDelta: r.balance - (s.rundenStartBalance?[r.id] ?? r.balance), platzVorher: s.rundenStartPlatz?[r.id] ?? r.platz)
         }
     }
 
@@ -148,7 +149,7 @@ extension Engine {
                 let out = plugin.stage(box.data, revealed, context(s, now: now))
                 stageOut = out
                 if revealed {
-                    scene = .aufloesung(wall: out.wall, extra: out.extra, deltas: s.lastDeltas, minigameId: box.id, sectionKind: s.currentSection?.typ ?? .runde)
+                    scene = .aufloesung(wall: out.wall, extra: out.extra, deltas: s.lastDeltas, minigameId: box.id, sectionKind: s.currentSection?.typ ?? .runde, reveal: s.lastReveal)
                 } else {
                     scene = .frage(wall: out.wall, extra: out.extra, minigameId: box.id, sectionKind: s.currentSection?.typ ?? .runde, title: out.title)
                 }
@@ -215,6 +216,7 @@ extension Engine {
         var status = sectionLabel(s)
         var haptic: String? = nil
         var flash: String? = nil
+        var ergebnis: PlayerErgebnis? = nil
         switch s.phase {
         case .lobby:
             prompt = s.settings.spielModus == .spieleabend ? Boardgames.lobbyPrompt(s, id) : .idle(title: "Du bist drin! 🎉", subtitle: s.players.count < 2 ? "Wartet auf weitere Affen …" : "Der Bildschirm startet die Show.")
@@ -245,7 +247,13 @@ extension Engine {
                     if correct == true, delta > plain, s.nextMods.gewinnFaktor > 1 { notes.append("🎡 Doppelter Zaster") }
                     if correct == true, delta > plain, s.leader?.id != id, Economy.tailwindFactor(own: p.balance - delta, leader: s.leader?.balance ?? 0) > 1 { notes.append("🌬️ Rückenwind") }
                     if !notes.isEmpty { detail = ([detail].compactMap { $0 } + notes).joined(separator: " · ") }
-                    prompt = .reveal(title: title, correct: correct, delta: delta, detail: detail, streak: plugin.meta.streak ? p.streak : 0, speedBonus: nil)
+                    let entry = s.lastReveal?.eintraege.first { $0.playerId == id }
+                    prompt = .reveal(title: title, correct: correct, delta: delta, detail: detail, streak: plugin.meta.streak ? p.streak : 0, speedBonus: entry?.speedBonus)
+                    if let e = entry {
+                        ergebnis = PlayerErgebnis(richtig: e.richtig, delta: e.delta, speedBonus: e.speedBonus, platzVorher: e.platzVorher, platzNachher: e.platzNachher,
+                                                  balance: p.balance, richtigText: s.lastReveal?.richtigText, antwortMs: e.antwortMs, streak: e.streak,
+                                                  streakFaktor: e.richtig == true && plugin.meta.streak && !s.isFinale ? Economy.streakFactor(e.streak) : 1)
+                    }
                     haptic = correct == true ? "success" : (correct == false ? "error" : nil)
                     flash = correct == true ? "richtig" : (correct == false ? "falsch" : nil)
                 }
@@ -253,7 +261,9 @@ extension Engine {
                 prompt = .idle(title: "…", subtitle: nil)
             }
         case .zwischenstand, .halbzeit:
-            prompt = .idle(title: "Platz \(ref.platz) · \(Money.format(p.balance))", subtitle: s.lastDeltas[id].map { "Letzte Runde: \(Money.formatDelta($0))" })
+            let rundenDelta = s.rundenStartBalance?[id].map { p.balance - $0 }
+            prompt = .idle(title: "Platz \(ref.platz) · \(Money.format(p.balance))",
+                           subtitle: rundenDelta.map { "Diese Runde: \(Money.formatDelta($0))" } ?? s.lastDeltas[id].map { "Letzte Runde: \(Money.formatDelta($0))" })
         case .rad:
             prompt = wheelPrompt(s, player: id)
         case .pause:
@@ -291,7 +301,8 @@ extension Engine {
                           rueckenwind: Economy.tailwindFactor(own: p.balance, leader: leader), whisper: s.whispers[id], moments: Array(s.moments.suffix(3)),
                           ranking: refs(s).sorted { $0.platz < $1.platz }, teamTopf: p.teamId.flatMap { t in s.teams.first { $0.id == t }?.topf },
                           sectionLabel: sectionLabel(s), ohneScreen: !s.screenOnline, haptic: haptic, flash: flash,
-                          jackpotGlas: s.jackpotGlas, jackpotAktiv: jackpotAktiv, jackpotHinweis: jackpotHinweis, progress: progress(s))
+                          jackpotGlas: s.jackpotGlas, jackpotAktiv: jackpotAktiv, jackpotHinweis: jackpotHinweis, progress: progress(s),
+                          ergebnis: s.paused ? nil : ergebnis, stats: PlayerStatsView(richtig: p.stats.richtig, falsch: p.stats.falsch, laengsteSerie: p.stats.laengsteSerie))
     }
 
     // MARK: GM
@@ -300,19 +311,28 @@ extension Engine {
         let stage = stageView(s, now: now, joinURL: joinURL, gmURL: gmURL)
         var spick: GmQuestionInfo? = nil
         var answers: [PlayerId: String] = [:]
+        var detail: [PlayerId: GmAnswerDetail] = [:]
         if let box = s.minigame, let plugin = MinigameRegistry.plugin(box.id) {
-            let info = plugin.gmInfo(box.data, context(s, now: now))
+            let ctx = context(s, now: now)
+            let info = plugin.gmInfo(box.data, ctx)
             spick = info.question
             answers = info.answers
+            let outcomes = s.phase == .aufloesung ? plugin.outcomes(box.data, ctx) : [:]
+            for (pid, text) in answers { detail[pid] = Engine.answerDetail(text, outcome: outcomes[pid]) }
         }
-        // Shelf: the next 5 questions of the current section.
+        // Shelf: the next 5 questions of the current section (absolute index, swappable flag).
         var regal: [GmQuestionInfo] = []
-        for qid in s.currentQuestionIds.dropFirst(s.questionIndex + 1).prefix(5) {
-            if let q = catalog.question(qid) {
-                let korrekt = q.correctIndex.flatMap { i in q.choiceOptions.indices.contains(i) ? q.choiceOptions[i] : nil } ?? q.schaetz.map { "\($0.richtwert) \($0.einheit)" } ?? "—"
-                regal.append(GmQuestionInfo(id: q.id, text: q.text, kategorie: catalog.categoryPath(q), schwierigkeit: q.schw, korrekt: korrekt, erklaerung: q.erkl, tipps: q.tipps, typ: q.typ))
+        let swappable = swappableRange(s)
+        if [.erklaerkarte, .frage, .aufloesung].contains(s.phase) {
+            for (i, qid) in s.currentQuestionIds.enumerated().dropFirst(regalStart(s)).prefix(5) {
+                guard let q = catalog.question(qid) else { continue }
+                let opts: [String]? = q.typ == .sortier ? q.elemente : (q.typ == .schaetz ? nil : q.choiceOptions)
+                regal.append(GmQuestionInfo(id: q.id, text: q.text, kategorie: catalog.categoryPath(q), schwierigkeit: q.schw, korrekt: q.correctDisplay, erklaerung: q.erkl,
+                                            tipps: q.tipps, typ: q.typ, antworten: opts, index: i, tauschbar: swappable.contains(i)))
             }
         }
+        var aktuelle = spick?.id
+        if s.phase == .erklaerkarte, s.currentQuestionIds.indices.contains(s.questionIndex) { aktuelle = s.currentQuestionIds[s.questionIndex] }
         // Drama meter lite: score gap, spread, remaining rounds.
         let ranking = s.ranking
         var drama = 50
@@ -328,7 +348,8 @@ extension Engine {
         }
         let pool = s.settings.kategorienPool
         let kid = s.settings.familienModus
-        let counts = catalog.typeCounts(pool: pool, kidSafe: kid)
+        let filter = s.settings.questionFilter
+        let counts = catalog.typeCounts(pool: pool, kidSafe: kid, filter: filter)
         let total = counts.values.reduce(0, +)
         var served: [String] = []
         if (counts[.schaetz] ?? 0) >= 4 { served.append("Schätzen") }
@@ -336,11 +357,27 @@ extension Engine {
         if (counts[.bildPixel] ?? 0) >= 1 { served.append("Pixel-Bilder") }
         let setName = QuestionSets.set(s.settings.fragenSet)?.name ?? "Eigene Auswahl"
         let poolInfo = "\(setName): \(total) Fragen" + (served.isEmpty ? " · nur Auswahl-Formate (Schätz-/Sortier-/Pixel-Runden fallen auf Vier Lianen zurück)" : " · dazu \(served.joined(separator: ", "))")
+        let katalog = catalog.katalogInfo(settings: s.settings)
         return GmView(stage: stage, spickzettel: spick, antworten: answers, regal: regal, settings: s.settings, log: Array(s.log.suffix(40)),
                       timerExtensionsLeft: max(0, 2 - s.timerExtensions), jokerBudget: s.jokerGrantBudget, encoresLeft: max(0, 2 - s.encoresThisRound),
                       moodPollsLeft: max(0, 3 - s.moodPolls), dramaScore: drama, empfehlung: empfehlung, vote: s.gmVote,
                       canRig: s.phase == .zwischenstand, gmPin: s.gmPin, players: s.players, roomCode: s.roomCode, joinURL: joinURL,
-                      fragenSets: catalog.questionSetInfos(activePool: pool, kidSafe: kid), kategorien: catalog.categoryInfos(activePool: pool, kidSafe: kid),
-                      poolInfo: poolInfo, lobbyOnlySettings: Engine.lobbyOnlySettings)
+                      fragenSets: catalog.questionSetInfos(activePool: pool, kidSafe: kid, filter: filter), kategorien: katalog.kategorien,
+                      poolInfo: poolInfo, lobbyOnlySettings: Engine.lobbyOnlySettings, antwortenDetail: detail, katalog: katalog, aktuelleFrageId: aktuelle)
+    }
+
+    /// Structured form of a plugin's GM answer line ("Paris (1.2 s) ✅"); plugin
+    /// outcomes (after the reveal) fill in time and verdict where the line has none.
+    static func answerDetail(_ line: String, outcome: Outcome?) -> GmAnswerDetail {
+        var text = line.trimmingCharacters(in: .whitespaces)
+        var richtig: Bool? = nil
+        if text.hasSuffix("✅") { richtig = true; text = String(text.dropLast()).trimmingCharacters(in: .whitespaces) }
+        else if text.hasSuffix("❌") { richtig = false; text = String(text.dropLast()).trimmingCharacters(in: .whitespaces) }
+        var ms: Int? = nil
+        if text.hasSuffix(" s)"), let open = text.range(of: " (", options: .backwards) {
+            let num = text[open.upperBound..<text.index(text.endIndex, offsetBy: -3)].replacingOccurrences(of: ",", with: ".")
+            if let v = Double(num) { ms = Int((v * 1000).rounded()); text = String(text[..<open.lowerBound]) }
+        }
+        return GmAnswerDetail(text: text, ms: ms ?? outcome?.answeredAfterMs, richtig: richtig ?? outcome?.correct)
     }
 }

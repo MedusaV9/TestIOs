@@ -216,13 +216,18 @@ public final class ShowHost: @unchecked Sendable {
         var questionSets: [QuestionSetInfo]
         var categories: [CategoryInfo]
         var defaults: [String: MatchSettings]
+        /// Filterable catalogue (tiers, types, category tree) under the live room settings.
+        var katalog: KatalogInfo
     }
 
     func hostState() -> HostState {
         let hub = server.hub
         var auto = readSlot(0)
         if let a = auto, a.state.phase == .ende || a.state.phase == .lobby { auto = nil }
-        let pool = defaultSettings(.klassik).kategorienPool
+        // Counts follow the LIVE room settings (pool, filter, family mode) while a room is open.
+        let live = showActive ? hub.state.settings : defaultSettings(.klassik)
+        let pool = live.kategorienPool
+        let filter = live.questionFilter
         let cat = config.catalog
         return HostState(
             active: showActive, edition: config.edition, questionCount: cat.questions.count, categoryCount: cat.categories.count,
@@ -233,8 +238,10 @@ public final class ShowHost: @unchecked Sendable {
             tempos: Tempo.allCases.map { OptionInfo(id: $0.rawValue, label: $0.label) },
             mixes: FragenMix.allCases.map { OptionInfo(id: $0.rawValue, label: $0.label) },
             specialRules: SpecialRule.allCases.map { RuleInfo(id: $0.rawValue, name: $0.name, emoji: $0.emoji, description: $0.description) },
-            questionSets: cat.questionSetInfos(activePool: pool, kidSafe: false), categories: cat.categoryInfos(activePool: pool, kidSafe: false),
-            defaults: Dictionary(uniqueKeysWithValues: Modus.allCases.map { ($0.rawValue, defaultSettings($0)) }))
+            questionSets: cat.questionSetInfos(activePool: pool, kidSafe: live.familienModus, filter: filter),
+            categories: cat.categoryInfos(activePool: pool, kidSafe: live.familienModus, filter: filter),
+            defaults: Dictionary(uniqueKeysWithValues: Modus.allCases.map { ($0.rawValue, defaultSettings($0)) }),
+            katalog: cat.katalogInfo(settings: live))
     }
 
     func route(_ req: HTTPServer.Request) -> HTTPServer.Response? {

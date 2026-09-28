@@ -5,7 +5,7 @@ import Foundation
 public enum Plan {
     /// What the catalogue can feed this match under its settings (pool, family mode).
     public static func availability(settings: MatchSettings, playerCount: Int, catalog: ContentCatalog) -> MinigameRegistry.Availability {
-        var counts = catalog.typeCounts(pool: settings.kategorienPool, kidSafe: settings.familienModus)
+        var counts = catalog.typeCounts(pool: settings.kategorienPool, kidSafe: settings.familienModus, filter: settings.questionFilter)
         if counts.isEmpty { counts = [.choice: 0] } // known-but-empty pool: everything falls back
         return MinigameRegistry.Availability(playerCount: playerCount, songsAvailable: catalog.songs.count,
                                              videoSongs: catalog.songs.filter { $0.hatVideo }.count, v2: settings.v2Formate, typeCounts: counts)

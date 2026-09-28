@@ -350,6 +350,11 @@ public struct EngineState: Codable, Equatable, Sendable {
     /// Deltas booked by the last question (for the reveal scene).
     public var lastDeltas: [PlayerId: Int]
     public var lastKorrekt: [PlayerId: Bool]
+    /// Reveal summary of the last booked question (ranks, speed, streaks) — optional for old saves.
+    public var lastReveal: RevealSummary?
+    /// Balances and places when the current section started (round delta in the standings).
+    public var rundenStartBalance: [PlayerId: Int]?
+    public var rundenStartPlatz: [PlayerId: Int]?
 
     public init(matchId: String, roomCode: String, seed: UInt32, settings: MatchSettings, now: Millis, gmPin: String) {
         self.matchId = matchId
@@ -421,6 +426,9 @@ public struct EngineState: Codable, Equatable, Sendable {
         openingSkipped = false
         lastDeltas = [:]
         lastKorrekt = [:]
+        lastReveal = nil
+        rundenStartBalance = nil
+        rundenStartPlatz = nil
     }
 
     public var currentSection: Section? {

@@ -166,8 +166,8 @@ extension Engine {
             // Swap the upcoming question for one from another category.
             let nextIdx = s.phase == .aufloesung ? s.questionIndex + 1 : s.questionIndex
             if s.currentQuestionIds.indices.contains(nextIdx), let old = catalog.question(s.currentQuestionIds[nextIdx]) {
-                var opts = PickOptions(anzahl: 1, used: Set(s.usedQuestionIds), kategorien: [], schwierigkeiten: [old.schw], typen: old.typ.isChoiceLike ? [.choice, .emoji, .wahrFalsch] : [old.typ])
-                opts.kidSafeOnly = s.settings.familienModus
+                let opts = pickOptions(s, anzahl: 1, kategorien: s.settings.kategorienPool, schwierigkeiten: s.settings.questionFilter.tiers([old.schw]),
+                                       typen: old.typ.isChoiceLike ? [.choice, .emoji, .wahrFalsch] : [old.typ])
                 if let fresh = catalog.pick(opts, rng: &s.rng).first(where: { $0.kat != old.kat }) ?? catalog.pick(opts, rng: &s.rng).first {
                     s.currentQuestionIds[nextIdx] = fresh.id
                     s.usedQuestionIds.append(fresh.id)
@@ -228,10 +228,17 @@ extension Engine {
             }
             if let n = patch["fragenZeit"]?.intValue { s.addMoment("regie", n <= 0 ? "⏱️ Zeit pro Frage: nach Schwierigkeit" : "⏱️ Zeit pro Frage: \(n) s", at: now) }
             let poolBefore = s.settings.kategorienPool
+            let filterBefore = s.settings.questionFilter
             s.settings.apply(patch: patch)
             if s.settings.kategorienPool != poolBefore || patch["fragenSet"] != nil {
                 let name = QuestionSets.set(s.settings.fragenSet)?.name ?? "Eigene Auswahl"
                 s.addMoment("regie", "📚 Fragen-Set: \(name)" + (s.phase == .lobby ? "" : " — gilt ab der nächsten Runde"), at: now)
+            }
+            if s.settings.questionFilter != filterBefore {
+                // Live: upcoming questions that are now switched off leave the shelf right away.
+                let swapped = refreshUpcoming(&s)
+                let aktiv = catalog.katalogInfo(settings: s.settings).aktiv
+                s.addMoment("regie", "🎛️ Fragen-Filter: \(aktiv) Fragen aktiv" + (swapped > 0 ? " — \(swapped) im Regal getauscht" : ""), at: now)
             }
             s.addLog("settings", "Einstellungen geändert: \(patch.keys.sorted().joined(separator: ", "))", at: now)
         case .scoreAdjust(let pid, let delta, let grund):
@@ -288,16 +295,14 @@ extension Engine {
             s.minigame = nil
             _ = plugin
             // Replacement question of the same tier if available.
-            if s.currentQuestionIds.indices.contains(s.questionIndex), let old = catalog.question(s.currentQuestionIds[s.questionIndex]) {
-                var opts = PickOptions(anzahl: 1, used: Set(s.usedQuestionIds), kategorien: s.currentSection?.kategorie.map { [$0] } ?? [], schwierigkeiten: [old.schw], typen: [old.typ])
-                opts.kidSafeOnly = s.settings.familienModus
-                if let fresh = catalog.pick(opts, rng: &s.rng).first {
-                    s.currentQuestionIds[s.questionIndex] = fresh.id
-                    s.usedQuestionIds.append(fresh.id)
-                    startQuestion(&s, now: now)
-                    return
-                }
+            if s.currentQuestionIds.indices.contains(s.questionIndex), let old = catalog.question(s.currentQuestionIds[s.questionIndex]),
+               let fresh = replacementQuestion(&s, for: old) {
+                s.currentQuestionIds[s.questionIndex] = fresh.id
+                s.usedQuestionIds.append(fresh.id)
+                startQuestion(&s, now: now)
+                return
             }
+            s.minigame = box
             afterAufloesung(&s, now: now)
         case .gameSkip(let keepPoints):
             guard s.phase == .frage || s.phase == .erklaerkarte || s.phase == .aufloesung else { return }
@@ -351,9 +356,12 @@ extension Engine {
             s.addMoment("feedback", "📝 Feedback-Runde: 3 Fragen auf euren Handys", at: now)
         case .encore:
             guard s.phase == .aufloesung || s.phase == .frage, s.encoresThisRound < 2, let section = s.currentSection, section.typ == .runde else { return }
-            var opts = PickOptions(anzahl: 1, used: Set(s.usedQuestionIds), kategorien: section.kategorie.map { [$0] } ?? [], schwierigkeiten: section.schwierigkeiten)
-            opts.kidSafeOnly = s.settings.familienModus
-            if let q = catalog.pick(opts, rng: &s.rng).first {
+            let filter = s.settings.questionFilter
+            var opts = pickOptions(s, anzahl: 1, kategorien: section.kategorie.map { [$0] } ?? s.settings.kategorienPool,
+                                   schwierigkeiten: filter.tiers(section.schwierigkeiten), typen: contentTypes(s, section))
+            var q = catalog.pick(opts, rng: &s.rng).first
+            if q == nil { opts.kategorien = s.settings.kategorienPool; opts.schwierigkeiten = []; q = catalog.pick(opts, rng: &s.rng).first }
+            if let q = q {
                 s.currentQuestionIds.append(q.id)
                 s.usedQuestionIds.append(q.id)
                 s.encoresThisRound += 1
@@ -382,7 +390,141 @@ extension Engine {
             Boardgames.localAction(&s, sitz: sitz, action, catalog: catalog, now: now)
         case .botAdd, .botRemove:
             break // handled by the room layer (bots are ordinary players)
+        case .questionSkip:
+            guard s.phase == .frage, let box = s.minigame, let section = s.currentSection else { return }
+            // Annulled: nothing is booked, the next question (or the round end) follows.
+            s.minigame = nil
+            s.addMoment("regie", "⏭️ Frage übersprungen", at: now)
+            s.addLog("gm", "Frage übersprungen: \(s.currentQuestionIds.indices.contains(s.questionIndex) ? s.currentQuestionIds[s.questionIndex] : "-")", at: now)
+            if box.roundBased { finishSection(&s, now: now); return }
+            s.questionIndex += 1
+            if s.questionIndex < section.fragen + s.encoresThisRound && s.questionIndex < s.currentQuestionIds.count {
+                startQuestion(&s, now: now)
+            } else {
+                finishSection(&s, now: now)
+            }
+        case .timerShift(let ms):
+            guard s.phase == .frage, ms != 0, var box = s.minigame, let plugin = MinigameRegistry.plugin(box.id) else { return }
+            var ctx = context(s, now: now)
+            var shift = ms
+            if ms < 0 {
+                // Never below 3 s on the clock.
+                guard !s.settings.timerAus, let dl = plugin.stage(box.data, false, ctx).wall?.deadline ?? s.phaseEndsAt else { return }
+                shift = max(ms, min(0, 3000 - (dl - now)))
+                guard shift < 0 else { return }
+            }
+            plugin.gm(&box.data, .timerShift(ms: shift), &ctx)
+            s.rng = ctx.rng
+            s.minigame = box
+            let secs = String(format: "%.0f", Double(abs(shift)) / 1000)
+            s.addMoment("regie", shift > 0 ? "⏳ Regie: +\(secs) s" : "⏩ Regie: −\(secs) s", at: now)
+        case .questionReplace(let frageId):
+            guard s.phase == .frage || s.phase == .erklaerkarte, s.currentSection != nil, s.currentQuestionIds.indices.contains(s.questionIndex) else { return }
+            if s.phase == .frage { guard let box = s.minigame, !box.roundBased else { return } }
+            let oldId = s.currentQuestionIds[s.questionIndex]
+            let fresh = frageId.map { manualQuestion(s, $0) } ?? replacementQuestion(&s, for: catalog.question(oldId))
+            guard let q = fresh else { s.addLog("gm", "Kein passender Ersatz für \(oldId)", at: now); return }
+            if s.phase == .erklaerkarte { s.usedQuestionIds.removeAll { $0 == oldId } }
+            s.currentQuestionIds[s.questionIndex] = q.id
+            s.usedQuestionIds.append(q.id)
+            s.addMoment("regie", "🔄 Frage getauscht", at: now)
+            s.addLog("gm", "Frage getauscht: \(oldId) → \(q.id)", at: now)
+            if s.phase == .frage {
+                // Restart without booking.
+                s.minigame = nil
+                startQuestion(&s, now: now)
+            }
+        case .regalSwap(let index, let frageId):
+            guard swappableRange(s).contains(index) else { return }
+            let oldId = s.currentQuestionIds[index]
+            let fresh = frageId.map { manualQuestion(s, $0) } ?? replacementQuestion(&s, for: catalog.question(oldId))
+            guard let q = fresh else { s.addLog("gm", "Kein passender Ersatz für \(oldId)", at: now); return }
+            swapUpcoming(&s, index, q)
+            s.addLog("gm", "Regal: Frage \(index + 1) getauscht (\(oldId) → \(q.id))", at: now)
+        case .questionBan(let id):
+            guard catalog.question(id) != nil else { return }
+            if !s.settings.fragenAus.contains(id) { s.settings.fragenAus.append(id) }
+            let swapped = refreshUpcoming(&s)
+            s.addLog("gm", "Frage gesperrt: \(id)" + (swapped > 0 ? " (aus dem Regal getauscht)" : ""), at: now)
+        case .questionUnban(let id):
+            s.settings.fragenAus.removeAll { $0 == id }
+            s.addLog("gm", "Frage entsperrt: \(id)", at: now)
         }
+    }
+
+    // MARK: GM question tools (shelf, replacement, filter refresh)
+
+    /// Does the current section run a round-based format (holds all its questions at once)?
+    func sectionRoundBased(_ s: EngineState) -> Bool {
+        if let box = s.minigame { return box.roundBased }
+        return s.currentSection.map { resolvedPlugin(s, $0).meta.roundBased } ?? false
+    }
+
+    /// First shelf index that has not been asked yet.
+    func regalStart(_ s: EngineState) -> Int {
+        s.phase == .erklaerkarte ? s.questionIndex : s.questionIndex + 1
+    }
+
+    /// Shelf indices the GM may still swap (a running round format already holds its questions).
+    func swappableRange(_ s: EngineState) -> Range<Int> {
+        guard [.erklaerkarte, .frage, .aufloesung].contains(s.phase), let section = s.currentSection else { return 0..<0 }
+        let roundBased = sectionRoundBased(s)
+        if roundBased && s.phase != .erklaerkarte { return 0..<0 }
+        let start = regalStart(s)
+        let end = roundBased ? s.currentQuestionIds.count : min(s.currentQuestionIds.count, section.fragen + s.encoresThisRound)
+        return start..<max(start, end)
+    }
+
+    /// A GM-chosen question: must exist, be unused, kid-safe when required and fit the format.
+    func manualQuestion(_ s: EngineState, _ id: String) -> Question? {
+        guard let q = catalog.question(id), !s.usedQuestionIds.contains(id), let section = s.currentSection else { return nil }
+        if (s.settings.familienModus || s.players.contains { $0.kind }) && !q.isKidSafe { return nil }
+        let types = contentTypes(s, section)
+        if !types.isEmpty && !types.contains(q.typ) { return nil }
+        return q
+    }
+
+    /// A fitting replacement: same tier and type first, inside the voted category, then
+    /// the pool, then any type the format takes — always inside pool + filter.
+    func replacementQuestion(_ s: inout EngineState, for old: Question?) -> Question? {
+        guard let section = s.currentSection else { return nil }
+        let pool = s.settings.kategorienPool
+        let filter = s.settings.questionFilter
+        let formatTypes = contentTypes(s, section)
+        let ownTypes = old.map { [$0.typ] } ?? formatTypes
+        let tiers = filter.tiers(old.map { [$0.schw] } ?? section.schwierigkeiten)
+        let ladder: [([String], [Difficulty], [QuestionType])] = [
+            (section.kategorie.map { [$0] } ?? pool, tiers, ownTypes),
+            (pool, tiers, ownTypes),
+            (pool, tiers, formatTypes),
+            (pool, filter.tiers(section.schwierigkeiten), formatTypes),
+            (pool, [], formatTypes),
+        ]
+        for (kats, schw, types) in ladder {
+            let opts = pickOptions(s, anzahl: 1, kategorien: kats, schwierigkeiten: schw, typen: types)
+            if let q = catalog.pick(opts, rng: &s.rng).first { return q }
+        }
+        return nil
+    }
+
+    func swapUpcoming(_ s: inout EngineState, _ index: Int, _ q: Question) {
+        let oldId = s.currentQuestionIds[index]
+        s.usedQuestionIds.removeAll { $0 == oldId }
+        s.currentQuestionIds[index] = q.id
+        s.usedQuestionIds.append(q.id)
+    }
+
+    /// Swap every upcoming shelf question the filter no longer allows. Returns the swap count.
+    @discardableResult
+    func refreshUpcoming(_ s: inout EngineState) -> Int {
+        let filter = s.settings.questionFilter
+        var swapped = 0
+        for i in swappableRange(s) {
+            guard let q = catalog.question(s.currentQuestionIds[i]), !filter.allows(q), let fresh = replacementQuestion(&s, for: q) else { continue }
+            swapUpcoming(&s, i, fresh)
+            swapped += 1
+        }
+        return swapped
     }
 
     /// Universal "Weiter" for every phase (stage in gmLos mode, GM always).

@@ -113,6 +113,11 @@ public struct MatchSettings: Codable, Equatable, Sendable {
     public var timerAus: Bool
     /// Show-Master: fixed time per question in seconds (nil = per difficulty 15/15/20/25 s × tempo).
     public var fragenZeit: Int?
+    /// Question filter (see `QuestionFilter`): category/sub ids, tiers, types and single questions switched off.
+    public var kategorienAus: [String]
+    public var schwierigkeitenAus: [Difficulty]
+    public var typenAus: [QuestionType]
+    public var fragenAus: [String]
 
     public init(modus: Modus = .klassik) {
         self.modus = modus
@@ -143,6 +148,10 @@ public struct MatchSettings: Codable, Equatable, Sendable {
         specialRules = []
         timerAus = false
         fragenZeit = nil
+        kategorienAus = []
+        schwierigkeitenAus = []
+        typenAus = []
+        fragenAus = []
     }
 
     /// Apply a question-set preset: pool + kid-safe flag follow the set.
@@ -175,6 +184,10 @@ public struct MatchSettings: Codable, Equatable, Sendable {
             fresh.deAnteil = deAnteil
             fresh.timerAus = timerAus
             fresh.fragenZeit = fragenZeit
+            fresh.kategorienAus = kategorienAus
+            fresh.schwierigkeitenAus = schwierigkeitenAus
+            fresh.typenAus = typenAus
+            fresh.fragenAus = fragenAus
             self = fresh
         }
         if let s = patch["tempo"]?.stringValue, let v = Tempo(rawValue: s) { tempo = v }
@@ -212,8 +225,83 @@ public struct MatchSettings: Codable, Equatable, Sendable {
         if let b = patch["timerAus"]?.boolValue { timerAus = b }
         if let n = patch["fragenZeit"]?.intValue { fragenZeit = n <= 0 ? nil : min(300, max(5, n)) }
         if patch["fragenZeit"] == .null { fragenZeit = nil }
+        applyFilter(patch: patch)
         if gmLos { autoGm = true }
         if familienModus { alkoholEdition = false }
+    }
+}
+
+extension MatchSettings {
+    /// Filter keys of a settings patch. Arrays replace the list (unknown tiers/types
+    /// are dropped); all four tiers off is rejected, all types off keeps `choice` on.
+    mutating func applyFilter(patch: [String: JSONValue]) {
+        func strings(_ key: String) -> [String]? {
+            patch[key]?.arrayValue.map { arr in
+                var out: [String] = []
+                for s in arr.compactMap({ $0.stringValue }) where !s.isEmpty && !out.contains(s) { out.append(s) }
+                return out
+            }
+        }
+        if patch["filterReset"]?.boolValue == true {
+            kategorienAus = []; schwierigkeitenAus = []; typenAus = []; fragenAus = []
+        }
+        if let v = strings("kategorienAus") { kategorienAus = v }
+        if let v = strings("schwierigkeitenAus") {
+            let tiers = v.compactMap(Difficulty.init(rawValue:))
+            if tiers.count < Difficulty.allCases.count { schwierigkeitenAus = tiers }
+        }
+        if let v = strings("typenAus") {
+            var types = v.compactMap(QuestionType.init(rawValue:))
+            if types.count >= QuestionType.allCases.count { types.removeAll { $0 == .choice } }
+            typenAus = types
+        }
+        if let v = strings("fragenAus") { fragenAus = v }
+        if let id = patch["kategorieAus"]?.stringValue, !id.isEmpty, !kategorienAus.contains(id) { kategorienAus.append(id) }
+        if let id = patch["kategorieAn"]?.stringValue { kategorienAus.removeAll { $0 == id } }
+    }
+
+    /// The filter as the pickers use it.
+    public var questionFilter: QuestionFilter { QuestionFilter(settings: self) }
+}
+
+/// Old saves (and hand-written presets) lack newer keys: every field falls back to the mode default.
+extension MatchSettings {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let modus = try c.decodeIfPresent(Modus.self, forKey: .modus) ?? .klassik
+        self.init(modus: modus)
+        func take<T: Decodable>(_ key: CodingKeys, _ current: T) throws -> T { try c.decodeIfPresent(T.self, forKey: key) ?? current }
+        tempo = try take(.tempo, tempo)
+        fragenMix = try take(.fragenMix, fragenMix)
+        finaleFaktor = try take(.finaleFaktor, finaleFaktor)
+        jokerAn = try take(.jokerAn, jokerAn)
+        radAn = try take(.radAn, radAn)
+        kategorienWahl = try take(.kategorienWahl, kategorienWahl)
+        autoGm = try take(.autoGm, autoGm)
+        autoTipp = try take(.autoTipp, autoTipp)
+        kurzeShow = try take(.kurzeShow, kurzeShow)
+        alltimeItems = try take(.alltimeItems, alltimeItems)
+        tutorialVideos = try take(.tutorialVideos, tutorialVideos)
+        v2Formate = try take(.v2Formate, v2Formate)
+        teams = try take(.teams, teams)
+        musik = try take(.musik, musik)
+        musikVolume = try take(.musikVolume, musikVolume)
+        gmLos = try take(.gmLos, gmLos)
+        spielModus = try take(.spielModus, spielModus)
+        deAnteil = try take(.deAnteil, deAnteil)
+        familienModus = try take(.familienModus, familienModus)
+        alkoholEdition = try take(.alkoholEdition, alkoholEdition)
+        kategorienPool = try take(.kategorienPool, kategorienPool)
+        fragenSet = try take(.fragenSet, fragenSet)
+        rundenOverride = try c.decodeIfPresent(Int.self, forKey: .rundenOverride)
+        allInErlaubt = try take(.allInErlaubt, allInErlaubt)
+        specialRules = try take(.specialRules, specialRules)
+        timerAus = try take(.timerAus, timerAus)
+        fragenZeit = try c.decodeIfPresent(Int.self, forKey: .fragenZeit)
+        kategorienAus = try take(.kategorienAus, kategorienAus)
+        schwierigkeitenAus = try take(.schwierigkeitenAus, schwierigkeitenAus)
+        typenAus = try take(.typenAus, typenAus)
+        fragenAus = try take(.fragenAus, fragenAus)
     }
 }
 

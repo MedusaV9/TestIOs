@@ -120,7 +120,13 @@ public struct ChoiceCore: Codable, Equatable, Sendable {
     }
 
     public mutating func extend(ms: Int) { deadline += ms; timerMs += ms }
-    public mutating func shift(ms: Int) { deadline += ms; startedAt += ms }
+    /// Move the whole question timeline (pause, GM clock shift) — given answers keep their answer time.
+    public mutating func shift(ms: Int) {
+        deadline += ms
+        startedAt += ms
+        for (p, a) in answers { answers[p]?.at = a.at + ms }
+        for (p, t) in secondTryOpen { secondTryOpen[p] = t + ms }
+    }
 
     public func allAnswered(connected: Set<PlayerId>, players: [PlayerId]) -> Bool {
         let active = players.filter { connected.contains($0) && !(frozen[$0] ?? false) }

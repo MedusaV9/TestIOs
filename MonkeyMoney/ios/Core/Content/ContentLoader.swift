@@ -11,10 +11,12 @@ public struct PickOptions: Sendable {
     public var kidSafeOnly: Bool
     public var allowAdult: Bool
     public var mix: FragenMix
+    /// The Show-Master's switched-off categories/tiers/types/questions (never drawn).
+    public var filter: QuestionFilter
 
     public init(anzahl: Int, used: Set<String> = [], kategorien: [String] = [], schwierigkeiten: [Difficulty] = [],
                 typen: [QuestionType] = [], deAnteil: Double = 0.5, kidSafeOnly: Bool = false, allowAdult: Bool = false,
-                mix: FragenMix = .ausgewogen) {
+                mix: FragenMix = .ausgewogen, filter: QuestionFilter = .none) {
         self.anzahl = anzahl
         self.used = used
         self.kategorien = kategorien
@@ -24,6 +26,7 @@ public struct PickOptions: Sendable {
         self.kidSafeOnly = kidSafeOnly
         self.allowAdult = allowAdult
         self.mix = mix
+        self.filter = filter
     }
 }
 
@@ -77,7 +80,7 @@ public final class ContentCatalog: @unchecked Sendable {
             if !opts.typen.isEmpty && !opts.typen.contains(q.typ) { return false }
             if opts.kidSafeOnly && !q.isKidSafe { return false }
             if !opts.allowAdult && q.isAdultOnly { return false }
-            return true
+            return opts.filter.isEmpty || opts.filter.allows(q)
         }
     }
 
@@ -118,14 +121,16 @@ public final class ContentCatalog: @unchecked Sendable {
     /// With a pool, the vote runs over the pool's entries; a pool that is a
     /// single top-level category is broken down into its sub-categories so
     /// the vote still means something (Gaming → LoL / Minecraft / Pokémon …).
-    public func categoriesWithSupply(schwierigkeiten: [Difficulty], used: Set<String>, minimum: Int = 4, pool: [String] = []) -> [String] {
+    /// Switched-off categories/subs (and their questions) never become vote options.
+    public func categoriesWithSupply(schwierigkeiten: [Difficulty], used: Set<String>, minimum: Int = 4, pool: [String] = [], filter: QuestionFilter = .none) -> [String] {
         var perKat: [String: Int] = [:], perSub: [String: Int] = [:]
         for q in questions where !used.contains(q.id) && (schwierigkeiten.isEmpty || schwierigkeiten.contains(q.schw)) && q.typ.isChoiceLike {
             if !pool.isEmpty && !pool.contains(q.kat) && !pool.contains(q.sub) { continue }
+            if !filter.isEmpty && !filter.allows(q) { continue }
             perKat[q.kat, default: 0] += 1
             perSub[q.sub, default: 0] += 1
         }
-        if pool.isEmpty { return categories.map { $0.id }.filter { (perKat[$0] ?? 0) >= minimum } }
+        if pool.isEmpty { return categories.map { $0.id }.filter { !filter.kategorien.contains($0) && (perKat[$0] ?? 0) >= minimum } }
         let tops = categories.map { $0.id }.filter { pool.contains($0) }
         let subs = pool.filter { id in taxonomy.subcategory(id) != nil }
         var options: [String]
@@ -134,6 +139,6 @@ public final class ContentCatalog: @unchecked Sendable {
         } else {
             options = tops + subs
         }
-        return options.filter { id in (perKat[id] ?? 0) >= minimum || (perSub[id] ?? 0) >= minimum }
+        return options.filter { id in !filter.kategorien.contains(id) && ((perKat[id] ?? 0) >= minimum || (perSub[id] ?? 0) >= minimum) }
     }
 }

@@ -71,11 +71,20 @@ public struct CategoryInfo: Codable, Equatable, Sendable, Identifiable {
     public var name: String
     public var emoji: String
     public var farbe: String
+    /// Questions of this category (kid-safe applied).
     public var anzahl: Int
+    /// Inside the question pool (pool empty = everything).
     public var gewaehlt: Bool
     public var unter: [CategoryInfo]
+    /// Questions left after the difficulty/type/single-question filter (kid-safe applied).
+    public var aktiv: Int
+    /// Explicitly switched off (`kategorienAus`).
+    public var aus: Bool
+    /// Question count per tier ("easy"/"medium"/"hard"/"ultrahard"), type and ban filter applied.
+    public var proSchwierigkeit: [String: Int]
 
-    public init(id: String, name: String, emoji: String, farbe: String, anzahl: Int, gewaehlt: Bool, unter: [CategoryInfo] = []) {
+    public init(id: String, name: String, emoji: String, farbe: String, anzahl: Int, gewaehlt: Bool, unter: [CategoryInfo] = [],
+                aktiv: Int? = nil, aus: Bool = false, proSchwierigkeit: [String: Int] = [:]) {
         self.id = id
         self.name = name
         self.emoji = emoji
@@ -83,6 +92,9 @@ public struct CategoryInfo: Codable, Equatable, Sendable, Identifiable {
         self.anzahl = anzahl
         self.gewaehlt = gewaehlt
         self.unter = unter
+        self.aktiv = aktiv ?? anzahl
+        self.aus = aus
+        self.proSchwierigkeit = proSchwierigkeit
     }
 }
 
@@ -93,15 +105,15 @@ public extension ContentCatalog {
     }
 
     /// Questions of a pool (optionally kid-safe only).
-    func questions(inPool pool: [String], kidSafe: Bool = false) -> [Question] {
-        questions.filter { Self.inPool($0, pool) && (!kidSafe || $0.isKidSafe) }
+    func questions(inPool pool: [String], kidSafe: Bool = false, filter: QuestionFilter = .none) -> [Question] {
+        questions.filter { Self.inPool($0, pool) && (!kidSafe || $0.isKidSafe) && (filter.isEmpty || filter.allows($0)) }
     }
 
     /// Question count per type inside a pool — what the plan resolver uses to
     /// decide whether a format (estimate, sort, picture) can be served.
-    func typeCounts(pool: [String], kidSafe: Bool = false) -> [QuestionType: Int] {
+    func typeCounts(pool: [String], kidSafe: Bool = false, filter: QuestionFilter = .none) -> [QuestionType: Int] {
         var counts: [QuestionType: Int] = [:]
-        for q in questions(inPool: pool, kidSafe: kidSafe) { counts[q.typ, default: 0] += 1 }
+        for q in questions(inPool: pool, kidSafe: kidSafe, filter: filter) { counts[q.typ, default: 0] += 1 }
         return counts
     }
 
@@ -133,32 +145,47 @@ public extension ContentCatalog {
     }
 
     /// Presets with counts for the cockpit; sets without a single question are dropped.
-    func questionSetInfos(activePool: [String], kidSafe: Bool) -> [QuestionSetInfo] {
+    func questionSetInfos(activePool: [String], kidSafe: Bool, filter: QuestionFilter = .none) -> [QuestionSetInfo] {
         var activeId = QuestionSets.id(forPool: activePool, kidSafe: kidSafe)
         if let r = restriction, activePool.isEmpty { activeId = QuestionSets.id(forPool: r, kidSafe: kidSafe) }
         return QuestionSets.all.compactMap { set in
             // A restricted edition offers only the presets that live inside its slice.
             if let r = restriction, set.pool.isEmpty || !Set(set.pool).isSubset(of: Set(r)) { return nil }
-            let n = set.id == QuestionSets.eigenId ? questions(inPool: activePool, kidSafe: kidSafe).count : questions(inPool: set.pool, kidSafe: set.kidSafe).count
+            let n = set.id == QuestionSets.eigenId ? questions(inPool: activePool, kidSafe: kidSafe, filter: filter).count : questions(inPool: set.pool, kidSafe: set.kidSafe || kidSafe, filter: filter).count
             if n == 0 && set.id != QuestionSets.eigenId { return nil }
             return QuestionSetInfo(id: set.id, name: set.name, emoji: set.emoji, beschreibung: set.beschreibung, anzahl: n, aktiv: set.id == activeId)
         }
     }
 
-    /// Category tree with counts and selection state for the pool picker.
-    func categoryInfos(activePool: [String], kidSafe: Bool) -> [CategoryInfo] {
+    /// Category tree with counts and selection state for the pool picker and the filter.
+    func categoryInfos(activePool: [String], kidSafe: Bool, filter: QuestionFilter = .none) -> [CategoryInfo] {
         var perKat: [String: Int] = [:], perSub: [String: Int] = [:]
+        var aktivKat: [String: Int] = [:], aktivSub: [String: Int] = [:]
+        var tierKat: [String: [String: Int]] = [:], tierSub: [String: [String: Int]] = [:]
         for q in questions where !kidSafe || q.isKidSafe {
             perKat[q.kat, default: 0] += 1
             perSub[q.sub, default: 0] += 1
+            // Per-category counts ignore the category switch itself (`aus` says that).
+            if !filter.ids.contains(q.id) && !filter.typen.contains(q.typ) {
+                tierKat[q.kat, default: [:]][q.schw.rawValue, default: 0] += 1
+                tierSub[q.sub, default: [:]][q.schw.rawValue, default: 0] += 1
+                if !filter.schwierigkeiten.contains(q.schw) {
+                    aktivKat[q.kat, default: 0] += 1
+                    aktivSub[q.sub, default: 0] += 1
+                }
+            }
         }
         return categories.compactMap { c in
             guard let n = perKat[c.id], n > 0 else { return nil }
             let subs = subcategories(of: c.id).compactMap { s -> CategoryInfo? in
                 guard let m = perSub[s.id], m > 0 else { return nil }
-                return CategoryInfo(id: s.id, name: s.name, emoji: QuestionSets.leagueEmoji[s.id] ?? c.emoji, farbe: c.farbe, anzahl: m, gewaehlt: activePool.contains(s.id) || activePool.contains(c.id))
+                return CategoryInfo(id: s.id, name: s.name, emoji: QuestionSets.leagueEmoji[s.id] ?? c.emoji, farbe: c.farbe, anzahl: m,
+                                    gewaehlt: activePool.isEmpty || activePool.contains(s.id) || activePool.contains(c.id),
+                                    aktiv: aktivSub[s.id] ?? 0, aus: filter.kategorien.contains(s.id),
+                                    proSchwierigkeit: tierSub[s.id] ?? [:])
             }
-            return CategoryInfo(id: c.id, name: c.name, emoji: c.emoji, farbe: c.farbe, anzahl: n, gewaehlt: activePool.isEmpty || activePool.contains(c.id), unter: subs)
+            return CategoryInfo(id: c.id, name: c.name, emoji: c.emoji, farbe: c.farbe, anzahl: n, gewaehlt: activePool.isEmpty || activePool.contains(c.id), unter: subs,
+                                aktiv: aktivKat[c.id] ?? 0, aus: filter.kategorien.contains(c.id), proSchwierigkeit: tierKat[c.id] ?? [:])
         }
     }
 

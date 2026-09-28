@@ -35,6 +35,17 @@ public enum GmCommand: Codable, Equatable, Sendable {
     case boardgameLocal(sitz: String, action: PlayerAction)
     case botAdd(name: String, persona: String)
     case botRemove(PlayerId)
+    /// Annul the running question (no booking) and go on with the next one.
+    case questionSkip
+    /// Move the running question's clock by ±ms (at least 3 s stay on the clock).
+    case timerShift(ms: Int)
+    /// Swap the current question (given id or a random fitting one) and restart it.
+    case questionReplace(frageId: String?)
+    /// Swap an upcoming shelf question (absolute index in the section).
+    case regalSwap(index: Int, frageId: String?)
+    /// Ban / unban a single question (`settings.fragenAus`).
+    case questionBan(frageId: String)
+    case questionUnban(frageId: String)
 }
 
 public enum EngineAction: Equatable, Sendable {
@@ -72,10 +83,12 @@ public struct Engine: Sendable {
         static let kategorie = 15_000
         // Explain card: 3–5 rules read aloud; everyone tapping „Bereit“ shortcuts it.
         static let erklaer = 14_000
-        // Reveal = 2.4 s three-beat (zap, drum roll, silence) + time to read the result.
-        static let aufloesung = 7500
-        static let aufloesungErklaerung = 10_000
-        static let aufloesungRunde = 8000
+        // Reveal = 2.4 s three-beat (zap, drum roll, silence) + 2 s fanfare before the
+        // answer shows + time to read the result.
+        static let aufloesung = 9500
+        static let aufloesungErklaerung = 12_000
+        static let aufloesungRunde = 10_000
+        static let aufloesungKurzMax = 8500
         static let zwischenstand = 8000
         static let radDreh = 5000
         static let radDrehKurz = 3000
@@ -297,6 +310,9 @@ public struct Engine: Sendable {
             s.addMoment("halbzeit", "🍕 Halbzeit! Zwischenstand als Kurschart — weiter mit ▶", at: now)
             return
         }
+        // Round delta / place-before snapshot for the standings.
+        s.rundenStartBalance = Dictionary(uniqueKeysWithValues: s.players.map { ($0.id, $0.balance) })
+        s.rundenStartPlatz = Dictionary(uniqueKeysWithValues: s.players.map { ($0.id, s.place(of: $0.id)) })
         if section.typ == .finale, section.minigameId != "kokosnuss-shake" { prepareFinale(&s, now: now) }
         if section.typ == .jackpot { s.addMoment("jackpot", "💰 DIE JACKPOT-FRAGE! Doppelter Fragenwert + das Glas (\(Money.format(s.jackpotGlas)))", at: now) }
         if section.notariat { s.roundMods.notariat = true }
@@ -310,10 +326,13 @@ public struct Engine: Sendable {
 
     func enterKategorieWahl(_ s: inout EngineState, section: Section, now: Millis) {
         let pool = s.settings.kategorienPool
-        let supply = catalog.categoriesWithSupply(schwierigkeiten: section.schwierigkeiten, used: Set(s.usedQuestionIds), minimum: section.fragen, pool: pool)
+        let filter = s.settings.questionFilter
+        let supply = catalog.categoriesWithSupply(schwierigkeiten: filter.tiers(section.schwierigkeiten), used: Set(s.usedQuestionIds), minimum: section.fragen, pool: pool, filter: filter)
         // A narrow question set (one sub-category) leaves nothing to vote on — straight to the explain card.
-        if !pool.isEmpty && supply.count < 2 { enterErklaerkarte(&s, now: now); return }
-        var options = s.rng.shuffled(supply.isEmpty ? catalog.categories.map { $0.id } : supply)
+        if (!pool.isEmpty || !filter.kategorien.isEmpty) && supply.count < 2 { enterErklaerkarte(&s, now: now); return }
+        let fallback = catalog.categories.map { $0.id }.filter { !filter.kategorien.contains($0) }
+        if supply.isEmpty && fallback.count < 2 { enterErklaerkarte(&s, now: now); return }
+        var options = s.rng.shuffled(supply.isEmpty ? fallback : supply)
         options = Array(options.prefix(4))
         s.kategorie = CategoryVoteState()
         s.kategorie.optionen = options
@@ -361,24 +380,41 @@ public struct Engine: Sendable {
         enter(&s, .erklaerkarte, duration: dur, now: now)
     }
 
+    /// Pick options with everything the match imposes: used ids, region share,
+    /// kid-safe/adult rules and the Show-Master's question filter.
+    func pickOptions(_ s: EngineState, anzahl: Int, kategorien: [String], schwierigkeiten: [Difficulty], typen: [QuestionType] = [], mix: FragenMix = .ausgewogen) -> PickOptions {
+        PickOptions(anzahl: anzahl, used: Set(s.usedQuestionIds), kategorien: kategorien, schwierigkeiten: schwierigkeiten, typen: typen, deAnteil: s.settings.deAnteil,
+                    kidSafeOnly: s.settings.familienModus || s.players.contains { $0.kind }, allowAdult: s.settings.alkoholEdition, mix: mix,
+                    filter: s.settings.questionFilter)
+    }
+
+    /// Question types the (resolved) format of a section is built around.
+    func contentTypes(_ s: EngineState, _ section: Section) -> [QuestionType] {
+        if case .fragen(let t) = resolvedPlugin(s, section).meta.contentKind { return t }
+        return []
+    }
+
     /// Draw the questions of a section lazily (category may just have been voted).
     func prepareSectionQuestions(_ s: inout EngineState, section: Section) {
-        let plugin = MinigameRegistry.plugin(section.minigameId) ?? MinigameRegistry.plugin(MinigameRegistry.fallbackId)!
+        let plugin = resolvedPlugin(s, section)
         var count = section.fragen
         if plugin.meta.id == "affenbank" || plugin.meta.id == "stinkbanane" { count = max(count, 20) }
         var types: [QuestionType] = []
         if case .fragen(let t) = plugin.meta.contentKind { types = t }
         var used = Set(s.usedQuestionIds)
-        var opts = PickOptions(anzahl: count, used: used, kategorien: section.kategorie.map { [$0] } ?? s.settings.kategorienPool,
-                               schwierigkeiten: section.schwierigkeiten, typen: types, deAnteil: s.settings.deAnteil,
-                               kidSafeOnly: s.settings.familienModus || s.players.contains { $0.kind }, allowAdult: s.settings.alkoholEdition,
+        let pool = s.settings.kategorienPool
+        let filter = s.settings.questionFilter
+        // Switched-off tiers are never drawn; a section whose tiers are all off plays the nearest enabled ones.
+        let tiers = filter.tiers(section.schwierigkeiten)
+        var opts = pickOptions(s, anzahl: count, kategorien: section.kategorie.map { [$0] } ?? pool, schwierigkeiten: tiers, typen: types,
                                mix: section.typ == .runde ? s.settings.fragenMix : .ausgewogen)
+        opts.used = used
         var picked: [Question] = []
         if types.first == .bildPixel {
             // Picture riddles are the point of the Pixel-Dschungel: take them from any
             // category first (only a dozen exist), any difficulty, then fill up normally.
             var pix = opts
-            pix.kategorien = s.settings.kategorienPool
+            pix.kategorien = pool
             pix.typen = [.bildPixel]
             picked = catalog.pick(pix, rng: &s.rng)
             if picked.count < count {
@@ -391,8 +427,9 @@ public struct Engine: Sendable {
             opts.anzahl = count - picked.count
         }
         if picked.count < count { picked += catalog.pick(opts, rng: &s.rng) }
-        // Widening ladder, always inside the Show-Master's question set first:
-        // voted category → whole pool → any difficulty in the pool → (last resort) the whole catalogue.
+        // Widening ladder, always inside the Show-Master's question set and filter first:
+        // voted category → whole pool → any enabled difficulty in the pool → the whole catalogue
+        // → (very last resort) the filter relaxed (single-question bans stay).
         func refill(_ change: (inout PickOptions) -> Void) {
             guard picked.count < count else { return }
             change(&opts)
@@ -400,26 +437,37 @@ public struct Engine: Sendable {
             opts.anzahl = count - picked.count
             picked += catalog.pick(opts, rng: &s.rng)
         }
-        let pool = s.settings.kategorienPool
         if section.kategorie != nil, picked.count < count {
             refill { $0.kategorien = pool }
             if picked.count > 0 { s.addMoment("kategorie", "📚 Kategorie erschöpft — weiter mit dem Fragen-Set!", at: s.phaseStartedAt) }
         }
         refill { $0.schwierigkeiten = [] }
         if !pool.isEmpty, picked.count < count {
-            refill { $0.kategorien = []; $0.schwierigkeiten = section.schwierigkeiten }
+            refill { $0.kategorien = []; $0.schwierigkeiten = tiers }
             refill { $0.schwierigkeiten = [] }
             if picked.count > 0 { s.addMoment("kategorie", "📚 Fragen-Set erschöpft — der Rest kommt aus dem ganzen Katalog", at: s.phaseStartedAt) }
         }
-        // ULTRAHARD cap per match (§1.2): replace surplus with hard.
+        if picked.count < count, !filter.isEmpty {
+            let before = picked.count
+            refill { $0.filter = filter.onlyBans; $0.kategorien = pool; $0.schwierigkeiten = tiers }
+            refill { $0.schwierigkeiten = [] }
+            refill { $0.kategorien = [] }
+            if picked.count > before { s.addMoment("regie", "⚠️ Filter zu streng — nehme Ersatzfragen", at: s.phaseStartedAt) }
+        }
+        // ULTRAHARD cap per match (§1.2): replace surplus with the nearest enabled lower tier.
         let cap = Blueprints.blueprint(for: s.settings.modus).ultrahardMax
+        let lower = [Difficulty.hard, .medium, .easy].filter { !filter.schwierigkeiten.contains($0) }
         for i in picked.indices where picked[i].schw == .ultrahard && section.typ == .runde {
             if s.ultrahardCount >= cap {
+                guard !lower.isEmpty else { continue }
                 var o = opts
-                o.schwierigkeiten = [.hard]
+                o.filter = filter
+                o.schwierigkeiten = [lower[0]]
                 o.anzahl = 1
                 o.used = used.union(picked.map { $0.id })
-                if let r = catalog.pick(o, rng: &s.rng).first { picked[i] = r }
+                var r = catalog.pick(o, rng: &s.rng).first
+                if r == nil { o.schwierigkeiten = lower; r = catalog.pick(o, rng: &s.rng).first }
+                if let r = r { picked[i] = r }
             } else {
                 s.ultrahardCount += 1
             }
@@ -516,16 +564,61 @@ public struct Engine: Sendable {
         let ctx = context(s, now: now)
         let scores = plugin.scores(box.data, ctx)
         let outcomes = plugin.outcomes(box.data, ctx)
+        let rankBefore = s.ranking
+        let balanceBefore = Dictionary(uniqueKeysWithValues: s.players.map { ($0.id, $0.balance) })
+        let korrektText = plugin.gmInfo(box.data, ctx).question?.korrekt
         let deltas = Scoring.book(&s, catalog: catalog, plugin: plugin, scores: scores, outcomes: outcomes, now: now)
+        s.lastReveal = revealSummary(s, plugin: plugin, outcomes: outcomes, deltas: deltas, rankBefore: rankBefore, balanceBefore: balanceBefore,
+                                     korrektText: korrektText)
+        revealMoments(&s, plugin: plugin, now: now)
         s.lastRoundQuestionAt = now
         s.questionsSinceWheel += 1
         let hasExplanation = (plugin.stage(box.data, true, ctx).wall?.erklaerung?.isEmpty == false)
         var dur = plugin.meta.roundBased ? Dur.aufloesungRunde : (hasExplanation ? Dur.aufloesungErklaerung : Dur.aufloesung)
-        if s.settings.kurzeShow { dur = min(dur, 7000) }
+        if s.settings.kurzeShow { dur = min(dur, Dur.aufloesungKurzMax) }
         enter(&s, .aufloesung, duration: dur, now: now)
         s.lastDeltas = deltas
         if let best = deltas.max(by: { $0.value < $1.value }), best.value >= 750, let p = s.player(best.key) {
             s.addMoment("money", "💸 \(p.name) kassiert \(Money.format(best.value))!", player: p.id, betrag: best.value, at: now)
+        }
+    }
+
+    /// Before/after snapshot of a booking for the reveal animation.
+    func revealSummary(_ s: EngineState, plugin: AnyMinigame, outcomes: [PlayerId: Outcome], deltas: [PlayerId: Int], rankBefore: [Player],
+                       balanceBefore: [PlayerId: Int], korrektText: String?) -> RevealSummary {
+        let after = s.ranking
+        var entries: [RevealEntry] = []
+        for (i, p) in after.enumerated() {
+            let o = outcomes[p.id]
+            let ms = o?.correct != nil ? o?.answeredAfterMs : nil
+            entries.append(RevealEntry(playerId: p.id, richtig: o?.correct, delta: deltas[p.id] ?? 0,
+                                       speedBonus: o?.correct == true && o?.answeredAfterMs != nil ? o?.speedBonus : nil, antwortMs: ms,
+                                       streak: plugin.meta.streak ? p.streak : 0, platzVorher: (rankBefore.firstIndex { $0.id == p.id } ?? i) + 1,
+                                       platzNachher: i + 1, balanceVorher: balanceBefore[p.id] ?? p.balance - (deltas[p.id] ?? 0)))
+        }
+        let fastest = entries.filter { $0.richtig == true && $0.antwortMs != nil }.min { $0.antwortMs! < $1.antwortMs! }
+        let text = korrektText.flatMap { ["", "?", "—"].contains($0) ? nil : $0 }
+        let leaderChange = after.count >= 2 && rankBefore.first?.id != after.first?.id && rankBefore.contains { $0.balance != 0 } && (after.first?.balance ?? 0) > (after.dropFirst().first?.balance ?? 0)
+        return RevealSummary(eintraege: entries, schnellster: fastest?.playerId, schnellsterMs: fastest?.antwortMs, richtigText: text,
+                             richtigAnzahl: entries.filter { $0.richtig == true }.count, antwortAnzahl: entries.filter { $0.richtig != nil }.count,
+                             fuehrungswechsel: leaderChange)
+    }
+
+    /// Reveal banners: streak milestone, fastest correct answer, new leader — at most one of each per question.
+    func revealMoments(_ s: inout EngineState, plugin: AnyMinigame, now: Millis) {
+        guard let r = s.lastReveal else { return }
+        if plugin.meta.streak, !s.isFinale,
+           let e = r.eintraege.filter({ $0.richtig == true && ($0.streak == 3 || $0.streak == 5) }).max(by: { $0.streak < $1.streak }), let p = s.player(e.playerId) {
+            let f = Economy.streakFactor(e.streak)
+            let label = f == f.rounded() ? String(Int(f)) : String(format: "%.1f", f).replacingOccurrences(of: ".", with: ",")
+            s.addMoment("serie", "🔥 \(p.name): \(e.streak)er-Serie! ×\(label)", player: p.id, at: now)
+        }
+        if r.antwortAnzahl >= 2, s.players.count >= 2, let id = r.schnellster, let ms = r.schnellsterMs, let p = s.player(id) {
+            let sec = String(format: "%.1f", Double(ms) / 1000).replacingOccurrences(of: ".", with: ",")
+            s.addMoment("schnell", "⚡ \(p.name) am schnellsten (\(sec) s)", player: id, at: now)
+        }
+        if r.fuehrungswechsel, let leader = s.leader {
+            s.addMoment("fuehrung", "👑 Neue Spitze: \(leader.name)", player: leader.id, at: now)
         }
     }
 

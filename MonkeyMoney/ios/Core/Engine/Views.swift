@@ -195,6 +195,61 @@ public struct PlayerView: Codable, Equatable, Sendable {
     public var jackpotHinweis: String
     /// Round progress 0…1 for the phone's thin progress line.
     public var progress: Double
+    /// My result of the question just revealed (only during `aufloesung`).
+    public var ergebnis: PlayerErgebnis? = nil
+    /// Match stats so far (right / wrong / longest streak).
+    public var stats: PlayerStatsView = PlayerStatsView()
+}
+
+/// The phone's reveal card data (animated by the client).
+public struct PlayerErgebnis: Codable, Equatable, Sendable {
+    public var richtig: Bool?
+    public var delta: Int
+    public var speedBonus: Int?
+    public var platzVorher: Int
+    public var platzNachher: Int
+    public var balance: Int
+    public var richtigText: String?
+    public var antwortMs: Int?
+    public var streak: Int
+    /// Streak multiplier that applied (1.0 / 1.5 / 2.0).
+    public var streakFaktor: Double
+}
+
+public struct PlayerStatsView: Codable, Equatable, Sendable {
+    public var richtig = 0
+    public var falsch = 0
+    public var laengsteSerie = 0
+    public init(richtig: Int = 0, falsch: Int = 0, laengsteSerie: Int = 0) {
+        self.richtig = richtig
+        self.falsch = falsch
+        self.laengsteSerie = laengsteSerie
+    }
+}
+
+/// One player's line in the reveal summary.
+public struct RevealEntry: Codable, Equatable, Sendable {
+    public var playerId: PlayerId
+    /// nil = no answer / format without right-or-wrong.
+    public var richtig: Bool?
+    public var delta: Int
+    public var speedBonus: Int?
+    public var antwortMs: Int?
+    public var streak: Int
+    public var platzVorher: Int
+    public var platzNachher: Int
+    public var balanceVorher: Int
+}
+
+/// Everything the stage needs to animate a reveal (captured at booking time).
+public struct RevealSummary: Codable, Equatable, Sendable {
+    public var eintraege: [RevealEntry]
+    public var schnellster: PlayerId?
+    public var schnellsterMs: Int?
+    public var richtigText: String?
+    public var richtigAnzahl: Int
+    public var antwortAnzahl: Int
+    public var fuehrungswechsel: Bool
 }
 
 // MARK: Stage
@@ -335,6 +390,10 @@ public struct StandingEntry: Codable, Equatable, Sendable {
     public var player: PlayerRef
     public var delta: Int
     public var rueckenwind: Double
+    /// Sum of all bookings in the current section (balance now − balance at section start).
+    public var rundenDelta: Int = 0
+    /// Place at section start.
+    public var platzVorher: Int = 0
 }
 
 public struct LobbyInfo: Codable, Equatable, Sendable {
@@ -389,7 +448,7 @@ public indirect enum StageScene: Codable, Equatable, Sendable {
     case kategorieWahl(optionen: [VoteOption], letzter: PlayerRef?, deadline: Millis?, countdownAb: Millis?, gewinner: String?)
     case erklaerkarte(ExplainCardView)
     case frage(wall: QuestionWall?, extra: StageExtra, minigameId: String, sectionKind: SectionKind, title: String)
-    case aufloesung(wall: QuestionWall?, extra: StageExtra, deltas: [PlayerId: Int], minigameId: String, sectionKind: SectionKind)
+    case aufloesung(wall: QuestionWall?, extra: StageExtra, deltas: [PlayerId: Int], minigameId: String, sectionKind: SectionKind, reveal: RevealSummary? = nil)
     case zwischenstand(entries: [StandingEntry], rundenNummer: Int, rundenGesamt: Int, deadline: Millis?, halbzeit: Bool)
     case rad(WheelView)
     case pause(text: String, endsAt: Millis?, standings: [StandingEntry])
@@ -465,6 +524,19 @@ public struct GmQuestionInfo: Codable, Equatable, Sendable {
     public var erklaerung: String
     public var tipps: [String]
     public var typ: QuestionType
+    /// Options (choice-like / mehrfach / sortier elements) — shelf items only.
+    public var antworten: [String]? = nil
+    /// Absolute index in the section's question list (shelf items, for `regalSwap`).
+    public var index: Int? = nil
+    /// Shelf item can still be swapped (not yet handed to a running round format).
+    public var tauschbar: Bool? = nil
+}
+
+/// Structured live answer for the GM cockpit.
+public struct GmAnswerDetail: Codable, Equatable, Sendable {
+    public var text: String
+    public var ms: Int?
+    public var richtig: Bool?
 }
 
 public struct GmView: Codable, Equatable, Sendable {
@@ -493,4 +565,10 @@ public struct GmView: Codable, Equatable, Sendable {
     public var poolInfo: String
     /// Settings that only take effect in the lobby (the plan is built at start).
     public var lobbyOnlySettings: [String]
+    /// Live answers, structured (the `antworten` strings stay for compatibility).
+    public var antwortenDetail: [PlayerId: GmAnswerDetail] = [:]
+    /// The filterable catalogue (tiers, types, category tree with counts).
+    public var katalog: KatalogInfo? = nil
+    /// Id of the question on the wall (or about to be asked on the explain card).
+    public var aktuelleFrageId: String? = nil
 }
