@@ -360,8 +360,12 @@ public struct Engine: Sendable {
         var counts: [String: Int] = [:]
         for v in s.kategorie.stimmen.values { counts[v, default: 0] += 1 }
         let winner: String
-        if let best = counts.max(by: { a, b in a.value != b.value ? a.value < b.value : (s.rng.next() < 0.5) }) {
-            winner = best.key
+        // Deterministic tie-break: candidates in the order they were offered, then the seeded RNG
+        // (dictionary order is randomised per process and must never decide a vote).
+        let top = counts.values.max() ?? 0
+        let tied = s.kategorie.optionen.filter { counts[$0] == top } + counts.keys.sorted().filter { counts[$0] == top && !s.kategorie.optionen.contains($0) }
+        if top > 0, let best = tied.count == 1 ? tied.first : s.rng.pick(tied) {
+            winner = best
         } else {
             winner = s.rng.pick(s.kategorie.optionen) ?? catalog.categories.first?.id ?? "kurioses_mixed"
         }

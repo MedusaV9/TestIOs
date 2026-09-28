@@ -249,6 +249,12 @@ final class GmToolsTests: XCTestCase {
             XCTAssertFalse(hub.allowed(cmd, for: screen))
         }
         XCTAssertTrue(hub.allowed(.botAdd(name: "x", persona: "y"), for: gm))
+        // Bot commands go to the room layer (ShowHost), not the engine.
+        var hooked: [GmCommand] = []
+        hub.botHook = { cmd, _ in hooked.append(cmd) }
+        _ = hub.stageCommand(.botAdd(name: "Kokos", persona: "gitti-giro"), now: 0)
+        _ = hub.stageCommand(.botRemove("bot_0"), now: 0)
+        XCTAssertEqual(hooked, [.botAdd(name: "Kokos", persona: "gitti-giro"), .botRemove("bot_0")])
         XCTAssertTrue(hub.allowed(.lookSet(playerId: "p", avatar: Avatar()), for: gm))
     }
 }

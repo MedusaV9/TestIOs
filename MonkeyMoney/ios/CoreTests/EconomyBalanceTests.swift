@@ -109,8 +109,10 @@ final class EconomyBalanceTests: XCTestCase {
             let (s, rounds) = play(modus: .klassik, players: 4, seed: seed)
             let normalTotal = rounds.filter { $0.kind == .runde }.reduce(0) { $0 + $1.paidOut }
             if let jackpot = rounds.first(where: { $0.kind == .jackpot }) {
-                // The jackpot beat is at most a third of everything the normal rounds paid.
-                XCTAssertLessThanOrEqual(jackpot.paidOut, normalTotal / 3 + 500, "jackpot \(jackpot.paidOut) vs rounds \(normalTotal) (seed \(seed))")
+                // Per winner, the jackpot beat is at most ~60 % of what a player earns in all
+                // normal rounds on average (independent of how many happened to answer right).
+                let perPlayer = normalTotal / max(1, s.players.count)
+                XCTAssertLessThanOrEqual(jackpot.maxSingle, perPlayer * 6 / 10 + 500, "jackpot win \(jackpot.maxSingle) vs \(perPlayer) per player from rounds (seed \(seed))")
                 XCTAssertLessThanOrEqual(jackpot.maxSingle, 1500 + 3000)
             }
             // Finale: W_final keeps the formula, nobody drops below zero.

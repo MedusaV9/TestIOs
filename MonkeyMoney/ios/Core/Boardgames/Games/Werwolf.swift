@@ -155,7 +155,10 @@ public enum Werwolf: BoardgamePlugin {
         case "nacht-wolf":
             var counts: [String: Int] = [:]
             for v in s.wolfVotes.values { counts[v, default: 0] += 1 }
-            s.victim = counts.max { a, b in a.value != b.value ? a.value < b.value : ctx.rng.next() < 0.5 }?.key
+            // Ties: sorted ids + seeded RNG (never dictionary order — it differs per process).
+            let top = counts.values.max() ?? 0
+            let tied = counts.keys.sorted().filter { counts[$0] == top }
+            s.victim = tied.count <= 1 ? tied.first : ctx.rng.pick(tied)
             if aliveWith(s, role: "seherin").isEmpty {
                 enterHexe(&s, ctx: &ctx)
             } else {

@@ -27,6 +27,8 @@ public final class RoomHub: @unchecked Sendable {
     public var lastBroadcastSeq = -1
     public var onStateChanged: ((EngineState) -> Void)?
     public var profileHook: ProfileHook?
+    /// Room-layer commands the engine can't do itself (bots live in the ShowHost).
+    public var botHook: ((GmCommand, Millis) -> Void)?
     private var lastPhase: Phase
     private var matchBookedId: String?
 
@@ -85,7 +87,10 @@ public final class RoomHub: @unchecked Sendable {
         case .gm(let cmd):
             guard let session = session(for: connection) else { return [Outgoing(connection: connection, message: .error(code: "no-session", message: "Bitte erst beitreten."))] }
             guard allowed(cmd, for: session) else { return [Outgoing(connection: connection, message: .error(code: "forbidden", message: "Dafür braucht es den Show-Master."))] }
-            engine.reduce(&state, .gm(cmd), now: now)
+            switch cmd {
+            case .botAdd, .botRemove: botHook?(cmd, now)
+            default: engine.reduce(&state, .gm(cmd), now: now)
+            }
             return broadcast(now: now, force: true)
         case .ping(let t0):
             if let s = session(for: connection) { sessions[s.token]?.lastSeen = now }
@@ -253,7 +258,10 @@ public final class RoomHub: @unchecked Sendable {
     public func gmView(now: Millis) -> GmView { engine.gmView(state, now: now, joinURL: joinURL, gmURL: gmURL) }
 
     public func stageCommand(_ cmd: GmCommand, now: Millis) -> [Outgoing] {
-        engine.reduce(&state, .gm(cmd), now: now)
+        switch cmd {
+        case .botAdd, .botRemove: botHook?(cmd, now)
+        default: engine.reduce(&state, .gm(cmd), now: now)
+        }
         return broadcast(now: now, force: true)
     }
 

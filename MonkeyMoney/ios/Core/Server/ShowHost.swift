@@ -122,6 +122,15 @@ public final class ShowHost: @unchecked Sendable {
         }
         let hub = RoomHub(engine: engine, state: state, joinBaseURL: "http://\(lanIP):\(port)")
         engine.reduce(&hub.state, .screenPresence(true), now: now)
+        hub.botHook = { [weak self] cmd, _ in
+            guard let self else { return }
+            switch cmd {
+            case .botAdd(let name, let persona): self.addBot(persona: persona, name: name)
+            case .botRemove(let id):
+                if self.server.hub.state.player(id)?.isBot == true { self.engine.reduce(&self.server.hub.state, .leave(id), now: self.clock()) }
+            default: break
+            }
+        }
         server.replaceHubOnQueue(hub)
         showActive = true
         lastPhase = hub.state.phase
@@ -310,14 +319,18 @@ public final class ShowHost: @unchecked Sendable {
         }
     }
 
-    private func addBot() {
+    /// Seat a bot; `persona` (name or monkey id) picks a specific one when free, `name` renames it.
+    private func addBot(persona: String? = nil, name: String? = nil) {
         let hub = server.hub
         let taken = Set(hub.state.players.map(\.id))
-        guard let n = (0..<Self.personas.count).first(where: { !taken.contains("bot_\($0)") }) else { return }
+        let free = (0..<Self.personas.count).filter { !taken.contains("bot_\($0)") }
+        let wanted = persona.flatMap { w in free.first { Self.personas[$0].0 == w || Self.personas[$0].1 == w || "bot_\($0)" == w } }
+        guard let n = wanted ?? free.first else { return }
         let cap = hub.state.settings.spielModus == .spieleabend ? Engine.maxPlayersSpieleabend : Engine.maxPlayers
         guard hub.state.players.count < cap else { return }
         let p = Self.personas[n]
-        engine.reduce(&hub.state, .join(playerId: "bot_\(n)", name: "\(p.0) 🤖", avatar: Avatar(affe: p.1, farbe: p.2), profileId: nil, isBot: true), now: clock())
+        let label = name.map { $0.trimmingCharacters(in: .whitespaces) }.flatMap { $0.isEmpty ? nil : String($0.prefix(18)) } ?? p.0
+        engine.reduce(&hub.state, .join(playerId: "bot_\(n)", name: "\(label) 🤖", avatar: Avatar(affe: p.1, farbe: p.2), profileId: nil, isBot: true), now: clock())
     }
 
     private func removeBots() {

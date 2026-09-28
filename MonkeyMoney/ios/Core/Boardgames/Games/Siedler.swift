@@ -394,7 +394,7 @@ public enum Siedler: BoardgamePlugin {
 
     static func autoDiscard(_ s: inout State, _ sitz: String) {
         var need = handCount(s, sitz) / 2
-        while need > 0, let biggest = (s.hands[sitz] ?? [:]).max(by: { $0.value < $1.value }), biggest.value > 0 {
+        while need > 0, let biggest = (s.hands[sitz] ?? [:]).sorted(by: { $0.key < $1.key }).max(by: { $0.value < $1.value }), biggest.value > 0 {
             s.hands[sitz, default: [:]][biggest.key, default: 0] -= 1
             need -= 1
         }
