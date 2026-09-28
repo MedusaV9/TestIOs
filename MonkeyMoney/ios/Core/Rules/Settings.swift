@@ -545,7 +545,8 @@ public enum Blueprints {
             return ModeBlueprint(runden: [
                 RoundBlueprint(.opener, "affenzahn", 6, opener, .keine, false),
                 RoundBlueprint(.aufbau, "affenschaukel", 5, aufbau, .keine, false),
-                RoundBlueprint(.risiko, "letzter-affe", 8, aufbau, .keine, false),
+                // Medium tier: the survival bonus must not dwarf the two opening rounds of a 10-minute show.
+                RoundBlueprint(.risiko, "letzter-affe", 8, geld, .keine, false),
             ], jackpotFrage: false, finaleFragen: 3, ultrahardMax: 1, halbzeitNach: nil)
         case .party:
             // Opinions, memory, bluffing and chaos — knowledge is a side dish.
@@ -563,7 +564,8 @@ public enum Blueprints {
                 RoundBlueprint(.opener, "bananen-basics", 5, aufbau, .keine, false),
                 RoundBlueprint(.aufbau, "letzter-affe", 10, aufbau, .voting, false),
                 RoundBlueprint(.aufbau, "bananen-tresor", 4, konflikt, .voting, false),
-                RoundBlueprint(.konflikt, "affenzahn", 6, konflikt, .voting, false),
+                // Speed podium pays up to 4.5 F per question → medium/hard like the knowledge rounds, not hard-only.
+                RoundBlueprint(.konflikt, "affenzahn", 5, aufbau, .voting, false),
                 RoundBlueprint(.konflikt, "affenleiter", 4, konflikt, .voting, false),
                 RoundBlueprint(.risiko, "risiko-leiter", 8, leiter, .voting, false, v2: true),
             ], jackpotFrage: true, finaleFragen: 5, ultrahardMax: 3, halbzeitNach: nil)
