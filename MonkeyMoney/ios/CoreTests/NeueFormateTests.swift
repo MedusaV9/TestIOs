@@ -310,7 +310,12 @@ final class NeueFormateTests: XCTestCase {
         XCTAssertTrue(loners.mehrheit.isEmpty, "a herd needs at least two monkeys")
         XCTAssertEqual(Set(loners.einzel), ["a", "b", "c"])
         XCTAssertTrue(loners.punkte.values.allSatisfy { $0 == 0 })
-        XCTAssertGreaterThanOrEqual(Herdentrieb.fragen.count, 60)
+        XCTAssertGreaterThanOrEqual(Herdentrieb.fragen.count, 160)
+        for q in Herdentrieb.fragen {
+            XCTAssert((2...4).contains(q.optionen.count), "2–4 options: \(q.text)")
+            XCTAssertEqual(q.optionen.count, q.emojis.count, q.text)
+            XCTAssertEqual(Set(q.optionen).count, q.optionen.count, "distinct options: \(q.text)")
+        }
         XCTAssertEqual(Set(Herdentrieb.fragen.map { $0.text }).count, Herdentrieb.fragen.count, "no duplicate prompts")
     }
 

@@ -31,6 +31,8 @@ public enum QuestionSets {
     /// Lore, Esports, Mechanik, Kultur) — multiple subs so the category vote has options.
     public static let leaguePool = ["league_of_legends", "lol_champions", "lol_lore", "lol_esports", "lol_mechanik", "lol_kultur"]
     /// Emoji for the League sub-categories (instead of the parent's 🎮).
+    /// Every gaming sub-category except the League ones (the "Gaming ohne LoL" preset).
+    public static let gamingOhneLeague = ["pokemon", "minecraft", "fortnite_battle_royale", "nintendo_universum", "retro_arcade", "esport_gaming_kultur", "deutsche_gaming_szene"]
     public static let leagueEmoji: [String: String] = ["league_of_legends": "⚔️", "lol_champions": "🧙", "lol_lore": "📜", "lol_esports": "🏆", "lol_mechanik": "🗺️", "lol_kultur": "🎤"]
 
     public static let all: [QuestionSet] = [
@@ -41,6 +43,12 @@ public enum QuestionSets {
         QuestionSet(id: "wissen", name: "Wissen", emoji: "🔬", beschreibung: "Wissenschaft, Geschichte, Geographie, Tiere, Technik", pool: ["wissenschaft", "geschichte", "geographie", "tiere_natur", "technik_autos"]),
         QuestionSet(id: "deutschland", name: "Deutschland", emoji: "🇩🇪", beschreibung: "Deutschland-Spezial: Politik, Sprache, Alltag, Gesetze", pool: ["deutschland_spezial"]),
         QuestionSet(id: "sport", name: "Sport", emoji: "⚽", beschreibung: "Bundesliga, Olympia, Rekorde", pool: ["sport"]),
+        QuestionSet(id: "retro_gaming", name: "Gaming ohne LoL", emoji: "🕹️", beschreibung: "Pokémon, Minecraft, Nintendo, Fortnite, Retro, Esport — ganz ohne Runeterra", pool: gamingOhneLeague),
+        QuestionSet(id: "natur", name: "Natur & Tiere", emoji: "🐾", beschreibung: "Säugetiere, Meer, Insekten, heimischer Wald, Pflanzen, Tier-Rekorde & Wetter", pool: ["tiere_natur"]),
+        QuestionSet(id: "essen", name: "Essen & Trinken", emoji: "🍕", beschreibung: "Deutsche & internationale Küche, Snacks, Getränke, Fast Food, Obst & Gemüse", pool: ["essen_trinken"]),
+        QuestionSet(id: "kultur", name: "Kunst & Kultur", emoji: "🎨", beschreibung: "Gemälde, Weltliteratur, Dichter, Architektur, Comics, Musical, Märchen & Sagen", pool: ["kunst_literatur"]),
+        QuestionSet(id: "technik", name: "Technik & Autos", emoji: "🚗", beschreibung: "Autos, Gadgets, Computer, KI, Raumfahrt, Bahn & Energie", pool: ["technik_autos"]),
+        QuestionSet(id: "weltreise", name: "Geschichte & Geographie", emoji: "🗺️", beschreibung: "Antike bis Mauerfall, Länder, Flaggen, Städte & Rekorde der Erde", pool: ["geschichte", "geographie"]),
         QuestionSet(id: "kinder", name: "Kinder & Familie", emoji: "🧒", beschreibung: "Alle Kategorien, nur kindgerechte Fragen", pool: [], kidSafe: true),
         QuestionSet(id: eigenId, name: "Eigene Auswahl", emoji: "🎛️", beschreibung: "Kategorien und Unterkategorien selbst zusammenstellen", pool: []),
     ]

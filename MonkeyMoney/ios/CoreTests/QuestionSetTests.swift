@@ -26,6 +26,26 @@ final class QuestionSetTests: XCTestCase {
         for i in infos where i.id != QuestionSets.eigenId { XCTAssertGreaterThan(i.anzahl, 0, i.id) }
     }
 
+    func testThemedPresetsAreWellStockedAndDistinct() {
+        let themed = ["retro_gaming", "natur", "essen", "kultur", "technik", "weltreise"]
+        for id in themed {
+            guard let set = QuestionSets.set(id) else { return XCTFail("missing preset \(id)") }
+            let qs = catalog.questions(inPool: set.pool)
+            XCTAssertGreaterThanOrEqual(qs.count, 400, id)
+            // A themed evening still offers every difficulty and the special formats.
+            for d in Difficulty.allCases { XCTAssertGreaterThan(qs.filter { $0.schw == d }.count, 20, "\(id) \(d)") }
+            for t in [QuestionType.wahrFalsch, .schaetz, .sortier] { XCTAssertGreaterThan(qs.filter { $0.typ == t }.count, 10, "\(id) \(t)") }
+            // Picking the pool by hand reads as the preset again.
+            XCTAssertEqual(QuestionSets.id(forPool: set.pool, kidSafe: false), id)
+        }
+        XCTAssertTrue(catalog.questions(inPool: QuestionSets.gamingOhneLeague).allSatisfy { !QuestionSets.leaguePool.contains($0.sub) })
+        let gamingSubs = Set(catalog.subcategories(of: "gaming").map { $0.id })
+        XCTAssertEqual(Set(QuestionSets.gamingOhneLeague).union(QuestionSets.leaguePool), gamingSubs, "Gaming ohne LoL covers every non-League sub")
+        // Pools are unique, so `id(forPool:)` is unambiguous.
+        let pools = QuestionSets.all.filter { $0.id != QuestionSets.eigenId }.map { "\(Set($0.pool).sorted())|\($0.kidSafe)" }
+        XCTAssertEqual(Set(pools).count, pools.count)
+    }
+
     func testSettingsPatchAppliesPresetAndDetectsCustomPool() {
         var s = MatchSettings(modus: .klassik)
         s.apply(patch: ["fragenSet": .string("league")])
