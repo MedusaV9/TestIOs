@@ -29,7 +29,8 @@ export function chromePath() {
 }
 
 export async function startServer(port, args = []) {
-  const bin = path.join(IOS, ".build/debug/mm-dev-server");
+  // MM_SERVER: use a dev server from another build dir (parallel work with `swift build --scratch-path`).
+  const bin = process.env.MM_SERVER || path.join(IOS, ".build/debug/mm-dev-server");
   const proc = spawn(bin, [String(port), ...args, `storage=/tmp/mm-web-check-${port}`], { stdio: ["ignore", "pipe", "pipe"] });
   let out = "";
   proc.stdout.on("data", d => (out += d));
