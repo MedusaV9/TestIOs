@@ -15,6 +15,7 @@ function loadPlaywright() {
     "playwright-core",
     "playwright",
     "/opt/toolchains/.nvm/versions/node/v22.23.2/lib/node_modules/@playwright/mcp/node_modules/playwright-core",
+    "/root/.nvm/versions/node/v22.23.2/lib/node_modules/@playwright/mcp/node_modules/playwright-core",
   ];
   for (const c of candidates) { try { return require(c); } catch (_) {} }
   throw new Error("playwright-core not found (npm i -D playwright-core)");
