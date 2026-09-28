@@ -1,14 +1,19 @@
 // Monkey Money — Show-Master cockpit (phone/tablet). Regie, players, tools,
-// question pool and settings — every tool is a bottom sheet.
+// question catalogue and settings — every tool is a bottom sheet.
 import { html, render, useState, useEffect, useRef } from "../vendor/preact-htm.js";
-import { connect, decode, cx, fmtMM, fmtNum, haptic, DIFF } from "../lib/core.js";
+import { connect, decode, cx, fmtNum, fmtDelta, haptic, useNow, serverNow, MONKEYS, COLORS, colorHex, avatarParts } from "../lib/core.js";
 import { Monkey, Money, TimerBar } from "../lib/ui.js";
+import { Katalog, Answers, TIER_META, TYPE_META, katalogSummary } from "../lib/katalog.js";
 
 const params = new URLSearchParams(location.search);
 const SOUNDS = [["applaus_gross", "👏 Applaus"], ["trommelwirbel", "🥁 Trommelwirbel"], ["falsch", "❌ Fail"], ["dreiklang_tief", "😮 Ohhh!"], ["kaching", "💰 Kassen-Kling"], ["slime", "🦗 Grillen"], ["muenzregen", "🎊 Münzregen"], ["jingle_sax", "🎷 Sax"], ["buzzer_airhorn", "📯 Airhorn"]];
 const JOKERS = [["bananen-split", "🍌 Bananen-Split"], ["ueberziehungskredit", "⏳ Überziehungskredit"], ["goldene-banane", "✨ Goldene Banane"], ["schmiergeld", "🤫 Schmiergeld"], ["rueckgaberecht", "↩️ Rückgaberecht"], ["bananentresor", "🛡️ Bananentresor"], ["portfolio-umschichtung", "🔄 Portfolio-Umschichtung"]];
 const SEGMENTS = [["doppelter-zaster", "💰 Doppelter Zaster"], ["halbe-miete", "⏱️ Halbe Miete"], ["banana-bailout", "🪂 Banana Bailout"], ["dividende", "📈 Dividende"], ["insider-tipp", "🕵️ Insider-Tipp"], ["inflation", "🎈 Inflation"], ["affentheater", "🎭 Affentheater"], ["boersen-roulette", "📊 Börsen-Roulette"], ["umarmungs-bonus", "🤗 Umarmungs-Bonus"], ["steuerpruefung", "🧾 Steuerprüfung"], ["blackout", "🌑 Blackout"], ["tausch-boerse", "🔁 Tausch-Börse"], ["affe-wuerfelt", "🎲 Der Affe würfelt"], ["kompliment-konto", "💬 Kompliment-Konto"]];
 const RULES = [["sr1", "🎰 Vabanque-Finale"], ["sr2", "🦅 Pleitegeier"], ["sr3", "🤫 Notariats-Runde"], ["sr4", "📦 Affensteuer"], ["sr5", "🤠 Kopfgeld"], ["sr6", "🔔 Kapitalismus-Gong"], ["sr7", "🍌 Bananenschale"]];
+const MIXES = [["locker", "🍌 Locker"], ["ausgewogen", "⚖️ Ausgewogen"], ["knifflig", "🧠 Knifflig"]];
+// Bot personas (mirrors ShowHost.personas).
+const PERSONAS = [["Kokos", "gitti-giro", "gruen", "Streberin · 85 %"], ["Splitter", "kiki-krawall", "rot", "Chaotin · 60 %"], ["Banana Joe", "schnarch-schorsch", "gelb", "Gemütlich · 55 %"], ["Prof. Pavian", "baron-von-bananenstein", "lila", "Besserwisser · 75 %"], ["Chaos-Kalle", "kahuna-kalle", "tuerkis", "Zocker · 50 %"], ["Glitzer-Gabi", "glitzer-gina", "pink", "Diva · 65 %"], ["Astro-Anton", "astro-astrid", "blau", "Nerd · 70 %"], ["DJ Dosenbier", "dj-trommelfell", "orange", "Party · 45 %"]];
+const QUESTION_PHASES = ["erklaerkarte", "frage"];
 
 function App() {
   const saved = (() => { try { return JSON.parse(localStorage.getItem("mm:gm")); } catch (_) { return null; } })();
@@ -34,9 +39,9 @@ function App() {
     });
   };
   useEffect(() => { if (saved && saved.code === code0) start({ t: "hello", roomCode: code0, role: "gm", sessionToken: saved.token }); }, []);
-  const cmd = c => { conn.current && conn.current.send({ t: "gm", cmd: c }); haptic(); };
+  const cmd = c => { const ok = conn.current && conn.current.send({ t: "gm", cmd: c }); haptic(); if (!ok) say("⚠️ Keine Verbindung"); return ok; };
   return html`<div class="gm">
-    ${view ? html`<${Cockpit} view=${view} cmd=${cmd} say=${say} />` : html`<${Login} code0=${code0} err=${err} onGo=${(code, pin) => start({ t: "hello", roomCode: code, role: "gm", gmPin: pin })} />`}
+    ${view ? html`<${Cockpit} view=${view} cmd=${cmd} say=${say} online=${online} />` : html`<${Login} code0=${code0} err=${err} onGo=${(code, pin) => start({ t: "hello", roomCode: code, role: "gm", gmPin: pin })} />`}
     ${!online && view && html`<div class="p-offline">Verbindung weg …</div>`}
     ${toast && html`<div class="p-toast pop-in">${toast}</div>`}
   </div>`;
@@ -56,16 +61,35 @@ function Login({ code0, err, onGo }) {
 }
 
 const TABS = [["regie", "🎬", "Regie"], ["spieler", "🐒", "Spieler"], ["tools", "🧰", "Werkzeuge"], ["fragen", "📚", "Fragen"], ["settings", "⚙️", "Setup"]];
+const PHASE = {
+  lobby: ["Lobby", "#9b6bff"], intro: ["Opening", "#9b6bff"], "kategorie-wahl": ["Kategorie-Wahl", "#2ed3c6"], erklaerkarte: ["Erklärkarte", "#4d8bff"], frage: ["Frage läuft", "#2bd98a"],
+  aufloesung: ["Auflösung", "#ffc93c"], zwischenstand: ["Zwischenstand", "#ff8a3d"], rad: ["Glücksrad", "#ff6bd6"], halbzeit: ["Halbzeit", "#ff8a3d"], pause: ["Pause", "#ff4d6d"],
+  highlights: ["Highlights", "#ffc93c"], siegerehrung: ["Siegerehrung", "#ffc93c"], ende: ["Abspann", "#9b6bff"], brettspiel: ["Brettspiel", "#2ed3c6"],
+};
+const phaseName = p => (PHASE[p] || [p])[0];
 
-function Cockpit({ view, cmd, say }) {
+function Cockpit({ view, cmd, say, online }) {
   const [tab, setTab] = useState("regie");
   const [sheet, setSheet] = useState(null);
-  const ctx = { view, cmd, say, open: setSheet, close: () => setSheet(null) };
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const ctx = { view, viewRef, cmd, say, open: (el, tall) => setSheet({ el, tall }), close: () => setSheet(null) };
   const st = view.stage;
+  const scene = decode(st.scene);
+  const wall = scene.wall;
+  const next = () => cmd(st.paused ? { resume: {} } : { flowNext: {} });
+  useEffect(() => { document.body.classList.toggle("gm-noscroll", !!sheet); }, [sheet]);
   return html`<div class="cockpit">
     <header class="gm-top">
-      <div><b>🎬 Raum ${view.roomCode}</b><small>${st.sectionLabel} · ${phaseName(st.phase)}</small></div>
-      <span class="chip">PIN ${view.gmPin}</span>
+      <div class="gm-top-l">
+        <b>🎬 ${view.roomCode}</b>
+        <small>${st.sectionLabel || "—"}</small>
+      </div>
+      <div class="gm-top-r">
+        <span class="gm-phase" style=${`--c:${(PHASE[st.phase] || [0, "#9b6bff"])[1]}`}>${st.paused ? "⏸ Pausiert" : phaseName(st.phase)}</span>
+        ${wall && wall.deadline && !wall.revealed && html`<${Clock} deadline=${wall.deadline} paused=${st.paused} />`}
+        <span class=${cx("gm-dot", online ? "on" : "off")} title=${online ? "verbunden" : "offline"}></span>
+      </div>
     </header>
     <main class="gm-main">
       ${tab === "regie" && html`<${Regie} ...${ctx} />`}
@@ -74,53 +98,163 @@ function Cockpit({ view, cmd, say }) {
       ${tab === "fragen" && html`<${Fragen} ...${ctx} />`}
       ${tab === "settings" && html`<${Settings} ...${ctx} />`}
     </main>
-    <nav class="gm-tabs">${TABS.map(([id, e, l]) => html`<button class=${cx(tab === id && "on")} onClick=${() => setTab(id)}><span>${e}</span><small>${l}</small></button>`)}</nav>
-    ${sheet && html`<div class="sheet-veil" onClick=${e => e.target === e.currentTarget && setSheet(null)}><div class="p-sheet gm-sheet pop-in">${sheet}</div></div>`}
+    <div class="gm-dock">
+      <div class="gm-dock-row">
+        <button class=${cx("gm-dock-pause", st.paused && "on")} aria-label=${st.paused ? "Fortsetzen" : "Pause"} onClick=${() => st.paused ? cmd({ resume: {} }) : ctx.open(html`<${PauseSheet} cmd=${cmd} close=${ctx.close} />`)}>${st.paused ? "▶" : "⏸"}</button>
+        <button class=${cx("btn big gm-next", st.paused && "green")} disabled=${!st.canAdvance && !st.paused} onClick=${next}>${st.paused ? "▶ Fortsetzen" : (st.advanceLabel || "Weiter") + " ▶"}</button>
+      </div>
+      <nav class="gm-tabs">${TABS.map(([id, e, l]) => html`<button class=${cx(tab === id && "on")} onClick=${() => { setTab(id); window.scrollTo(0, 0); }}><span>${e}</span><small>${l}</small></button>`)}</nav>
+    </div>
+    ${sheet && html`<div class="sheet-veil gm-veil" onClick=${e => e.target === e.currentTarget && setSheet(null)}>
+      <div class=${cx("p-sheet gm-sheet", sheet.tall && "tall")}>
+        <div class="gm-sheet-bar"><i></i><button class="gm-sheet-x" aria-label="Schließen" onClick=${() => setSheet(null)}>×</button></div>
+        <div class="gm-sheet-body">${sheet.el}</div>
+      </div></div>`}
   </div>`;
 }
 
-function phaseName(p) {
-  return { lobby: "Lobby", intro: "Opening", "kategorie-wahl": "Kategorie-Wahl", erklaerkarte: "Erklärkarte", frage: "Frage läuft", aufloesung: "Auflösung", zwischenstand: "Zwischenstand", rad: "Glücksrad", halbzeit: "Halbzeit", pause: "Pause", highlights: "Highlights", siegerehrung: "Siegerehrung", ende: "Abspann", brettspiel: "Brettspiel" }[p] || p;
+function Clock({ deadline, paused }) {
+  const now = useNow(250, !paused);
+  const s = Math.max(0, Math.ceil((deadline - now) / 1000));
+  return html`<span class=${cx("gm-clock", s <= 5 && "hot")}>⏱ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}</span>`;
 }
 
 // ---------- Regie ----------
-function Regie({ view, cmd, open, close, say }) {
+function Regie(ctx) {
+  const { view, cmd, open, close } = ctx;
   const st = view.stage;
   const scene = decode(st.scene);
-  const q = view.spickzettel;
-  const players = st.players;
-  const wall = scene.wall;
   return html`<div class="gm-stack">
-    <div class="card gm-main-card">
-      <div class="gm-actions">
-        <button class="btn big block" disabled=${!st.canAdvance && !st.paused} onClick=${() => cmd(st.paused ? { resume: {} } : { flowNext: {} })}>${st.paused ? "▶ Weiter" : st.advanceLabel || "Weiter"} ▶</button>
-        <div class="gm-row">
-          <button class="btn ghost small" onClick=${() => cmd(st.paused ? { resume: {} } : { pause: { text: null, dauerMs: null } })}>${st.paused ? "▶ Fortsetzen" : "⏸ Pause"}</button>
-          <button class="btn ghost small" onClick=${() => { cmd({ timerExtend: { ms: 15000 } }); say("+15 s"); }}>⏳ +15 s (${view.timerExtensionsLeft})</button>
-          <button class="btn ghost small" onClick=${() => { cmd({ hintGlobal: {} }); say("Tipp für alle"); }}>💡 Tipp</button>
-          ${st.phase === "intro" && html`<button class="btn ghost small" onClick=${() => cmd({ flowSkipOpening: {} })}>⏭ Opening</button>`}
-        </div>
-      </div>
-      ${view.empfehlung && html`<p class="gm-tip">🧠 ${view.empfehlung}</p>`}
-      <div class="drama"><small>Drama</small><div class="drama-bar"><i style=${`width:${Math.min(100, view.dramaScore)}%`}></i></div></div>
-    </div>
+    ${view.empfehlung && html`<p class="gm-tip">🧠 ${view.empfehlung}</p>`}
     ${scene.kind === "kategorieWahl" && html`<div class="card gm-block"><h3>🗂️ Kategorie festlegen</h3><div class="gm-grid">${scene.optionen.map(o => html`<button class="pick" onClick=${() => cmd({ kategoriePick: { _0: o.id } })}>${o.emoji} ${o.label} <small>${o.count}</small></button>`)}</div></div>`}
-    ${q && html`<div class="card gm-block spick">
-      <div class="spick-head"><span class="chip">${(DIFF[q.schwierigkeit] || [q.schwierigkeit])[0]}</span><span class="chip">${q.kategorie}</span></div>
-      <p class="spick-q">${q.text}</p>
-      <div class="spick-a">✔ ${q.korrekt}</div>
-      ${q.erklaerung && html`<p class="muted small">${q.erklaerung}</p>`}
-      ${q.tipps.length > 0 && html`<ul class="spick-tips">${q.tipps.map(t => html`<li>💡 ${t}</li>`)}</ul>`}
-      ${wall && wall.deadline && html`<${TimerBar} deadline=${wall.deadline} total=${wall.timerMs} />`}
-    </div>`}
+    ${view.spickzettel && html`<${LiveQuestion} ...${ctx} scene=${scene} />`}
+    ${scene.kind === "aufloesung" && scene.reveal && html`<${RevealCard} view=${view} r=${scene.reveal} deltas=${scene.deltas} />`}
+    <${AnswersCard} ...${ctx} scene=${scene} />
+    ${view.vote && html`<div class="card gm-block"><h3>🗳️ ${view.vote.frage}</h3>${view.vote.optionen.map((o, i) => { const n = Object.values(view.vote.stimmen).filter(v => v === i).length; const all = Object.keys(view.vote.stimmen).length || 1;
+      return html`<div class="gm-dist"><span>${o}</span><i style=${`width:${(n / all) * 100}%`}></i><b>${n}</b></div>`; })}</div>`}
     <div class="card gm-block">
-      <h3>Antworten ${wall ? `(${wall.answered.length}/${players.length})` : ""}</h3>
-      <ul class="gm-answers">${players.map(p => { const a = view.antworten[p.id]; const ok = q && a && a === q.korrekt;
-        return html`<li class=${cx(a && (ok ? "ok" : "no"))}><${Monkey} wire=${p.avatar} anim="none" size=${34} /><b>${p.name}</b><span>${a || (wall && wall.answered.includes(p.id) ? "✔ eingeloggt" : "…")}</span>
-          <button class="mini-btn" onClick=${() => open(html`<${Whisper} view=${view} cmd=${cmd} pid=${p.id} close=${close} />`)}>🤫</button></li>`; })}</ul>
+      <div class="gm-block-head"><h3>🎛️ Regie</h3><div class="drama" title="Drama-Score"><small>Drama</small><div class="drama-bar"><i style=${`width:${Math.min(100, view.dramaScore)}%`}></i></div></div></div>
+      <div class="gm-btn-grid">
+        <button class="gm-act" onClick=${() => open(html`<${PauseSheet} cmd=${cmd} close=${close} />`)}><span>⏸</span>Pause mit Text</button>
+        <button class="gm-act" onClick=${() => { cmd({ hintGlobal: {} }); ctx.say("💡 Tipp für alle"); }}><span>💡</span>Tipp für alle</button>
+        <button class="gm-act" onClick=${() => open(html`<${Whisper} view=${view} cmd=${cmd} close=${close} />`)}><span>🤫</span>Flüstern</button>
+        ${st.phase === "intro" ? html`<button class="gm-act" onClick=${() => cmd({ flowSkipOpening: {} })}><span>⏭</span>Opening überspringen</button>`
+          : html`<button class="gm-act" onClick=${() => open(html`<${Broken} cmd=${cmd} close=${close} />`)}><span>🔴</span>Frage kaputt</button>`}
+      </div>
     </div>
-    ${view.vote && html`<div class="card gm-block"><h3>🗳️ ${view.vote.frage}</h3>${view.vote.optionen.map((o, i) => html`<p>${o}: <b>${Object.values(view.vote.stimmen).filter(v => v === i).length}</b></p>`)}</div>`}
+    ${view.regal.length > 0 && html`<${RegalCard} ...${ctx} />`}
     <div class="card gm-block"><h3>📜 Logbuch</h3><ul class="gm-log">${view.log.slice(-12).reverse().map(l => html`<li><small>${new Date(l.at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</small> ${l.text}</li>`)}</ul></div>
+  </div>`;
+}
+
+function QMeta({ q }) {
+  const tm = TIER_META[q.schwierigkeit] || { emoji: "", name: q.schwierigkeit, c: "#fff" };
+  const ty = TYPE_META[q.typ] || { emoji: "❔", name: q.typ };
+  return html`<div class="spick-head"><span class="chip tier" style=${`--c:${tm.c}`}>${tm.emoji} ${tm.name}</span><span class="chip">${ty.emoji} ${ty.name}</span><span class="chip cat">${q.kategorie}</span></div>`;
+}
+
+function LiveQuestion({ view, viewRef, cmd, open, close, say, scene }) {
+  const q = view.spickzettel;
+  const st = view.stage;
+  const wall = scene.wall;
+  const inQ = QUESTION_PHASES.includes(st.phase);
+  const opts = (wall && wall.options) || [];
+  const total = opts.reduce((a, o) => a + (o.count || 0), 0);
+  const isRight = (o, i) => (wall && wall.correctIndex != null ? wall.correctIndex === i : o.text === q.korrekt);
+  const id = view.aktuelleFrageId || q.id;
+  const banned = (view.settings.fragenAus || []).includes(id);
+  const pick = () => open(html`<${PickSheet} view=${view} cmd=${cmd} title="🔄 Frage tauschen" hint="Die gewählte Frage ersetzt die laufende — der Timer startet neu." typ=${q.typ} onPick=${x => { cmd({ questionReplace: { frageId: x.id } }); close();
+    setTimeout(() => say(viewRef.current.aktuelleFrageId === x.id ? "🔄 Frage getauscht" : "⚠️ Frage passt nicht (Format/Typ, schon gespielt oder Familien-Modus)"), 1200); }} />`, true);
+  return html`<div class="card gm-block spick">
+    <div class="gm-block-head"><h3>${st.phase === "frage" ? "🟢 Läuft gerade" : st.phase === "erklaerkarte" ? "🔵 Gleich dran" : "📋 Letzte Frage"}${wall && wall.nummer ? html` <small class="muted">${wall.nummer}/${wall.gesamt}</small>` : ""}</h3>${wall && wall.wert ? html`<span class="chip gold">💰 ${fmtNum(wall.wert)}</span>` : ""}</div>
+    <${QMeta} q=${q} />
+    <p class="spick-q">${q.text}</p>
+    ${opts.length > 0 ? html`<div class="gm-opts">${opts.map((o, i) => { const n = o.count || 0; const ok = isRight(o, i);
+      return html`<div class=${cx("gm-opt", ok && "ok", o.removed && "removed")}><i style=${`width:${total ? (n / total) * 100 : 0}%`}></i><span class="gm-opt-l">${String.fromCharCode(65 + i)}</span><span class="gm-opt-t">${o.text}${ok ? " ✔" : ""}</span><b>${n || ""}</b></div>`; })}</div>`
+      : html`<div class="spick-a">✔ ${q.korrekt}</div>`}
+    ${opts.length > 0 && !opts.some((o, i) => isRight(o, i)) && html`<div class="spick-a">✔ ${q.korrekt}</div>`}
+    ${q.erklaerung && html`<p class="muted small">${q.erklaerung}</p>`}
+    ${q.tipps.length > 0 && html`<details class="spick-tips"><summary>💡 ${q.tipps.length} Tipps</summary><ul>${q.tipps.map(t => html`<li>${t}</li>`)}</ul></details>`}
+    ${wall && wall.deadline && !wall.revealed && html`<div class="gm-timer">
+      <${TimerBar} deadline=${wall.deadline} total=${wall.timerMs} paused=${st.paused} />
+      <div class="gm-shift">${[-10, -5, 5, 15, 30].map(s => html`<button class=${cx(s < 0 && "minus")} onClick=${() => { cmd({ timerShift: { ms: s * 1000 } }); say(`⏱ ${s > 0 ? "+" : "−"}${Math.abs(s)} s`); }}>${s > 0 ? "+" : "−"}${Math.abs(s)} s</button>`)}</div>
+    </div>`}
+    ${inQ && html`<div class="gm-btn-grid">
+      ${st.phase === "frage" && html`<button class="gm-act" onClick=${() => open(html`<${Confirm} title="⏭ Frage überspringen?" text="Die Frage wird annulliert (keine Punkte) und es geht mit der nächsten weiter." label="Überspringen" onYes=${() => { cmd({ questionSkip: {} }); say("⏭ Übersprungen"); }} close=${close} />`)}><span>⏭</span>Überspringen</button>`}
+      <button class="gm-act" onClick=${() => { cmd({ questionReplace: {} }); say("🔄 Neue Zufallsfrage"); }}><span>🎲</span>Tauschen (Zufall)</button>
+      <button class="gm-act" onClick=${pick}><span>📚</span>Aus Katalog wählen</button>
+      <button class=${cx("gm-act", banned ? "on" : "danger")} onClick=${() => { cmd(banned ? { questionUnban: { frageId: id } } : { questionBan: { frageId: id } }); say(banned ? "✅ Wieder zugelassen" : "🚫 Gebannt — kommt nie wieder"); }}><span>${banned ? "↩️" : "🚫"}</span>${banned ? "Bann aufheben" : "Frage bannen"}</button>
+    </div>`}
+  </div>`;
+}
+
+function RevealCard({ view, r, deltas }) {
+  const byId = Object.fromEntries(view.stage.players.map(p => [p.id, p]));
+  const fast = r.schnellster && byId[r.schnellster];
+  const list = [...(r.eintraege || [])].sort((a, b) => a.platzNachher - b.platzNachher);
+  return html`<div class="card gm-block reveal">
+    <h3>📣 Auflösung</h3>
+    <div class="gm-kpis">
+      <div class="kpi"><b>${r.richtigAnzahl}<small>/${r.antwortAnzahl || list.length}</small></b><span>richtig</span></div>
+      <div class="kpi"><b>${fast ? html`<${Monkey} wire=${fast.avatar} anim="none" size=${26} />` : "—"}${r.schnellsterMs ? (r.schnellsterMs / 1000).toFixed(1) + " s" : ""}</b><span>${fast ? "⚡ " + fast.name : "Schnellster"}</span></div>
+      <div class=${cx("kpi", r.fuehrungswechsel && "hot")}><b>${r.fuehrungswechsel ? "👑" : "—"}</b><span>${r.fuehrungswechsel ? "Führungswechsel!" : "Führung bleibt"}</span></div>
+    </div>
+    ${r.richtigText && html`<div class="spick-a">✔ ${r.richtigText}</div>`}
+    <ul class="gm-deltas">${list.map(e => { const p = byId[e.playerId] || { name: e.playerId }; const d = (deltas && deltas[e.playerId]) ?? e.delta; const mv = e.platzVorher - e.platzNachher;
+      return html`<li class=${cx(e.richtig === true && "ok", e.richtig === false && "no")}><span class="pl">${e.platzNachher}.</span><${Monkey} wire=${p.avatar} anim="none" size=${28} /><b>${p.name}</b>
+        <small>${e.antwortMs > 0 ? (e.antwortMs / 1000).toFixed(1) + " s" : ""}${e.streak >= 2 ? ` · 🔥${e.streak}` : ""}</small>
+        <span class=${cx("mv", mv > 0 && "up", mv < 0 && "down")}>${mv > 0 ? "▲" + mv : mv < 0 ? "▼" + -mv : ""}</span><em class=${cx(d > 0 && "plus", d < 0 && "minus")}>${d ? fmtDelta(d) : "±0"}</em></li>`; })}</ul>
+  </div>`;
+}
+
+function AnswersCard({ view, cmd, open, close, scene }) {
+  const players = view.stage.players;
+  const wall = scene.wall;
+  const det = view.antwortenDetail || {};
+  const answered = new Set((wall && wall.answered) || []);
+  const clean = d => (d && !(d.ms > 0) ? { ...d, ms: null } : d); // 0 ms = unknown (e.g. after a replace)
+  const rows = players.map(p => ({ p, d: clean(det[p.id]), done: !!det[p.id] || answered.has(p.id) || !!view.antworten[p.id] }));
+  rows.sort((a, b) => (b.done - a.done) || ((a.d && a.d.ms != null ? a.d.ms : 1e9) - (b.d && b.d.ms != null ? b.d.ms : 1e9)) || a.p.platz - b.p.platz);
+  const n = rows.filter(r => r.done).length;
+  const right = rows.filter(r => r.d && r.d.richtig === true).length;
+  return html`<div class="card gm-block">
+    <div class="gm-block-head"><h3>🙋 Antworten <small class="muted">${n}/${players.length}</small></h3>${rows.some(r => r.d && r.d.richtig != null) && html`<span class="chip green">✅ ${right}</span>`}</div>
+    <ul class="gm-answers">${rows.map(({ p, d, done }, i) => {
+      const cls = d && d.richtig === true ? "ok" : d && d.richtig === false ? "no" : done ? "in" : "";
+      const text = d ? d.text : view.antworten[p.id] || (done ? "eingeloggt" : "…");
+      return html`<li class=${cls} key=${p.id}>
+        <span class="rk">${done && d && d.ms != null ? i + 1 : ""}</span>
+        <${Monkey} wire=${p.avatar} anim="none" size=${34} />
+        <span class="who"><b>${p.name}</b><small>${text}</small></span>
+        ${d && d.ms != null && html`<span class="ms">${(d.ms / 1000).toFixed(1)} s</span>`}
+        <span class="st">${cls === "ok" ? "✅" : cls === "no" ? "❌" : done ? "🔒" : "⏳"}</span>
+        <button class="mini-btn" aria-label="Flüstern" onClick=${() => open(html`<${Whisper} view=${view} cmd=${cmd} pid=${p.id} close=${close} />`)}>🤫</button>
+      </li>`; })}</ul>
+  </div>`;
+}
+
+function RegalCard({ view, cmd, open, close, say }) {
+  const [exp, setExp] = useState(null);
+  const bans = new Set(view.settings.fragenAus || []);
+  return html`<div class="card gm-block">
+    <div class="gm-block-head"><h3>🗄️ Als Nächstes</h3><small class="muted">${view.regal.length} Fragen</small></div>
+    <ol class="gm-regal">${view.regal.slice(0, 8).map((q, i) => { const can = q.tauschbar !== false && q.index != null; const isOpen = exp === q.id; const banned = bans.has(q.id);
+      return html`<li class=${cx(isOpen && "open", banned && "banned")} key=${q.id + i}>
+        <button class="gm-regal-head" onClick=${() => setExp(isOpen ? null : q.id)}>
+          <span class="n">${i + 1}</span>
+          <span class="t"><${QMeta} q=${q} /><span class="qt">${q.text}</span><small class="ok">✔ ${q.korrekt}</small></span>
+        </button>
+        ${isOpen && html`<div class="gm-regal-body">
+          <${Answers} x=${{ typ: q.typ, korrekt: q.korrekt, antworten: q.antworten }} />
+          ${q.erklaerung && html`<p class="muted small">${q.erklaerung}</p>`}
+        </div>`}
+        <div class="gm-regal-acts">
+          <button disabled=${!can} onClick=${() => { cmd({ regalSwap: { index: q.index } }); say("🎲 Getauscht"); }}>🎲 Tauschen</button>
+          <button disabled=${!can} onClick=${() => open(html`<${PickSheet} view=${view} cmd=${cmd} title=${`🗄️ Frage ${i + 1} ersetzen`} hint=${q.text} typ=${q.typ} onPick=${x => { cmd({ regalSwap: { index: q.index, frageId: x.id } }); say("📚 Ersetzt"); close(); }} />`, true)}>📚 Wählen</button>
+          <button class="danger" onClick=${() => { if (banned) { cmd({ questionUnban: { frageId: q.id } }); say("✅ Wieder zugelassen"); return; } cmd({ questionBan: { frageId: q.id } }); if (can) cmd({ regalSwap: { index: q.index } }); say(can ? "🚫 Gebannt & ersetzt" : "🚫 Gebannt"); }}>${banned ? "↩️ Zulassen" : "🚫 Bannen"}</button>
+        </div>
+        ${!can && html`<small class="muted gm-regal-lock">🔒 schon in der Runde vergeben</small>`}
+      </li>`; })}</ol>
   </div>`;
 }
 
@@ -130,6 +264,25 @@ function Picks({ items, value, set, multi }) {
 }
 function PlayerPick({ view, value, set, filter }) {
   return html`<div class="gm-players">${view.stage.players.filter(filter || (() => true)).map(p => html`<button class=${cx("pp", value === p.id && "on")} onClick=${() => set(p.id)}><${Monkey} wire=${p.avatar} anim="none" size=${40} /><small>${p.name}</small></button>`)}</div>`;
+}
+
+function PickSheet({ view, cmd, title, hint, typ, onPick }) {
+  return html`<h2>${title}</h2>${hint && html`<p class="muted small gm-pick-hint">${hint}</p>`}
+    <${Katalog} katalog=${view.katalog} settings=${view.settings} only="browse" compact pin=${view.gmPin}
+      onPatch=${p => cmd({ settingsSet: { _0: p } })} onBan=${(id, on) => cmd(on ? { questionBan: { frageId: id } } : { questionUnban: { frageId: id } })}
+      onPick=${onPick} pickLabel="🎯 Diese Frage einsetzen" initialFilter=${typ ? { typ } : null} />`;
+}
+
+function PauseSheet({ cmd, close }) {
+  const [text, setText] = useState("");
+  const [dauer, setDauer] = useState(null);
+  const go = () => { cmd({ pause: { text: text.trim() || null, dauerMs: dauer } }); close(); };
+  return html`<h2>⏸ Pause</h2>
+    <${Picks} items=${["Kurze Pause 🍌", "Getränke holen 🍻", "Pizza ist da 🍕", "Gleich geht's weiter!", "Technik-Pause 🔧"].map(x => [x, x])} value=${text} set=${setText} />
+    <input class="text-in" placeholder="Eigener Text auf der Bühne …" value=${text} maxlength="80" onInput=${e => setText(e.target.value)} />
+    <h4 class="gm-h4">Dauer</h4>
+    <div class="seg">${[[null, "Offen"], [60000, "1 min"], [180000, "3 min"], [300000, "5 min"], [600000, "10 min"]].map(([v, l]) => html`<button class=${cx(dauer === v && "on")} onClick=${() => setDauer(v)}>${l}</button>`)}</div>
+    <button class="btn block" onClick=${go}>⏸ Pause starten</button>`;
 }
 
 function Whisper({ view, cmd, pid: pid0, close }) {
@@ -210,19 +363,62 @@ function Confirm({ title, text, label, onYes, close }) {
   return html`<h2>${title}</h2><p class="muted">${text}</p><button class="btn red block" onClick=${() => { onYes(); close(); }}>${label}</button><button class="btn ghost block" onClick=${close}>Abbrechen</button>`;
 }
 
+function LookSheet({ player, cmd, close }) {
+  const wire = typeof player.avatar === "string" ? player.avatar : `${player.avatar.affe}.${player.avatar.farbe}${player.avatar.extras && player.avatar.extras.length ? "." + player.avatar.extras.join("+") : ""}`;
+  const cur = avatarParts(wire);
+  const [affe, setAffe] = useState(cur.affe);
+  const [farbe, setFarbe] = useState(cur.farbe);
+  const extras = String(wire).split(".")[2] ? String(wire).split(".")[2].split("+") : [];
+  return html`<h2>🎨 Look für ${player.name}</h2>
+    <div class="gm-look-prev"><${Monkey} wire=${`${affe}.${farbe}${extras.length ? "." + extras.join("+") : ""}`} anim="idle" size=${110} /></div>
+    <div class="gm-colors">${COLORS.map(([id]) => html`<button class=${cx("gm-color", farbe === id && "on")} style=${`--c:${colorHex(id)}`} aria-label=${id} onClick=${() => setFarbe(id)}></button>`)}</div>
+    <div class="gm-monkeys">${MONKEYS.map(([id, name]) => html`<button class=${cx("pp", affe === id && "on")} onClick=${() => setAffe(id)}><${Monkey} wire=${`${id}.${farbe}`} anim="none" size=${40} /><small>${name}</small></button>`)}</div>
+    <button class="btn green block" onClick=${() => { cmd({ lookSet: { playerId: player.id, avatar: { affe, farbe, extras } } }); close(); }}>Übernehmen</button>`;
+}
+
+function BotSheet({ view, viewRef, cmd, say, close }) {
+  const taken = new Set(view.stage.players.map(p => p.name.replace(/\s*🤖$/, "")));
+  const add = ([name, affe]) => {
+    const before = viewRef.current.stage.players.length;
+    cmd({ botAdd: { name, persona: affe } });
+    close();
+    setTimeout(() => { if (viewRef.current.stage.players.length <= before) say("⚠️ Bot kam nicht an — Raum voll oder nur über die Bühne (⚙️ → Bot dazu)"); else say(`🤖 ${name} sitzt am Pult`); }, 1600);
+  };
+  return html`<h2>🤖 Bot hinzufügen</h2><p class="muted small">Bots spielen wie echte Affen mit — praktisch zum Auffüllen.</p>
+    <div class="gm-bots">${PERSONAS.map(p => html`<button class="gm-bot" disabled=${taken.has(p[0])} onClick=${() => add(p)}><${Monkey} wire=${`${p[1]}.${p[2]}`} anim="none" size=${44} /><b>${p[0]}</b><small>${p[3]}</small></button>`)}</div>`;
+}
+
 // ---------- tabs ----------
-function Spieler({ view, cmd, open, close }) {
+function Spieler({ view, viewRef, cmd, open, close, say }) {
   const full = Object.fromEntries(view.players.map(p => [p.id, p]));
-  return html`<div class="gm-stack">${view.stage.players.map(p => { const f = full[p.id] || {};
-    return html`<div class=${cx("card gm-player", !p.connected && "off")}>
-      <${Monkey} wire=${p.avatar} anim="none" size=${54} />
-      <div class="gp-info"><b>${p.platz}. ${p.name}</b><${Money} value=${p.balance} /><small class="muted">${f.stats ? `${f.stats.richtig} richtig · ${f.stats.falsch} falsch` : ""}${p.streak >= 2 ? ` · 🔥${p.streak}` : ""}${f.isBot ? " · Bot" : ""}${!p.connected ? " · offline" : ""}</small></div>
-      <div class="gp-btns">
-        <button class="mini-btn" onClick=${() => open(html`<${Whisper} view=${view} cmd=${cmd} pid=${p.id} close=${close} />`)}>🤫</button>
-        <button class="mini-btn" onClick=${() => open(html`<${Confirm} title="Rauswerfen?" text=${p.name + " verlässt den Raum."} label="Rauswerfen" onYes=${() => cmd({ kick: { _0: p.id } })} close=${close} />`)}>🚪</button>
-      </div>
-    </div>`; })}
-    <div class="gm-row"><button class="btn ghost small" onClick=${() => open(html`<${Score} view=${view} cmd=${cmd} close=${close} />`)}>🏦 Punkte ±</button><button class="btn ghost small" onClick=${() => open(html`<${Boost} view=${view} cmd=${cmd} close=${close} />`)}>🐒 Boost</button><button class="btn ghost small" onClick=${() => open(html`<${Punish} view=${view} cmd=${cmd} close=${close} />`)}>⚖️ Pranger</button><button class="btn ghost small" onClick=${() => open(html`<${Gift} view=${view} cmd=${cmd} close=${close} />`)}>🎁 Joker</button></div>
+  const lobby = view.stage.phase === "lobby";
+  const removeBot = p => {
+    cmd({ botRemove: { _0: p.id } });
+    // Fallback: a bot is an ordinary player, kicking removes it too.
+    setTimeout(() => { if (viewRef.current.stage.players.some(x => x.id === p.id)) cmd({ kick: { _0: p.id } }); }, 1200);
+    say(`🤖 ${p.name} geht`);
+  };
+  return html`<div class="gm-stack">
+    <div class="gm-row gm-quick">
+      <button class="gm-act" onClick=${() => open(html`<${Score} view=${view} cmd=${cmd} close=${close} />`)}><span>🏦</span>Punkte ±</button>
+      <button class="gm-act" onClick=${() => open(html`<${Boost} view=${view} cmd=${cmd} close=${close} />`)}><span>🐒</span>Boost</button>
+      <button class="gm-act" onClick=${() => open(html`<${Punish} view=${view} cmd=${cmd} close=${close} />`)}><span>⚖️</span>Pranger</button>
+      <button class="gm-act" onClick=${() => open(html`<${Gift} view=${view} cmd=${cmd} close=${close} />`)}><span>🎁</span>Joker</button>
+    </div>
+    ${view.stage.players.map(p => { const f = full[p.id] || {};
+      return html`<div class=${cx("card gm-player", !p.connected && "off")} key=${p.id}>
+        <span class="gp-rank">${p.platz}</span>
+        <${Monkey} wire=${p.avatar} anim="none" size=${50} />
+        <div class="gp-info"><b>${p.name}</b><${Money} value=${p.balance} /><small class="muted">${f.stats ? `${f.stats.richtig} ✅ · ${f.stats.falsch} ❌` : ""}${p.streak >= 2 ? ` · 🔥${p.streak}` : ""}${f.isBot ? " · Bot" : ""}${!p.connected ? " · offline" : ""}</small></div>
+        <div class="gp-btns">
+          <button class="mini-btn" aria-label="Flüstern" onClick=${() => open(html`<${Whisper} view=${view} cmd=${cmd} pid=${p.id} close=${close} />`)}>🤫</button>
+          <button class="mini-btn" aria-label="Look ändern" onClick=${() => open(html`<${LookSheet} player=${f.id ? f : p} cmd=${cmd} close=${close} />`)}>🎨</button>
+          ${f.isBot ? html`<button class="mini-btn" aria-label="Bot entfernen" onClick=${() => removeBot(p)}>🗑</button>`
+            : html`<button class="mini-btn" aria-label="Rauswerfen" onClick=${() => open(html`<${Confirm} title="Rauswerfen?" text=${p.name + " verlässt den Raum."} label="Rauswerfen" onYes=${() => cmd({ kick: { _0: p.id } })} close=${close} />`)}>🚪</button>`}
+        </div>
+      </div>`; })}
+    <button class="gm-add" onClick=${() => open(html`<${BotSheet} view=${view} viewRef=${viewRef} cmd=${cmd} say=${say} close=${close} />`)}>🤖 Bot hinzufügen</button>
+    ${lobby && view.settings.teams !== "aus" && html`<button class="btn ghost block" onClick=${() => cmd({ teamsShuffle: {} })}>👥 Teams neu mischen</button>`}
   </div>`;
 }
 
@@ -237,6 +433,8 @@ function Tools({ view, cmd, open, close, say }) {
       ${T("🎁", "Joker schenken", () => open(html`<${Gift} view=${view} cmd=${cmd} close=${close} />`), `Budget ${view.jokerBudget}`)}
       ${T("🎡", "Rad drehen", () => cmd({ wheelSpin: { rigTarget: null } }))}
       ${view.canRig && T("🎯", "Rad zinken", () => open(html`<${Rig} cmd=${cmd} close=${close} />`))}
+      ${T("⏳", "+15 s Zeit", () => { cmd({ timerExtend: { ms: 15000 } }); say("+15 s"); }, `${view.timerExtensionsLeft} übrig`)}
+      ${T("⏸", "Pause", () => open(html`<${PauseSheet} cmd=${cmd} close=${close} />`))}
       ${T("🔁", "Zugabe", () => cmd({ encore: {} }), `${view.encoresLeft} übrig`)}
       ${T("🌡️", "Stimmung", () => cmd({ moodPoll: {} }), `${view.moodPollsLeft} übrig`)}
       ${T("🗳️", "Abstimmung", () => open(html`<${VoteSheet} cmd=${cmd} close=${close} />`))}
@@ -253,18 +451,17 @@ function Tools({ view, cmd, open, close, say }) {
 
 function Fragen({ view, cmd }) {
   const set = patch => cmd({ settingsSet: { _0: patch } });
-  const pool = new Set(view.settings.kategorienPool || []);
-  const toggle = id => { const n = new Set(pool.size ? pool : view.kategorien.map(k => k.id)); n.has(id) ? n.delete(id) : n.add(id); set({ kategorienPool: [...n] }); };
-  const [open, setOpen] = useState(null);
+  const s = view.settings;
   return html`<div class="gm-stack">
-    <p class="gm-tip">📚 ${view.poolInfo}</p>
-    <div class="gm-grid">${view.fragenSets.map(s => html`<button class=${cx("pick", s.aktiv && "on")} onClick=${() => set({ fragenSet: s.id })}>${s.emoji} ${s.name} <small>${fmtNum(s.anzahl)}</small></button>`)}</div>
-    <div class="card gm-block"><h3>Kategorien</h3>${view.kategorien.map(k => html`<div class="kat-line">
-      <button class=${cx("pick", k.gewaehlt && "on")} onClick=${() => toggle(k.id)}>${k.emoji} ${k.name} <small>${k.anzahl}</small></button>
-      ${k.unter.length > 0 && html`<button class="mini-btn" onClick=${() => setOpen(open === k.id ? null : k.id)}><span class=${cx("chev", open === k.id && "up")}>›</span></button>`}
-      ${open === k.id && html`<div class="gm-grid sub">${k.unter.map(u => html`<button class=${cx("pick", u.gewaehlt && "on")} onClick=${() => toggle(u.id)}>${u.name} <small>${u.anzahl}</small></button>`)}</div>`}
-    </div>`)}</div>
-    ${view.regal.length > 0 && html`<div class="card gm-block"><h3>🗄️ Als Nächstes</h3><ol class="gm-log">${view.regal.slice(0, 8).map(q => html`<li>${q.text} <small class="muted">· ${q.korrekt}</small></li>`)}</ol></div>`}
+    <div class="card gm-block">
+      <div class="gm-block-head"><h3>🎁 Fragen-Set</h3></div>
+      <div class="gm-sets">${view.fragenSets.map(q => html`<button class=${cx("gm-set", q.aktiv && "on")} onClick=${() => set({ fragenSet: q.id })}><span>${q.emoji}</span><b>${q.name}</b><small>${fmtNum(q.anzahl)}</small></button>`)}</div>
+      <h4 class="gm-h4">Mischung</h4>
+      <div class="seg">${MIXES.map(([id, l]) => html`<button class=${cx(s.fragenMix === id && "on")} onClick=${() => set({ fragenMix: id })}>${l}</button>`)}</div>
+      <p class="muted small">📚 ${view.poolInfo}</p>
+    </div>
+    <${Katalog} katalog=${view.katalog} settings=${s} compact pin=${view.gmPin} onPatch=${set}
+      onBan=${(id, on) => cmd(on ? { questionBan: { frageId: id } } : { questionUnban: { frageId: id } })} />
   </div>`;
 }
 
@@ -278,6 +475,7 @@ function Settings({ view, cmd }) {
   const timer = s.timerAus ? "aus" : s.fragenZeit ? String(s.fragenZeit) : "auto";
   const rules = new Set(s.specialRules || []);
   return html`<div class="gm-stack">
+    ${view.katalog && html`<p class="gm-tip">📚 ${katalogSummary(view.katalog, s)}</p>`}
     <div class="card gm-block"><h3>Ablauf</h3>
       ${Seg("modus", [["quick", "Quick"], ["klassik", "Klassik"], ["marathon", "Marathon"]])}
       ${Seg("tempo", [["zackig", "Zackig"], ["normal", "Normal"], ["gemuetlich", "Gemütlich"]])}
@@ -289,6 +487,7 @@ function Settings({ view, cmd }) {
       ${Seg("kategorienWahl", [["voting", "Kategorie: Voting"], ["gm", "Kategorie: Regie"], ["aus", "Keine Wahl"]])}
     </div>
     <div class="card gm-block"><h3>✨ Special Rules ${!lobby && html`<small class="muted">(nur Lobby)</small>`}</h3><div class="gm-grid">${RULES.map(([id, l]) => html`<button class=${cx("pick", rules.has(id) && "on")} disabled=${!lobby} onClick=${() => { const n = new Set(rules); n.has(id) ? n.delete(id) : n.add(id); set({ specialRules: [...n] }); }}>${l}</button>`)}</div></div>
+    <p class="muted small center">PIN ${view.gmPin} · Raum ${view.roomCode}</p>
   </div>`;
 }
 

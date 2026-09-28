@@ -5,6 +5,26 @@ import { api, cx, fmtMM, fmtNum, decode } from "../lib/core.js";
 import { audio } from "../lib/audio.js";
 import { Monkey, QR } from "../lib/ui.js";
 import { StageCtx } from "./ctx.js";
+import { Katalog, katalogSummary, applyFilterPatch, filterOf } from "../lib/katalog.js";
+
+// ---------- question catalogue (full-screen overlay + entry button) ----------
+export function KatalogEntry({ katalog, settings, onOpen }) {
+  return html`<button class="kt-entry" onClick=${onOpen}>
+    <span class="kt-entry-ico">📚</span>
+    <span class="kt-entry-txt"><b>Fragen-Katalog</b><small>${katalog ? katalogSummary(katalog, settings) : "Kategorien, Stufen, Typen & einzelne Fragen"}</small></span>
+    <span class="kt-entry-go">›</span>
+  </button>`;
+}
+
+export function KatalogOverlay({ katalog, settings, onPatch, local, close }) {
+  return html`<div class="kt-overlay" onClick=${e => e.stopPropagation()}>
+    <header>
+      <div><h2>📚 Fragen-Katalog</h2><p>${local ? "Gilt für die neue Show — du kannst alles später in der Lobby ändern." : "Änderungen gelten sofort, auch mitten in der Show."}</p></div>
+      <button class="btn green kt-done" onClick=${close}>✔ Fertig</button>
+    </header>
+    <div class="kt-overlay-body"><${Katalog} katalog=${katalog} settings=${settings} onPatch=${onPatch} local=${local} wide /></div>
+  </div>`;
+}
 
 export function Logo({ size = 1, edition }) {
   return html`<div class="logo" style=${`--s:${size}`}>
@@ -61,8 +81,14 @@ export function ModeScreen({ host, back }) {
   const [set, setSet] = useState(host.defaults[modus].fragenSet);
   const [tempo, setTempo] = useState("normal");
   const [familie, setFamilie] = useState(false);
+  const [filt, setFilt] = useState(filterOf(null));
+  const [katOpen, setKatOpen] = useState(false);
   const league = !!host.edition;
-  const start = () => hostCall("/api/host/start", { modus, patch: { fragenSet: set, tempo, familienModus: familie } });
+  const start = () => {
+    const patch = { fragenSet: set, tempo, familienModus: familie };
+    for (const [k, v] of Object.entries(filt)) if (v.length) patch[k] = v;
+    return hostCall("/api/host/start", { modus, patch });
+  };
   return html`<div class="modes">
     <header class="screen-head"><button class="btn ghost small" onClick=${back}>‹ Zurück</button><h1>Welche Show heute?</h1><span></span></header>
     <div class="mode-cards">
@@ -80,8 +106,10 @@ export function ModeScreen({ host, back }) {
         <div class="opt-block"><h4>Tempo</h4><div class="seg">${host.tempos.map(t => html`<button class=${cx(tempo === t.id && "on")} onClick=${() => setTempo(t.id)}>${t.label}</button>`)}</div></div>
         <div class="opt-block"><h4>Publikum</h4><div class="seg"><button class=${cx(!familie && "on")} onClick=${() => setFamilie(false)}>🍻 Erwachsene</button><button class=${cx(familie && "on")} onClick=${() => setFamilie(true)}>👨‍👩‍👧 Familie & Kinder</button></div></div>
       </div>
+      <${KatalogEntry} katalog=${host.katalog} settings=${filt} onOpen=${() => setKatOpen(true)} />
     </div>
     <div class="mode-go"><button class="btn big" onClick=${start}>🚪 Lobby öffnen</button><p class="muted">Alles andere (Teams, Joker, Timer, Special Rules …) stellst du in der Lobby ein.</p></div>
+    ${katOpen && html`<${KatalogOverlay} katalog=${host.katalog} settings=${filt} local onPatch=${p => setFilt(f => applyFilterPatch(f, p))} close=${() => setKatOpen(false)} />`}
   </div>`;
 }
 
@@ -172,6 +200,7 @@ export function LobbyScene({ view, lobby, host }) {
           <h3>${spieleabend ? "🎲 Spiele-Abend" : { quick: "⚡ Quick Cash", klassik: "🎩 Klassik-Show", marathon: "🏃 Marathon" }[s.modus]}</h3>
           <div class="chip-row">
             <span class="chip">📚 ${setName}</span>
+            ${host.katalog && html`<span class="chip">🧠 ${katalogSummary(host.katalog, s).split(" · ")[0].replace(" Fragen aktiv", " aktiv")}</span>`}
             <span class="chip">⏱ ${s.timerAus ? "Timer aus" : s.fragenZeit ? s.fragenZeit + " s pro Frage" : { zackig: "Zackig", normal: "Normal", gemuetlich: "Gemütlich" }[s.tempo]}</span>
             ${s.familienModus && html`<span class="chip green">👨‍👩‍👧 Familie</span>`}
             ${s.teams !== "aus" && html`<span class="chip">👥 Teams ${s.teams}</span>`}
@@ -226,6 +255,8 @@ export function SettingsDrawer({ view, host, close }) {
   const inLobby = scene.kind === "lobby";
   const s = (inLobby ? scene.settings : host.settings) || {};
   const set = patch => StageCtx.cmd({ settingsSet: { _0: patch } });
+  const [katOpen, setKatOpen] = useState(false);
+  const katPatch = patch => { set(patch); setTimeout(() => StageCtx.refreshHost(), 250); setTimeout(() => StageCtx.refreshHost(), 900); };
   const toggle = (k, label, hint) => html`<label class="toggle"><span><b>${label}</b>${hint && html`<small>${hint}</small>`}</span><input type="checkbox" checked=${!!s[k]} onChange=${e => set({ [k]: e.target.checked })} /><i></i></label>`;
   const rules = new Set(s.specialRules || []);
   const timerVal = s.timerAus ? "aus" : s.fragenZeit ? String(s.fragenZeit) : "auto";
@@ -249,6 +280,7 @@ export function SettingsDrawer({ view, host, close }) {
             <span>${r.emoji}</span><b>${r.name}</b><small>${r.description}</small></button>`)}</div>
         </section>`}
         <section><h4>Fragen</h4>
+          <${KatalogEntry} katalog=${host.katalog} settings=${s} onOpen=${() => setKatOpen(true)} />
           ${!host.edition && html`<div class="chip-row">${host.questionSets.filter(q => q.id !== "eigen").map(q => html`<button class=${cx("pick", s.fragenSet === q.id && "on")} onClick=${() => set({ fragenSet: q.id })}>${q.emoji} ${q.name}</button>`)}</div>`}
           <div class="seg">${host.mixes.map(m => html`<button class=${cx(s.fragenMix === m.id && "on")} onClick=${() => set({ fragenMix: m.id })}>${m.label}</button>`)}</div>
           <div class="seg">${host.tempos.map(t => html`<button class=${cx(s.tempo === t.id && "on")} onClick=${() => set({ tempo: t.id })}>${t.label}</button>`)}</div>
@@ -273,5 +305,6 @@ export function SettingsDrawer({ view, host, close }) {
         </section>
       </div>
     </aside>
+    ${katOpen && html`<${KatalogOverlay} katalog=${host.katalog} settings=${s} onPatch=${katPatch} close=${() => setKatOpen(false)} />`}
   </div>`;
 }
