@@ -3,7 +3,7 @@
 
 .xn { position: relative; display: flex; flex-direction: column; align-items: center; gap: 18px; color: var(--cream); font-family: var(--font-body); }
 .xn.full { width: 1180px; max-width: 100%; }
-.xn.side { width: 330px; padding: 20px 20px 18px; border-radius: 24px; background: linear-gradient(180deg, rgba(91, 43, 214, 0.35), rgba(26, 15, 61, 0.85)); border: 2px solid var(--line); box-shadow: var(--shadow); animation: rise-in 0.5s var(--ease-out, ease-out) both; }
+.xn.side { width: 256px; padding: 16px 14px 14px; gap: 12px; border-radius: 24px; background: linear-gradient(180deg, rgba(91, 43, 214, 0.35), rgba(26, 15, 61, 0.85)); border: 2px solid var(--line); box-shadow: var(--shadow); animation: rise-in 0.5s var(--ease-out, ease-out) both; }
 .xn.below { width: 100%; }
 
 .xn-kopf { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 22px; }
@@ -52,25 +52,25 @@
 .xn-mm.pos { color: #8dffc4; }
 
 /* ---------- ⚡ speed ---------- */
-.xn-speed-hint { text-align: center; font-family: var(--font-display); font-weight: 900; font-size: 30px; color: var(--banana); line-height: 1.1; }
+.xn-speed-hint { text-align: center; font-family: var(--font-display); font-weight: 900; font-size: 26px; color: var(--banana); line-height: 1.1; }
 .xn-speed-hint small { display: block; margin-top: 6px; font-family: var(--font-body); font-weight: 600; font-size: 15px; color: var(--muted); }
 .xn-speed-hint b { color: var(--cream); }
 .xn-mini-rang { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; width: 100%; }
 .xn-mini-rang li { display: grid; grid-template-columns: 28px 40px 1fr auto; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 12px; background: rgba(0, 0, 0, 0.25); font-size: 16px; }
 .xn-mini-rang b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .xn-mini-rang em { font-style: normal; font-weight: 800; color: #8dffc4; }
-.xn-podest { display: flex; align-items: flex-end; justify-content: center; gap: 22px; height: 340px; }
+.xn-podest { display: flex; align-items: flex-end; justify-content: center; gap: 22px; height: 360px; }
 .xn-step { position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 250px; animation: rise-in 0.55s var(--ease-spring, ease-out) both; }
 .xn-step.empty { visibility: hidden; }
 .xn-step-name { font-weight: 800; font-size: 22px; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .xn-time { padding: 3px 12px; border-radius: 99px; background: linear-gradient(90deg, #d6f3ff, #5fc4ff); color: #04203a; font-weight: 800; font-size: 17px; }
-.xn-block { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 12px; border-radius: 18px 18px 6px 6px;
+.xn-block { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 8px; border-radius: 18px 18px 6px 6px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05)); border: 2px solid var(--line); border-bottom: 0; }
-.xn-step.s1 .xn-block { height: 120px; background: linear-gradient(180deg, #ffe27a, var(--gold) 45%, var(--gold-d)); color: var(--ink); border-color: #fff1a8; }
-.xn-step.s2 .xn-block { height: 88px; background: linear-gradient(180deg, #eef2ff, #b7c1d8 55%, #7b8599); color: var(--ink); }
-.xn-step.s3 .xn-block { height: 64px; background: linear-gradient(180deg, #ffc79a, #d9823f 55%, #8a4b1c); color: var(--ink); }
-.xn-place { font-family: var(--font-display); font-weight: 900; font-size: 40px; line-height: 1; }
-.xn-block em { font-style: normal; font-family: var(--font-display); font-weight: 900; font-size: 24px; }
+.xn-step.s1 .xn-block { height: 132px; background: linear-gradient(180deg, #ffe27a, var(--gold) 45%, var(--gold-d)); color: var(--ink); border-color: #fff1a8; }
+.xn-step.s2 .xn-block { height: 104px; background: linear-gradient(180deg, #eef2ff, #b7c1d8 55%, #7b8599); color: var(--ink); }
+.xn-step.s3 .xn-block { height: 84px; background: linear-gradient(180deg, #ffc79a, #d9823f 55%, #8a4b1c); color: var(--ink); }
+.xn-place { font-family: var(--font-display); font-weight: 900; font-size: 34px; line-height: 1; }
+.xn-block em { font-style: normal; font-family: var(--font-display); font-weight: 900; font-size: 22px; line-height: 1.2; }
 .xn-rest { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: 1100px; }
 
 /* ---------- 🪂 survival ---------- */
