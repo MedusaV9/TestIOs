@@ -8,11 +8,35 @@ export const REVEAL_TENSION_MS = 1750;
 export const REVEAL_SILENCE_MS = 650;
 export const REVEAL_FANFARE_MS = REVEAL_TENSION_MS + REVEAL_SILENCE_MS;
 export const CEREMONY_ROLL_MS = 2500;
+/** Reveal choreography (ms after the reveal starts) — shared by the sound and the picture. */
+export const REVEAL_BEAT = {
+  dimFrom: 750,                          // wrong options start to go dark one after another
+  slam: REVEAL_FANFARE_MS,               // the correct answer slams in
+  votes: REVEAL_FANFARE_MS + 350,        // vote bars grow, pickers appear
+  money: REVEAL_FANFARE_MS + 850,        // delta chips land on the podium, money counts up
+  extras: REVEAL_FANFARE_MS + 1600,      // ⚡ fastest, streak stamps, rank arrows, crown
+  moments: REVEAL_FANFARE_MS + 2000,     // banner ticker may speak again
+};
+/** When each wrong option dims (index in `order`). */
+export function dimTimes(n) {
+  if (n <= 0) return [];
+  const span = REVEAL_BEAT.slam - 300 - REVEAL_BEAT.dimFrom;
+  const step = Math.min(420, span / n);
+  return Array.from({ length: n }, (_, i) => Math.round(REVEAL_BEAT.dimFrom + i * step));
+}
+/** Category roulette: a light runs over the cards and lands on the winner. */
+export const ROULETTE_MS = 1900;
+export function rouletteSteps(n, winner) {
+  if (n <= 1 || winner < 0) return [];
+  const S = 2 * n + winner;
+  return Array.from({ length: S + 1 }, (_, k) => ({ t: Math.round(ROULETTE_MS * (1 - Math.sqrt(1 - k / S))), idx: k % n }));
+}
+export const STANDINGS_FLIP_MS = 1100;
 export const CEREMONY_SILENCE_MS = 800;
 
 const PRELOAD = ["frage_ein", "reveal", "trommelwirbel", "riser", "richtig", "falsch", "applaus_kurz", "applaus_mittel", "applaus_gross", "kaching",
   "muenze1", "muenze2", "muenze3", "muenzregen", "impact_holz", "impact_glocke", "karte1", "karte2", "karte3", "drop", "joker", "dreiklang",
-  "dreiklang_tief", "karten_mischen", "jingle_hit", "tick", "tick_schnell", "confirm", "tap", "powerup"];
+  "dreiklang_tief", "karten_mischen", "jingle_hit", "jingle_hit2", "tick", "tick_schnell", "confirm", "tap", "tap2", "powerup", "phaser", "scroll", "impact_soft"];
 
 export class Regie {
   constructor() { this.reset(); }
@@ -20,7 +44,7 @@ export class Regie {
   reset() {
     this.cancel();
     this.lastPhase = null; this.lastQuestionKey = null; this.lastRevealKey = null; this.lastWallRevealed = false;
-    this.lastBombPasses = 0; this.lastExploded = null; this.lastBankedTotal = 0; this.lastMomentId = 0;
+    this.lastBombPasses = 0; this.lastExploded = null; this.lastAnswered = 0; this.allInKey = null; this.lastGewinner = null; this.lastBankedTotal = 0; this.lastMomentId = 0;
     this.first = true; this.bedHoldUntil = 0; this.lastSnippetAt = null; this.lastTickSec = null;
     this.stopChase();
   }
@@ -43,6 +67,8 @@ export class Regie {
     if (scene.kind === "frage") this.questionBeats(scene, view);
     else if (scene.kind === "aufloesung") this.revealBeat(scene);
     else if (scene.kind === "rad") this.wheelBeats(scene);
+    else if (scene.kind === "kategorieWahl") this.rouletteBeats(scene);
+    if (phaseChanged && !this.first && scene.kind === "zwischenstand") this.standingsBeats(scene);
     this.moments(view);
     this.lastPhase = view.phase;
     this.first = false;
@@ -87,6 +113,7 @@ export class Regie {
       this.lastQuestionKey = key;
       this.lastWallRevealed = wall ? wall.revealed : false;
       this.lastTickSec = null;
+      this.lastAnswered = wall ? wall.answered.length : 0;
       if (!this.first) { audio.duck(0.45, 900); audio.sfx("frage_ein", { gain: 0.9 }); }
     }
     const revealedNow = wall ? wall.revealed : false;
@@ -95,6 +122,17 @@ export class Regie {
       else if (extra.kind === "bomb" && extra.passes <= this.lastBombPasses) audio.sfx("falsch", { gain: 0.8 });
     }
     this.lastWallRevealed = revealedNow;
+    // Lock-ins: a soft click per answer, a chord when everybody is in.
+    if (wall && !wall.revealed) {
+      const n = wall.answered.length;
+      if (n > this.lastAnswered && !this.first) audio.sfx("tap2", { gain: 0.55, rateLimitMs: 90 });
+      this.lastAnswered = n;
+      const online = view.players.filter(p => p.connected).length;
+      if (n > 0 && n >= online && this.allInKey !== key) {
+        this.allInKey = key;
+        if (!this.first) this.later(120, () => audio.sfx("confirm", { gain: 0.8 }));
+      }
+    }
     // Last five seconds tick (only for real question timers).
     if (wall && wall.deadline && !wall.revealed && !view.paused) {
       const remain = wall.deadline - serverNow();
@@ -138,19 +176,51 @@ export class Regie {
     const vals = Object.values(deltas);
     const maxDelta = vals.length ? Math.max(...vals) : 0;
     const everyone = vals.length > 0 && correct >= vals.length;
-    this.later(REVEAL_FANFARE_MS, () => {
+    // Wrong options go dark one after another — a dry tick each.
+    if (wall && wall.options && wall.correctIndex != null) {
+      const wrong = wall.options.filter(o => !o.removed && o.id !== wall.correctIndex).length;
+      for (const t of dimTimes(wrong)) this.later(t, () => audio.sfx("tap", { gain: 0.4, rateLimitMs: 60 }));
+    }
+    this.later(REVEAL_BEAT.slam, () => {
       if (correct === 0) { audio.sfx("falsch"); audio.sfx("dreiklang_tief", { gain: 0.6 }); }
       else {
         audio.sfx("richtig");
         if (scene.sectionKind === "jackpot" || everyone || maxDelta >= 750) audio.sfx("applaus_gross", { gain: 0.9 });
         else if (correct > 1) audio.sfx("applaus_mittel", { gain: 0.85 });
         else audio.sfx("applaus_kurz", { gain: 0.8 });
-        if (maxDelta >= 750) audio.sfx("muenzregen");
-        else if (maxDelta >= 250) audio.sfx("kaching");
-        else if (maxDelta > 0) audio.variant("muenze", ["muenze1", "muenze2", "muenze3"], { gain: 0.9 });
       }
       audio.duck(0.3);
     });
+    // Money lands on the podium.
+    this.later(REVEAL_BEAT.money, () => {
+      if (maxDelta >= 750) audio.sfx("muenzregen");
+      else if (maxDelta >= 250) audio.sfx("kaching");
+      else if (maxDelta > 0) audio.variant("muenze", ["muenze1", "muenze2", "muenze3"], { gain: 0.9 });
+    });
+    // Extras: fastest, streak milestone, rank climbs, new leader.
+    const r = scene.reveal;
+    if (r) {
+      const E = REVEAL_BEAT.extras;
+      if (r.schnellster && r.antwortAnzahl >= 2) this.later(E, () => audio.sfx("phaser", { gain: 0.55 }));
+      if (r.eintraege.some(e => e.richtig === true && (e.streak === 3 || e.streak === 5))) this.later(E + 180, () => audio.sfx("powerup", { gain: 0.8 }));
+      if (r.eintraege.some(e => e.platzNachher < e.platzVorher)) this.later(E + 90, () => audio.sfx("scroll", { gain: 0.6 }));
+      if (r.fuehrungswechsel) this.later(E + 380, () => { audio.sfx("impact_glocke", { gain: 0.8 }); audio.sfx("jingle_hit2", { gain: 0.8 }); });
+    }
+  }
+
+  // ---------- category roulette / standings ----------
+  rouletteBeats(s) {
+    if (!s.gewinner) { this.lastGewinner = null; return; }
+    if (s.gewinner === this.lastGewinner) return;
+    this.lastGewinner = s.gewinner;
+    if (this.first) return;
+    const steps = rouletteSteps(s.optionen.length, s.optionen.findIndex(o => o.id === s.gewinner));
+    steps.forEach((st, i) => this.later(st.t, () => i === steps.length - 1 ? (audio.sfx("impact_glocke"), audio.sfx("applaus_kurz", { gain: 0.6 })) : audio.sfx("impact_holz", { gain: 0.55, rateLimitMs: 40 })));
+  }
+  standingsBeats(s) {
+    const entries = s.entries || [];
+    if (entries.some((e, i) => e.platzVorher && e.platzVorher > i + 1)) this.later(STANDINGS_FLIP_MS, () => audio.sfx("scroll", { gain: 0.65 }));
+    if (entries.length > 1 && entries[0].platzVorher > 1) this.later(STANDINGS_FLIP_MS + 700, () => { audio.sfx("impact_glocke", { gain: 0.75 }); audio.sfx("jingle_hit2", { gain: 0.7 }); });
   }
 
   // ---------- wheel ----------

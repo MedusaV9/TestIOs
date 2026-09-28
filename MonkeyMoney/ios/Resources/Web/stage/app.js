@@ -8,7 +8,9 @@ import { Monkey, Money, Confetti } from "../lib/ui.js";
 import { Regie } from "./regie.js";
 import { StageCtx } from "./ctx.js";
 import { MenuScreen, ModeScreen, SavesScreen, BoardsScreen, HowtoScreen, LobbyScene, SettingsDrawer } from "./host.js";
-import { SceneView, Podium, sceneWantsPodium } from "./scenes.js";
+import { SceneView, Podium, sceneWantsPodium, revealStart } from "./scenes.js";
+import { SceneSwitch } from "./fx.js";
+import { REVEAL_BEAT } from "./regie.js";
 
 const regie = new Regie();
 
@@ -114,8 +116,11 @@ function App() {
   } else if (!inShow) body = html`<div class="boot"><div class="boot-logo spin">🍌</div><p>Verbinde mit dem Raum …</p></div>`;
   else body = html`<${ShowLayout} view=${view} host=${host} />`;
 
+  const sc = inShow ? decode(view.scene) : null;
+  const sk = sc && sc.sectionKind && sc.sectionKind !== "runde" ? "sk-" + sc.sectionKind : "";
   return html`
-    <div class="backdrop ${inShow ? "phase-" + view.phase : "phase-menu"}">
+    <div class=${cx("backdrop", inShow ? "phase-" + view.phase : "phase-menu", sk)}>
+      <div class="tint t-gold"></div><div class="tint t-red"></div><div class="tint t-wheel"></div><div class="tint t-spot"></div>
       <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
       <div class="leaves l"></div><div class="leaves r"></div>
       <div class="floor"></div>
@@ -147,7 +152,7 @@ function ShowLayout({ view, host }) {
     <div class=${cx("show", "scene-" + scene.kind, podium && "with-podium")}>
       ${scene.kind !== "lobby" && html`<${TopBar} view=${view} host=${host} />`}
       <main class="stage-main">
-        ${scene.kind === "lobby" ? html`<${LobbyScene} view=${view} lobby=${scene} host=${host} />` : html`<${SceneView} view=${view} scene=${scene} key=${sceneKey(view, scene)} />`}
+        <${SceneSwitch} k=${sceneKey(view, scene)} kind=${scene.kind} data=${{ view, scene, host }} render=${renderScene} />
       </main>
       ${podium && html`<${Podium} view=${view} scene=${scene} />`}
       <${Moments} view=${view} />
@@ -155,8 +160,13 @@ function ShowLayout({ view, host }) {
     </div>`;
 }
 
+function renderScene({ view, scene, host }) {
+  return scene.kind === "lobby" ? html`<${LobbyScene} view=${view} lobby=${scene} host=${host} />` : html`<${SceneView} view=${view} scene=${scene} />`;
+}
+
+/** Same key → the scene morphs in place (frage → aufloesung of one question). */
 function sceneKey(view, scene) {
-  if (scene.kind === "frage" || scene.kind === "aufloesung") return "q-" + (scene.wall ? scene.wall.nummer + scene.wall.text.slice(0, 12) : scene.minigameId) + scene.kind;
+  if (scene.kind === "frage" || scene.kind === "aufloesung") return "q-" + scene.minigameId + "-" + (scene.wall ? scene.wall.nummer + scene.wall.text.slice(0, 16) : "");
   return scene.kind;
 }
 
@@ -190,9 +200,10 @@ function Controls({ view }) {
     </div>`;
 }
 
-/** Banner ticker for fresh moments (joker, steal, bonus …). */
+/** Banner ticker for fresh moments (joker, steal, bonus …). During a reveal they wait until the answer is out. */
 function Moments({ view }) {
   const [shown, setShown] = useState([]);
+  const [tick, setTick] = useState(0);
   const lastId = useRef(null);
   useEffect(() => {
     const ms = view.moments || [];
@@ -201,15 +212,24 @@ function Moments({ view }) {
     if (!ms.length) return;
     lastId.current = Math.max(lastId.current, ms[ms.length - 1].id);
     if (!fresh.length) return;
-    setShown(s => [...s, ...fresh.map(m => ({ ...m, until: Date.now() + 4200 }))].slice(-3));
+    const sc = decode(view.scene);
+    let wait = 0;
+    if (sc.kind === "aufloesung") wait = Math.max(0, revealStart(sc) + REVEAL_BEAT.moments - serverNow());
+    const now = Date.now();
+    setShown(s => [...s, ...fresh.map((m, i) => ({ ...m, from: now + wait + i * 350, until: now + wait + i * 350 + 4200 }))].slice(-4));
   }, [view.moments]);
   useEffect(() => {
     if (!shown.length) return;
-    const t = setTimeout(() => setShown(s => s.filter(m => m.until > Date.now())), 600);
+    const now = Date.now();
+    let next = Infinity;
+    for (const m of shown) { if (m.from > now) next = Math.min(next, m.from); if (m.until > now) next = Math.min(next, m.until); }
+    const t = setTimeout(() => { setShown(s => s.filter(m => m.until > Date.now())); setTick(x => x + 1); }, Math.max(40, (next === Infinity ? 600 : next - now) + 20));
     return () => clearTimeout(t);
-  }, [shown]);
+  }, [shown, tick]);
   const players = Object.fromEntries(view.players.map(p => [p.id, p]));
-  return html`<div class="moments">${shown.map(m => html`
+  const now = Date.now();
+  const visible = shown.filter(m => m.from <= now).slice(-3);
+  return html`<div class="moments">${visible.map(m => html`
     <div class=${cx("moment", "art-" + m.art)} key=${m.id}>
       ${m.playerId && players[m.playerId] ? html`<${Monkey} wire=${players[m.playerId].avatar} face="jubel" anim="none" size=${44} />` : html`<span class="m-ico">${momentIcon(m.art)}</span>`}
       <span>${m.text}</span>
@@ -218,7 +238,7 @@ function Moments({ view }) {
 }
 
 function momentIcon(art) {
-  return { join: "👋", joker: "🃏", steuer: "🧾", jackpot: "🫙", kategorie: "🗂️", regie: "🎬", pranger: "🍅", finale: "🐊", rad: "🎡", pause: "⏸", tipp: "💡", streik: "✊", geier: "🦅", boost: "🚀", rueckenwind: "🌬️", ultrahard: "🧠", shake: "🥥", bank: "🏦" }[art] || "✨";
+  return { join: "👋", joker: "🃏", steuer: "🧾", jackpot: "🫙", kategorie: "🗂️", regie: "🎬", pranger: "🍅", finale: "🐊", rad: "🎡", pause: "⏸", tipp: "💡", streik: "✊", geier: "🦅", boost: "🚀", rueckenwind: "🌬️", ultrahard: "🧠", shake: "🥥", bank: "🏦", serie: "🔥", schnell: "⚡", fuehrung: "👑", money: "💸" }[art] || "✨";
 }
 
 render(html`<${App} />`, document.getElementById("app"));

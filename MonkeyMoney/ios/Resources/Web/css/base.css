@@ -189,3 +189,23 @@ p { margin: 0; }
 }
 
 a.chip { color: inherit; text-decoration: none; }
+
+
+/* ---------- motion tokens (appended; shared) ---------- */
+:root {
+  --ease-out: cubic-bezier(.2, .9, .3, 1);
+  --ease-spring: cubic-bezier(.2, 1.45, .4, 1);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+  --ease-snap: cubic-bezier(.5, 0, .2, 1);
+  --dur-1: 160ms;
+  --dur-2: 320ms;
+  --dur-3: 560ms;
+  --dur-4: 900ms;
+  --glow-gold: 0 0 28px rgba(255, 201, 60, 0.55);
+  --glow-leaf: 0 0 28px rgba(43, 217, 138, 0.55);
+  --glow-red: 0 0 28px rgba(255, 77, 109, 0.6);
+  --glass-card: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+}
+@keyframes mm-flicker { 0%, 100% { transform: scale(1) translateY(0); opacity: 0.85; } 33% { transform: scale(1.06, 0.96) translateY(-3px); opacity: 1; } 66% { transform: scale(0.96, 1.05) translateY(2px); opacity: 0.75; } }
+@keyframes mm-stamp { 0% { transform: scale(2.6) rotate(-4deg); opacity: 0; } 35% { transform: scale(0.92) rotate(-12deg); opacity: 1; } 50% { transform: scale(1.05) rotate(-11deg); } 100% { transform: scale(1) rotate(-12deg); opacity: 1; } }
+@keyframes mm-ping { from { transform: scale(0.8); opacity: 0.9; } to { transform: scale(1.6); opacity: 0; } }
