@@ -80,7 +80,7 @@ public enum PixelDschungel: MinigamePlugin {
         wall.image = state.core.question.bild
         return MinigameStageOutput(wall: wall,
                                    extra: .pixel(image: state.core.question.bild ?? "", level: lvl, maxLevel: state.maxLevel,
-                                                 jackpot: jackpot(state, level: lvl), stufen: stair(state), locked: Array(state.core.answers.keys)),
+                                                 jackpot: jackpot(state, level: lvl), stufen: stair(state), locked: FormatHelpers.inOrder(state.core.answers.keys, ctx.players)),
                                    title: meta.name)
     }
 
@@ -95,7 +95,11 @@ public enum PixelDschungel: MinigamePlugin {
                                  hint: "🖼️ Bild läuft auf dem Bildschirm · Stufe \(lvl + 1)/\(state.maxLevel + 1) · jetzt tippen = \(Money.format(jackpot(state, level: lvl)))")
     }
 
-    public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) { state.core.gmInfo(ctx: ctx) }
+    public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
+        var g = state.core.gmInfo(ctx: ctx)
+        for (p, l) in state.levelAt { g.answers[p] = (g.answers[p] ?? "") + " · Stufe \(l + 1): \(Money.format(jackpot(state, level: l)))" }
+        return g
+    }
 }
 
 /// Affenbank — the signature round: rapid-fire MC in a 10-s beat. Majority
@@ -159,9 +163,16 @@ public enum Affenbank: MinigamePlugin {
         return s
     }
 
+    /// Next beat. The stack is never recycled (a repeated question is a free win):
+    /// when it runs dry the closing gong rings early.
     static func nextQuestion(_ s: inout State, ctx: inout MinigameContext) {
-        guard !s.questions.isEmpty else { s.finished = true; return }
-        let q = s.questions[s.qIndex % s.questions.count]
+        guard s.qIndex < s.questions.count else {
+            gong(&s, core: s.revealUntil != nil ? s.core : nil, ctx: ctx)
+            s.finished = true
+            s.revealUntil = nil
+            return
+        }
+        let q = s.questions[s.qIndex]
         s.qIndex += 1
         s.usedQuestions = min(s.questions.count, max(s.usedQuestions, s.qIndex))
         var mods = ctx.mods
@@ -189,11 +200,26 @@ public enum Affenbank: MinigamePlugin {
 
     public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) {
         switch action {
-        case .forceFinish, .skipQuestion: state.finished = true
+        case .forceFinish:
+            // "Weiter" rings the closing gong now: an open pot goes to the right answers of the running beat.
+            gong(&state, core: state.core, ctx: ctx)
+            state.finished = true
+            state.revealUntil = nil
+        case .skipQuestion:
+            // Drop the running beat unrated (no verdict, pot untouched) and fire the next one.
+            guard !state.finished else { return }
+            state.verdict = nil
+            nextQuestion(&state, ctx: &ctx)
+        case .timerExtend(let ms):
+            state.durchgangEndsAt += ms
+            if state.revealUntil == nil { state.core?.extend(ms: ms) }
         case .timerShift(let ms):
             state.durchgangEndsAt += ms
             state.core?.shift(ms: ms)
             if let r = state.revealUntil { state.revealUntil = r + ms }
+            for (p, t) in state.bankWindow { state.bankWindow[p] = t + ms }
+        case .removeOption(nil):
+            if state.revealUntil == nil { state.core?.hintStep(rng: &ctx.rng) }
         default: break
         }
     }
@@ -214,7 +240,7 @@ public enum Affenbank: MinigamePlugin {
     static func gong(_ state: inout State, core: ChoiceCore?, ctx: MinigameContext) {
         state.gongFor = []
         guard state.pot > 0, let core = core else { return }
-        for p in ctx.players where ctx.connected.contains(p) && core.isCorrect(p) == true {
+        for p in ctx.players where (ctx.connected.contains(p) || core.answers[p] != nil) && core.isCorrect(p) == true {
             state.banked[p, default: 0] += state.pot
             state.gongFor.append(p)
         }
@@ -294,7 +320,8 @@ public enum Affenbank: MinigamePlugin {
         qctx.fragenNummer = state.qIndex
         qctx.fragenGesamt = 0
         let wall = revealed ? nil : state.core?.wall(ctx: qctx, revealed: state.revealUntil != nil)
-        let title = state.durchgaenge > 1 ? "Affenbank · Durchgang \(state.durchgang)/\(state.durchgaenge)" : "Affenbank"
+        let pot = state.pot > 0 ? " · Pott \(Money.format(state.pot))" : ""
+        let title = (state.durchgaenge > 1 ? "Affenbank · Durchgang \(state.durchgang)/\(state.durchgaenge)" : "Affenbank") + pot
         return MinigameStageOutput(wall: wall,
                                    extra: .bankPot(pot: state.pot, chain: state.chain, chainStep: state.chainStep, banked: state.banked, lastBanker: state.lastBanker,
                                                    verdict: state.revealUntil != nil ? state.verdict : nil, durchgang: state.durchgang, durchgaenge: state.durchgaenge,
@@ -328,7 +355,10 @@ public enum Affenbank: MinigamePlugin {
     }
 
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
-        state.core?.gmInfo(ctx: ctx) ?? (nil, [:])
+        var g: (question: GmQuestionInfo?, answers: [PlayerId: String]) = state.core?.gmInfo(ctx: ctx) ?? (nil, [:])
+        for (p, b) in state.banked where b > 0 { g.answers[p] = (g.answers[p] ?? "—") + " · gesichert \(Money.format(b))" }
+        g.answers["_pott"] = "Pott \(Money.format(state.pot)) · Beat \(state.qIndex) · Durchgang \(state.durchgang)/\(state.durchgaenge)"
+        return g
     }
 
     public static func questionsUsed(_ state: State) -> Int { max(1, state.usedQuestions) }
@@ -395,15 +425,24 @@ public enum Stinkbanane: MinigamePlugin {
         s.fuseEndsAt = ctx.now + ctx.ms(secs * 1000)
     }
 
+    /// Next question for the holder. The stack is never recycled: if it runs dry
+    /// (a lightning-fast table) the banana is defused and the run ends without a bang.
     static func nextQuestion(_ s: inout State, ctx: inout MinigameContext) {
-        guard !s.questions.isEmpty else { s.finished = true; return }
-        let q = s.questions[s.qIndex % s.questions.count]
+        guard s.qIndex < s.questions.count else { defuse(&s, ctx: &ctx); return }
+        let q = s.questions[s.qIndex]
         s.qIndex += 1
         s.usedQuestions = min(s.questions.count, max(s.usedQuestions, s.qIndex))
         var qctx = ctx
         qctx.mods = QuestionMods()
         s.core = ChoiceCore(question: q, ctx: qctx, timerMs: ctx.ms(questionMs))
         s.revealUntil = nil
+    }
+
+    static func defuse(_ s: inout State, ctx: inout MinigameContext) {
+        s.core = nil
+        s.cooldownUntil = nil
+        s.revealUntil = nil
+        s.finished = true
     }
 
     static func nextHolder(_ s: State, ctx: MinigameContext) -> PlayerId {
@@ -439,12 +478,23 @@ public enum Stinkbanane: MinigamePlugin {
 
     public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) {
         switch action {
-        case .forceFinish, .skipQuestion: state.finished = true
+        case .forceFinish: state.finished = true
+        case .skipQuestion:
+            // A fresh question for the same holder — the fuse keeps burning.
+            guard !state.finished, state.explodedAt == nil else { return }
+            state.cooldownUntil = nil
+            nextQuestion(&state, ctx: &ctx)
+        case .timerExtend(let ms):
+            if state.revealUntil == nil, state.cooldownUntil == nil { state.core?.extend(ms: ms) }
         case .timerShift(let ms):
             state.fuseEndsAt += ms
+            state.fuseStartedAt += ms
             state.core?.shift(ms: ms)
             if let c = state.cooldownUntil { state.cooldownUntil = c + ms }
             if let r = state.revealUntil { state.revealUntil = r + ms }
+            if let e = state.explodedAt { state.explodedAt = e + ms }
+        case .removeOption(nil):
+            if state.revealUntil == nil, state.cooldownUntil == nil { state.core?.hintStep(rng: &ctx.rng) }
         default: break
         }
     }
@@ -460,7 +510,7 @@ public enum Stinkbanane: MinigamePlugin {
         guard !state.finished else { return }
         if let at = state.explodedAt {
             if ctx.now >= at + ctx.ms(4000) {
-                if state.durchgang >= 2 { state.finished = true; return }
+                if state.durchgang >= 2 || state.qIndex >= state.questions.count { state.finished = true; return }
                 state.durchgang = 2
                 state.explodedAt = nil
                 state.holder = ctx.rng.pick(state.order.filter { ctx.connected.contains($0) && $0 != state.holder }) ?? state.holder
@@ -539,7 +589,8 @@ public enum Stinkbanane: MinigamePlugin {
             return .idle(title: state.holder == player ? "💥 BOOM! Du hattest sie …" : "💥 \(ctx.name(state.holder)) ist matschig!", subtitle: "−\(Money.format(explosionPenalty)) ins Jackpot-Glas")
         }
         guard player == state.holder, let core = state.core else {
-            return .cheer(title: "🥁 ANFEUERN!", subtitle: "\(ctx.name(state.holder)) hält die Stinkbanane — trommeln!", taps: state.cheers[player] ?? 0)
+            let mine = (state.passes[player] ?? 0) > 0 ? " · du: \(state.passes[player] ?? 0)× weitergegeben" : ""
+            return .cheer(title: "🥁 ANFEUERN!", subtitle: "\(ctx.name(state.holder)) hält die Stinkbanane — trommeln! Gleich kann sie bei dir landen\(mine)", taps: state.cheers[player] ?? 0)
         }
         if let c = state.cooldownUntil {
             return .confirm(title: "❌ Falsch — festhalten!", subtitle: "Die Banane bleibt bei dir. Neue Frage gleich …", button: "Festhalten …", done: true, deadline: c)

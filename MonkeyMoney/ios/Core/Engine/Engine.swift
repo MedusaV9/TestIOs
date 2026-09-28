@@ -401,8 +401,8 @@ public struct Engine: Sendable {
     /// Draw the questions of a section lazily (category may just have been voted).
     func prepareSectionQuestions(_ s: inout EngineState, section: Section) {
         let plugin = resolvedPlugin(s, section)
-        var count = section.fragen
-        if plugin.meta.id == "affenbank" || plugin.meta.id == "stinkbanane" { count = max(count, 20) }
+        // Round formats get their whole series plus spares (GM skip/swap never runs dry).
+        let count = FormatHelpers.questionBudget(formatId: plugin.meta.id, roundBased: plugin.meta.roundBased, sectionFragen: section.fragen)
         var types: [QuestionType] = []
         if case .fragen(let t) = plugin.meta.contentKind { types = t }
         var used = Set(s.usedQuestionIds)
@@ -476,8 +476,10 @@ public struct Engine: Sendable {
                 s.ultrahardCount += 1
             }
         }
-        for q in picked { used.insert(q.id) }
-        s.usedQuestionIds = Array(used)
+        // Append in draw order (`Array(Set)` reshuffled the list per process — non-deterministic saves).
+        let known = Set(s.usedQuestionIds)
+        var added: Set<String> = []
+        for q in picked where !known.contains(q.id) && added.insert(q.id).inserted { s.usedQuestionIds.append(q.id) }
         s.currentQuestionIds = picked.map { $0.id }
     }
 
@@ -628,7 +630,12 @@ public struct Engine: Sendable {
 
     func afterAufloesung(_ s: inout EngineState, now: Millis) {
         guard let section = s.currentSection, let box = s.minigame else { finishSection(&s, now: now); return }
+        // "Next question" jokers bought during the reveal (Goldene Banane, GM ×2 boost) belong to the
+        // next question — the booking already used up the previous ones (Scoring.book).
+        let pending = s.nextMods
         s.nextMods = QuestionMods()
+        s.nextMods.goldeneBanane = pending.goldeneBanane
+        s.nextMods.boostX2 = pending.boostX2
         if box.roundBased {
             finishSection(&s, now: now)
             return

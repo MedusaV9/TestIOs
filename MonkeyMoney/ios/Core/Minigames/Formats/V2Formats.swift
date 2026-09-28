@@ -19,7 +19,7 @@ public enum MonkeyMarket: MinigamePlugin {
                  "Chips auf der richtigen Tür kommen doppelt zurück",
                  "Alle anderen Chips verfallen",
                  "Alles auf eine Tür und richtig? Mut-Bonus obendrauf"],
-        gewinn: "Richtige Tür: Chips ×2 · All-in richtig: Mut-Bonus",
+        gewinn: "Pro Chip auf der richtigen Tür: 1/5 Fragenwert · All-in richtig: +25 % Mut-Bonus",
         contentKind: .choiceLike, streak: false, jokerAktionen: [], isMc: false, musik: "market_trade", v2: true
     )
 
@@ -57,7 +57,7 @@ public enum MonkeyMarket: MinigamePlugin {
             guard let c = state.placed[p] else { s[p] = 0; continue }
             let onCorrect = c[state.core.correctIndex]
             var win = onCorrect * cv * 2
-            if onCorrect == chips { win = Int(Double(win) * (state.core.question.schw == .ultrahard ? 1.25 : 1.25)) }
+            if onCorrect == chips { win = Int(Double(win) * 1.25) }
             s[p] = Economy.roundTo10(win)
         }
         return s
@@ -76,7 +76,7 @@ public enum MonkeyMarket: MinigamePlugin {
         var per = Array(repeating: 0, count: state.core.options.count)
         for c in state.placed.values where revealed { for (i, n) in c.enumerated() where i < per.count { per[i] += n } }
         var wall = state.core.wall(ctx: ctx, revealed: revealed)
-        wall.answered = Array(state.locked.keys)
+        wall.answered = FormatHelpers.inOrder(state.locked.keys, ctx.players)
         return MinigameStageOutput(wall: wall, extra: .chips(perOption: per, quotes: nil, placedBy: revealed ? state.placed : [:]), title: meta.name)
     }
 
@@ -92,7 +92,10 @@ public enum MonkeyMarket: MinigamePlugin {
 
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
         var g = state.core.gmInfo(ctx: ctx)
-        for (p, c) in state.placed { g.answers[p] = c.map(String.init).joined(separator: "/") }
+        for (p, c) in state.placed {
+            let right = c.indices.contains(state.core.correctIndex) ? c[state.core.correctIndex] : 0
+            g.answers[p] = c.map(String.init).joined(separator: "/") + " · \(right) richtig" + (state.locked[p] == nil ? " (nicht eingeloggt)" : "")
+        }
         return g
     }
 }
@@ -105,38 +108,61 @@ public enum BananenBoerse: MinigamePlugin {
         public var positions: [PlayerId: Int]
         public var switched: [PlayerId]
         public var stake: Int
+        /// Last buy/switch — the market closes a few seconds after everyone is invested.
+        public var lastTradeAt: Millis?
     }
+
+    /// Once everyone holds a position the market closes this long after the last trade.
+    static let closeMs = 5000
 
     public static let meta = MinigameMeta(
         id: "bananen-boerse", name: "Bananen-Börse", emoji: "📈",
         kurz: "Investiere in eine Antwort — je mehr Affen dieselbe kaufen, desto schlechter die Quote.",
-        erklaerung: "Live-Börse: Jeder investiert einen festen Einsatz in eine Antwort-Aktie. Die Quote sinkt, je mehr Affen dieselbe Antwort kaufen (Herdentrieb!). Richtig = Einsatz × Quote, falsch = Einsatz weg. Einmal umschichten ist erlaubt — kostet aber 25 % Spread.",
+        erklaerung: "Live-Börse: Jeder investiert einen festen Einsatz (den halben Fragenwert) in eine Antwort-Aktie. Die Quote sinkt, je mehr Affen dieselbe Antwort kaufen (Herdentrieb!). Richtig = Kursgewinn Einsatz × (Quote − 1), falsch = Einsatz weg. Einmal umschichten ist erlaubt — kostet aber 25 % vom Kursgewinn. Sobald alle investiert sind, schließt der Markt fünf Sekunden nach dem letzten Kauf.",
         regeln: ["Investiere einen festen Einsatz in eine Antwort-Aktie",
                  "Je mehr Affen dieselbe kaufen, desto schlechter die Quote",
-                 "Richtig: Einsatz × Quote · falsch: Einsatz weg",
-                 "Einmal umschichten erlaubt — kostet 25 % Spread"],
-        gewinn: "Richtig: Einsatz × Quote · Falsch: −Einsatz",
+                 "Richtig: Kursgewinn = Einsatz × (Quote − 1) · falsch: Einsatz weg",
+                 "Einmal umschichten erlaubt — kostet 25 % vom Kursgewinn",
+                 "Sind alle investiert, schließt der Markt 5 s nach dem letzten Kauf"],
+        gewinn: "Richtig: +Einsatz × (Quote − 1) · Falsch: −Einsatz (½ Fragenwert)",
         contentKind: .choiceLike, streak: false, jokerAktionen: [], isMc: true, musik: "bank_round", v2: true
     )
 
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         let q = FormatHelpers.first(questions, kind: meta.contentKind)
-        return State(core: ChoiceCore(question: q, ctx: ctx, timerMs: ctx.answerWindow(20_000)), positions: [:], switched: [], stake: q.value / 2)
+        return State(core: ChoiceCore(question: q, ctx: ctx, timerMs: ctx.answerWindow(20_000)), positions: [:], switched: [], stake: q.value / 2, lastTradeAt: nil)
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
-        guard case .choose(let i) = action, i >= 0, i < state.core.options.count, ctx.now <= state.core.deadline else { return }
+        guard case .choose(let i) = action, i >= 0, i < state.core.options.count, ctx.now <= state.core.deadline, state.core.finishedAt == nil else { return }
+        if state.core.globalRemoved.contains(i) || (state.core.removed[player] ?? []).contains(i) { return }
         if let cur = state.positions[player] {
             guard cur != i, !state.switched.contains(player) else { return }
             state.switched.append(player)
         }
         state.positions[player] = i
         state.core.answers[player] = ChoiceCore.Answer(index: i, at: ctx.now, secondTry: false, wrongFirst: nil)
+        state.lastTradeAt = ctx.now
     }
 
-    public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) { state.core.applyGm(action, ctx: &ctx) }
+    public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) {
+        state.core.applyGm(action, ctx: &ctx)
+        if case .timerShift(let ms) = action, let t = state.lastTradeAt { state.lastTradeAt = t + ms }
+    }
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {}
-    public static func isFinished(_ state: State, ctx: MinigameContext) -> Bool { state.core.finishedAt != nil || ctx.now > state.core.deadline + ChoiceCore.graceMs }
+
+    /// Market close: when everyone at the table is invested, 5 s after the last
+    /// trade (fixes the timer-off hang and the dead wait until the deadline).
+    static func closesAt(_ state: State, ctx: MinigameContext) -> Millis? {
+        let active = ctx.players.filter { ctx.connected.contains($0) }
+        guard !active.isEmpty, active.allSatisfy({ state.positions[$0] != nil }), let t = state.lastTradeAt else { return nil }
+        return min(state.core.deadline, t + ctx.ms(closeMs))
+    }
+
+    public static func isFinished(_ state: State, ctx: MinigameContext) -> Bool {
+        if state.core.finishedAt != nil || ctx.now > state.core.deadline + ChoiceCore.graceMs { return true }
+        return closesAt(state, ctx: ctx).map { ctx.now >= $0 } ?? false
+    }
 
     static func quotes(_ state: State, ctx: MinigameContext) -> [Double] {
         let n = max(1, state.positions.count)
@@ -151,9 +177,13 @@ public enum BananenBoerse: MinigamePlugin {
         let q = quotes(state, ctx: ctx)
         for p in ctx.players {
             guard let pos = state.positions[p] else { s[p] = 0; continue }
-            let stake = state.switched.contains(p) ? Int(Double(state.stake) * 0.75) : state.stake
-            s[p] = pos == state.core.correctIndex ? Economy.roundTo10(Int(Double(stake) * q[pos]) - state.stake + stake) - (stake - state.stake) : -stake
-            if pos == state.core.correctIndex { s[p] = Economy.roundTo10(Int(Double(stake) * (q[pos] - 1))) }
+            if pos == state.core.correctIndex {
+                // Switching costs 25 % of the gain (the spread) — it never lowers the risk.
+                let gain = Double(state.stake) * (q[pos] - 1) * (state.switched.contains(p) ? 0.75 : 1)
+                s[p] = Economy.roundTo10(Int(gain))
+            } else {
+                s[p] = -state.stake
+            }
         }
         return s
     }
@@ -163,7 +193,7 @@ public enum BananenBoerse: MinigamePlugin {
         let q = quotes(state, ctx: ctx)
         for p in ctx.players {
             out[p]?.countsForStreak = false
-            if let pos = state.positions[p] { out[p]?.detail = String(format: "Quote %.2f", q[pos]) }
+            if let pos = state.positions[p] { out[p]?.detail = "Quote \(FormatHelpers.decimal(q[pos]))" }
         }
         return out
     }
@@ -183,12 +213,21 @@ public enum BananenBoerse: MinigamePlugin {
         }
         let q = quotes(state, ctx: ctx)
         var opts = state.core.options(for: player)
-        for i in opts.indices { opts[i].text += String(format: "  ·  ×%.2f", q[opts[i].id]) }
-        let hint = "💵 Einsatz \(Money.format(state.stake))" + (state.positions[player] != nil && !state.switched.contains(player) ? " · 1× umschichten möglich" : "")
-        return .choice(question: state.core.question.displayText, options: opts, chosen: state.switched.contains(player) ? state.positions[player] : nil, deadline: ctx.visible(state.core.deadline), secondTry: false, hint: hint)
+        for i in opts.indices { opts[i].text += "  ·  ×" + FormatHelpers.decimal(q[opts[i].id]) }
+        var hint = "💵 Einsatz \(Money.format(state.stake))" + (state.positions[player] != nil && !state.switched.contains(player) ? " · 1× umschichten möglich (−25 % vom Gewinn)" : "")
+        if let close = closesAt(state, ctx: ctx) { hint += " · Markt schließt in \(max(0, (close - ctx.now + 999) / 1000)) s" }
+        return .choice(question: state.core.question.displayText, options: opts, chosen: state.switched.contains(player) ? state.positions[player] : nil,
+                       deadline: ctx.visible(closesAt(state, ctx: ctx) ?? state.core.deadline), secondTry: false, hint: hint)
     }
 
-    public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) { state.core.gmInfo(ctx: ctx) }
+    public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
+        var g = state.core.gmInfo(ctx: ctx)
+        let q = quotes(state, ctx: ctx)
+        for (p, pos) in state.positions where q.indices.contains(pos) {
+            g.answers[p] = (g.answers[p] ?? "") + " · ×\(FormatHelpers.decimal(q[pos]))" + (state.switched.contains(p) ? " (umgeschichtet)" : "")
+        }
+        return g
+    }
 }
 
 /// Affen-Auktion — 20 s blind auction for the exclusive right to answer.
@@ -201,6 +240,10 @@ public enum AffenAuktion: MinigamePlugin {
         public var bidUntil: Millis
         public var winner: PlayerId?
         public var winningBid: Int
+        /// When each bid came in (equal bids: the earlier one wins).
+        public var bidAt: [PlayerId: Millis]?
+        /// The winner left the table before answering — the lot is void, nobody pays.
+        public var verfallen: Bool?
     }
 
     public static let meta = MinigameMeta(
@@ -209,8 +252,8 @@ public enum AffenAuktion: MinigamePlugin {
         erklaerung: "Zum Ersten, zum Zweiten … Nur Kategorie und Schwierigkeit sind bekannt. Jeder bietet verdeckt (25er-Schritte bis 1.000 MM) um das EXKLUSIVE Antwortrecht. Das höchste Gebot gewinnt und antwortet allein: richtig = Gebot als Gewinn, falsch = das Gebot wird an alle anderen verteilt.",
         regeln: ["Nur Kategorie und Schwierigkeit sind bekannt",
                  "Alle bieten VERDECKT um das alleinige Antwortrecht",
-                 "Das höchste Gebot gewinnt und antwortet allein",
-                 "Richtig: Gebot als Gewinn · falsch: Gebot geht an alle anderen"],
+                 "Das höchste Gebot gewinnt und antwortet allein — bei Gleichstand das frühere",
+                 "Richtig: Gebot als Gewinn · falsch oder zu langsam: Gebot geht an alle anderen"],
         gewinn: "Richtig +Gebot · Falsch: Gebot wird an die anderen verteilt",
         contentKind: .choiceLike, streak: false, jokerAktionen: [], isMc: true, musik: "market_trade", v2: true
     )
@@ -218,7 +261,7 @@ public enum AffenAuktion: MinigamePlugin {
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         var core = ChoiceCore(question: FormatHelpers.first(questions, kind: meta.contentKind), ctx: ctx)
         core.startedAt = 0
-        return State(core: core, phase: "bieten", bids: [:], bidUntil: ctx.now + ctx.answerWindow(20_000), winner: nil, winningBid: 0)
+        return State(core: core, phase: "bieten", bids: [:], bidUntil: ctx.now + ctx.answerWindow(20_000), winner: nil, winningBid: 0, bidAt: [:], verfallen: nil)
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
@@ -227,6 +270,8 @@ public enum AffenAuktion: MinigamePlugin {
             guard state.bids[player] == nil else { return }
             let cap = min(1000, max(100, (ctx.balances[player] ?? 0) + 500))
             state.bids[player] = max(0, min(cap, w / 25 * 25))
+            state.bidAt = state.bidAt ?? [:]
+            state.bidAt?[player] = ctx.now
         case ("frage", .choose(let i)):
             guard player == state.winner else { return }
             _ = state.core.answer(player, index: i, now: ctx.now)
@@ -235,8 +280,33 @@ public enum AffenAuktion: MinigamePlugin {
     }
 
     public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) {
-        if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
-        if case .forceFinish = action { state.phase = "fertig" }
+        switch action {
+        case .forceFinish:
+            if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
+            state.phase = "fertig"
+        case .timerShift(let ms):
+            state.bidUntil += ms
+            if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
+        case .timerExtend(let ms):
+            if state.phase == "bieten" { state.bidUntil += ms } else if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
+        case .skipQuestion:
+            // Bidding: close the auction now. Question: the lot is void (nobody pays).
+            if state.phase == "bieten" { state.bidUntil = ctx.now } else if state.phase == "frage" { state.verfallen = true; state.phase = "fertig" }
+        default:
+            if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
+        }
+    }
+
+    /// Highest bid wins; equal bids: the earlier bid, then seat order. Bidders who
+    /// left the room are ignored (a kicked bidder used to crash the auction).
+    static func bestBid(_ state: State, ctx: MinigameContext) -> (PlayerId, Int)? {
+        let seat = Dictionary(uniqueKeysWithValues: ctx.players.enumerated().map { ($0.element, $0.offset) })
+        let valid = state.bids.filter { $0.value > 0 && seat[$0.key] != nil }
+        return valid.min { a, b in
+            if a.value != b.value { return a.value > b.value }
+            let ta = state.bidAt?[a.key] ?? 0, tb = state.bidAt?[b.key] ?? 0
+            return ta != tb ? ta < tb : seat[a.key]! < seat[b.key]!
+        }.map { ($0.key, $0.value) }
     }
 
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {
@@ -244,16 +314,20 @@ public enum AffenAuktion: MinigamePlugin {
         case "bieten":
             let active = ctx.players.filter { ctx.connected.contains($0) }
             if ctx.now >= state.bidUntil || (!active.isEmpty && active.allSatisfy { state.bids[$0] != nil }) {
-                let best = state.bids.filter { $0.value > 0 }.max { a, b in a.value < b.value || (a.value == b.value && ctx.players.firstIndex(of: a.key)! > ctx.players.firstIndex(of: b.key)!) }
-                guard let w = best else { state.phase = "fertig"; return }
-                state.winner = w.key
-                state.winningBid = w.value
+                guard let w = bestBid(state, ctx: ctx) else { state.phase = "fertig"; return }
+                state.winner = w.0
+                state.winningBid = w.1
                 state.core.startedAt = ctx.now
                 state.core.deadline = ctx.now + state.core.timerMs
                 state.phase = "frage"
             }
         case "frage":
-            if let w = state.winner, state.core.answers[w] != nil || ctx.now > state.core.deadline + ChoiceCore.graceMs || state.core.finishedAt != nil {
+            guard let w = state.winner else { state.phase = "fertig"; return }
+            if !ctx.connected.contains(w), state.core.answers[w] == nil {
+                // The winner is gone (timer off would wait an hour): the lot is void.
+                state.verfallen = true
+                state.phase = "fertig"
+            } else if state.core.answers[w] != nil || ctx.now > state.core.deadline + ChoiceCore.graceMs || state.core.finishedAt != nil {
                 state.phase = "fertig"
             }
         default: break
@@ -265,7 +339,7 @@ public enum AffenAuktion: MinigamePlugin {
     public static func scores(_ state: State, ctx: MinigameContext) -> [PlayerId: Int] {
         var s: [PlayerId: Int] = [:]
         for p in ctx.players { s[p] = 0 }
-        guard let w = state.winner else { return s }
+        guard let w = state.winner, state.verfallen != true, ctx.players.contains(w) else { return s }
         if state.core.isCorrect(w) == true {
             s[w] = state.winningBid
         } else {
@@ -298,24 +372,29 @@ public enum AffenAuktion: MinigamePlugin {
     public static func prompt(_ state: State, player: PlayerId, revealed: Bool, ctx: MinigameContext) -> PlayerPrompt {
         if revealed {
             let s = scores(state, ctx: ctx)[player] ?? 0
-            return .reveal(title: player == state.winner ? (s > 0 ? "ZUSCHLAG & RICHTIG!" : "Teurer Fehler …") : (s > 0 ? "Anteil kassiert" : "Kein Zuschlag"), correct: s > 0, delta: s,
+            let title = state.verfallen == true ? "Zuschlag verfallen — niemand zahlt" : (player == state.winner ? (s > 0 ? "ZUSCHLAG & RICHTIG!" : "Teurer Fehler …") : (s > 0 ? "Anteil kassiert" : "Kein Zuschlag"))
+            return .reveal(title: title, correct: s > 0, delta: s,
                            detail: "Richtig war: \(state.core.options[state.core.correctIndex])", streak: 0, speedBonus: nil)
         }
         switch state.phase {
         case "bieten":
             let cap = min(1000, max(100, (ctx.balances[player] ?? 0) + 500))
-            return .wager(title: "Gebot: \(ctx.catalog.categoryName(state.core.question.kat)) · \(state.core.question.schw.label)", subtitle: "Verdeckt bieten — 0 = passen", min: 0, max: cap, step: 25,
+            let open = ctx.players.filter { ctx.connected.contains($0) && state.bids[$0] == nil }.count
+            let sub = state.bids[player] == nil ? "Verdeckt bieten — 0 = passen · richtig = +Gebot, falsch = Gebot an alle"
+                : (open == 0 ? "Gebot abgegeben — gleich fällt der Hammer!" : "Gebot abgegeben — noch \(open) am Bieten")
+            return .wager(title: "Gebot: \(ctx.catalog.categoryName(state.core.question.kat)) · \(state.core.question.schw.label)", subtitle: sub, min: 0, max: cap, step: 25,
                           current: state.bids[player], locked: state.bids[player] != nil, deadline: ctx.visible(state.bidUntil))
         case "frage":
             if player == state.winner { return state.core.prompt(for: player, ctx: ctx, revealed: false, hint: "🔨 Dein Zuschlag: \(Money.format(state.winningBid))") }
-            return .idle(title: "🔨 \(ctx.name(state.winner ?? "")) hat den Zuschlag", subtitle: "\(Money.format(state.winningBid)) — falsch wird an alle verteilt!")
+            let share = Economy.roundTo10(state.winningBid / max(1, ctx.players.count - 1))
+            return .idle(title: "🔨 \(ctx.name(state.winner ?? "")) hat den Zuschlag (\(Money.format(state.winningBid)))", subtitle: "Liegt \(ctx.name(state.winner ?? "")) falsch, bekommst du \(Money.format(share)) — Daumen drücken!")
         default: return .idle(title: "Auflösung …", subtitle: nil)
         }
     }
 
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
         var g = state.core.gmInfo(ctx: ctx)
-        for (p, b) in state.bids { g.answers[p] = (g.answers[p] ?? "") + " Gebot \(b)" }
+        for (p, b) in state.bids { g.answers[p] = [g.answers[p], "Gebot \(Money.format(b))" + (p == state.winner ? " 🔨" : "")].compactMap { $0 }.joined(separator: " · ") }
         return g
     }
 }
@@ -343,7 +422,7 @@ public enum BananenBluff: MinigamePlugin {
                  "Alle Lügen werden mit der Wahrheit gemischt",
                  "Wer die Wahrheit findet: halber Fragenwert",
                  "Wer auf DEINE Lüge fällt, zahlt dir den halben Fragenwert"],
-        gewinn: "Wahrheit gefunden: ½ Fragenwert · pro Opfer deiner Lüge: +½ Fragenwert",
+        gewinn: "Wahrheit: +½ Fragenwert · Reingefallen: −½ an den Lügner · pro Opfer deiner Lüge +½",
         minPlayers: 3, contentKind: .fragen([.choice]), streak: false, jokerAktionen: [], isMc: false, musik: "estimate_think", v2: true
     )
 
@@ -375,7 +454,8 @@ public enum BananenBluff: MinigamePlugin {
     }
 
     static func startVoting(_ state: inout State, ctx: inout MinigameContext) {
-        var entries: [(String, PlayerId?)] = state.lies.map { ($0.value, $0.key) }
+        // Seat order before the seeded shuffle — dictionary order would make the board differ per process.
+        var entries: [(String, PlayerId?)] = FormatHelpers.inOrder(state.lies.keys, ctx.players).map { (state.lies[$0]!, $0) }
         entries.append((state.truth, nil))
         entries = ctx.rng.shuffled(entries)
         state.entries = entries.map { $0.0 }
@@ -424,8 +504,9 @@ public enum BananenBluff: MinigamePlugin {
         let kat = ctx.catalog.categories.first { $0.id == state.question.kat }
         let wall = QuestionWall(text: state.question.text, kategorie: state.question.kat, kategorieName: kat?.name ?? "", kategorieEmoji: kat?.emoji ?? "❓",
                                 schwierigkeit: state.question.schw, wert: state.question.value / 2, options: nil,
-                                answered: state.phase == "luegen" ? Array(state.lies.keys) : Array(state.votes.keys), deadline: state.phase == "fertig" ? nil : ctx.visible(state.phaseUntil),
-                                timerMs: 40_000, revealed: revealed, correctIndex: nil, answersByPlayer: [:], erklaerung: revealed ? state.question.erkl : nil,
+                                answered: FormatHelpers.inOrder(state.phase == "luegen" ? Array(state.lies.keys) : Array(state.votes.keys), ctx.players),
+                                deadline: state.phase == "fertig" ? nil : ctx.visible(state.phaseUntil),
+                                timerMs: state.phase == "luegen" ? ctx.answerWindow(40_000) : ctx.answerWindow(20_000), revealed: revealed, correctIndex: nil, answersByPlayer: [:], erklaerung: revealed ? state.question.erkl : nil,
                                 nummer: ctx.fragenNummer, gesamt: ctx.fragenGesamt)
         let entries = state.entries.enumerated().map { (i, text) in ChoiceOption(id: i, text: text, count: revealed ? state.votes.values.filter { v in v == i }.count : nil) }
         return MinigameStageOutput(wall: wall, extra: .bluff(entries: entries, authors: revealed ? state.authors : nil, votes: revealed ? state.votes : [:], phase: revealed ? "fertig" : state.phase,
@@ -440,10 +521,16 @@ public enum BananenBluff: MinigamePlugin {
         }
         switch state.phase {
         case "luegen":
+            if state.lies[player] != nil {
+                let open = ctx.players.filter { ctx.connected.contains($0) && state.lies[$0] == nil }.count
+                return .text(question: state.question.text + "\n✅ Lüge abgegeben — " + (open == 0 ? "gleich wird geraten!" : "noch \(open) am Flunkern, dann wird geraten"),
+                             placeholder: "Deine glaubwürdige Lüge …", maxLength: 40, submitted: state.lies[player], deadline: ctx.visible(state.phaseUntil))
+            }
             return .text(question: state.question.text, placeholder: "Deine glaubwürdige Lüge …", maxLength: 40, submitted: state.lies[player], deadline: ctx.visible(state.phaseUntil))
         case "raten":
             let opts = state.entries.enumerated().map { ChoiceOption(id: $0.offset, text: $0.element, removed: state.authors[$0.offset] == player) }
-            return .choice(question: "Was ist die Wahrheit?", options: opts, chosen: state.votes[player], deadline: ctx.visible(state.phaseUntil), secondTry: false, hint: "Deine eigene Lüge ist gesperrt.")
+            return .choice(question: "Was ist die Wahrheit?", options: opts, chosen: state.votes[player], deadline: ctx.visible(state.phaseUntil), secondTry: false,
+                           hint: state.votes[player] == nil ? "Deine eigene Lüge ist gesperrt. Wahrheit = +½ Fragenwert, eine Lüge kostet dich ½." : "Gewählt — gleich wird enthüllt, wer wen reingelegt hat")
         default: return .idle(title: "Auflösung …", subtitle: nil)
         }
     }
@@ -451,6 +538,13 @@ public enum BananenBluff: MinigamePlugin {
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
         let info = GmQuestionInfo(id: state.question.id, text: state.question.text, kategorie: ctx.catalog.categoryPath(state.question), schwierigkeit: state.question.schw,
                                   korrekt: state.truth, erklaerung: state.question.erkl, tipps: state.question.tipps, typ: .choice)
-        return (info, state.lies)
+        var answers: [PlayerId: String] = [:]
+        for p in ctx.players {
+            var parts: [String] = []
+            if let l = state.lies[p] { parts.append("Lüge: „\(l)“") }
+            if let v = state.votes[p], state.entries.indices.contains(v) { parts.append("tippt „\(state.entries[v])“" + (v == state.truthIndex ? " ✅" : " ❌")) }
+            if !parts.isEmpty { answers[p] = parts.joined(separator: " · ") }
+        }
+        return (info, answers)
     }
 }

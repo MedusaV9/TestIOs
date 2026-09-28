@@ -17,6 +17,9 @@ public enum Scoring {
         let answered = outcomes.filter { $0.value.correct != nil }.count
         var jackpotWon = false
         let currentQuestion = s.currentQuestionIds.indices.contains(s.questionIndex) ? catalog.question(s.currentQuestionIds[s.questionIndex]) : nil
+        // A round format books a whole round at once: "next question ×2" effects (wheel,
+        // Goldene Banane, GM boost) add at most one question value F on top — not ×2 of a round.
+        let roundF = plugin.meta.roundBased ? Money.value(s.currentSection?.schwierigkeiten.max() ?? .medium) : nil
 
         for i in s.players.indices {
             let id = s.players[i].id
@@ -25,7 +28,9 @@ public enum Scoring {
             let o = outcomes[id] ?? Outcome(correct: nil)
             var p = s.players[i]
 
-            // Jackpot question: twice the question value + the jar for the correct ones.
+            // Jackpot question: a fixed beat — twice the question value (hard 1.000, ULTRAHARD 1.500)
+            // plus a share of the jar. No streak, wheel, joker or Rückenwind multipliers on top
+            // (seed 4 paid every winner 3.130 = 1.500 × 2 + jar share: a lottery, not a beat).
             if isJackpot, o.correct == true, delta > 0 {
                 delta = Economy.jackpotQuestionValue(currentQuestion?.schw ?? .hard)
                 jackpotWon = true
@@ -42,7 +47,7 @@ public enum Scoring {
                 if plugin.meta.streak && o.countsForStreak {
                     p.streak += 1
                     p.stats.laengsteSerie = max(p.stats.laengsteSerie, p.streak)
-                    if !isFinale, delta > 0 { delta = Economy.roundTo10(Int(Double(delta) * Economy.streakFactor(p.streak))) }
+                    if !isFinale, !isJackpot, delta > 0 { delta = Economy.roundTo10(Int(Double(delta) * Economy.streakFactor(p.streak))) }
                 }
                 p.wrongStreak = 0
                 if currentQuestion?.schw == .ultrahard { p.stats.ultrahardRichtig += 1 }
@@ -59,15 +64,18 @@ public enum Scoring {
                 p.stats.keineAntwort += 1
             }
 
-            // Multipliers on wins (not in the finale — the formula must hold exactly).
-            if delta > 0, !isFinale {
+            // Multipliers on wins (not in the finale — the formula must hold exactly — and not
+            // on the jackpot, which is a fixed amount).
+            if delta > 0, !isFinale, !isJackpot {
                 var factor = s.nextMods.gewinnFaktor
                 if s.nextMods.goldeneBanane.contains(id) { factor *= 2 }
                 if s.nextMods.boostX2.contains(id) { factor *= 2 }
                 if let roulette = s.nextMods.boersenRoulette[id] {
                     factor *= roulette == "long" ? 2.5 : 1.5
                 }
+                let base = delta
                 delta = Economy.roundTo10(Int(Double(delta) * factor))
+                if let f = roundF, factor > 1 { delta = min(delta, base + Economy.roundTo10(Int(Double(f) * (factor - 1)))) }
                 if s.roundMods.dividende { delta += Economy.roundTo10(Int(Double(max(0, p.balance)) * 0.05)) }
                 if Economy.isDepositMode(balance: p.balance) { delta = Economy.roundTo10(Int(Double(delta) * Economy.depositModeFactor)) }
                 // Rückenwind with overtaking cap (§3.4).
@@ -85,11 +93,10 @@ public enum Scoring {
                     }
                 }
             } else if delta < 0 {
-                if s.nextMods.goldeneBanane.contains(id), !isFinale { delta *= 2 }
+                if s.nextMods.goldeneBanane.contains(id), !isFinale { delta = max(delta * 2, delta - (roundF ?? Int.max / 4)) }
                 if let roulette = s.nextMods.boersenRoulette[id], o.correct == false {
                     delta = roulette == "long" ? -100 : 0
                 }
-                if plugin.meta.strafenInsGlas { s.jackpotGlas += -delta }
                 if Economy.isDepositMode(balance: p.balance) { delta = 0 }
             } else if let roulette = s.nextMods.boersenRoulette[id], o.correct == false {
                 delta = roulette == "long" ? -100 : 0
@@ -110,12 +117,15 @@ public enum Scoring {
             delta = newBalance - p.balance
             p.balance = newBalance
             deltas[id] = delta
+            // Penalties into the jar: exactly what was booked (after the overdraft clamp /
+            // deposit mode), so the jar never receives money nobody paid.
+            if plugin.meta.strafenInsGlas, delta < 0 { s.jackpotGlas += -delta }
             s.players[i] = p
         }
 
         if isJackpot, jackpotWon {
             // Winners share the jar.
-            let winners = korrekt.filter { $0.value }.map { $0.key }
+            let winners = s.players.map { $0.id }.filter { korrekt[$0] == true }
             let share = winners.isEmpty ? 0 : Economy.roundTo10(s.jackpotGlas / winners.count)
             for w in winners { if let i = s.index(of: w) { s.players[i].balance += share; deltas[w, default: 0] += share } }
             s.addMoment("jackpot", "💰 JACKPOT GEKNACKT! \(Money.format(s.jackpotGlas)) aus dem Glas verteilt", betrag: s.jackpotGlas, at: now)
@@ -127,7 +137,13 @@ public enum Scoring {
 
         postQuestion(&s, plugin: plugin, korrekt: korrekt, outcomes: outcomes, leaderBefore: leaderBefore, deltas: &deltas, now: now)
         s.lastKorrekt = korrekt
-        s.addLog("buchung", "Buchung \(plugin.meta.name): " + deltas.map { "\(s.player($0.key)?.name ?? $0.key) \(Money.formatDelta($0.value))" }.joined(separator: ", "), at: now)
+        // "Next question" jokers are used up by this booking (the jackpot pays a fixed amount and
+        // leaves them for the question after). Whatever is added during the reveal counts for the next one.
+        if !isJackpot {
+            s.nextMods.goldeneBanane = []
+            s.nextMods.boostX2 = []
+        }
+        s.addLog("buchung", "Buchung \(plugin.meta.name): " + s.players.compactMap { p in deltas[p.id].map { "\(p.name) \(Money.formatDelta($0))" } }.joined(separator: ", "), at: now)
         return deltas
     }
 
@@ -147,7 +163,8 @@ public enum Scoring {
             if tax > 0 {
                 s.players[li].balance -= tax
                 deltas[leader.id, default: 0] -= tax
-                let winners = korrekt.filter { $0.value }.map { $0.key }
+                // The fastest right answer takes it; equal times: seat order (never dictionary order).
+                let winners = s.players.map { $0.id }.filter { korrekt[$0] == true }
                 if let w = winners.min(by: { (outcomes[$0]?.answeredAfterMs ?? Int.max) < (outcomes[$1]?.answeredAfterMs ?? Int.max) }), let wi = s.index(of: w) {
                     s.players[wi].balance += tax
                     deltas[w, default: 0] += tax
@@ -186,7 +203,7 @@ public enum Scoring {
         }
         // Kopfgeld (SR5): beating the long-time leader directly pays 200 from the bank.
         if s.settings.specialRules.contains(.kopfgeld), let boss = s.kopfgeld, korrekt[boss] != true {
-            let hunters = korrekt.filter { $0.value && $0.key != boss }.map { $0.key }
+            let hunters = s.players.map { $0.id }.filter { korrekt[$0] == true && $0 != boss }
             for h in hunters { if let i = s.index(of: h) { s.players[i].balance += 200; deltas[h, default: 0] += 200 } }
             if !hunters.isEmpty { s.addMoment("kopfgeld", "🤠 Kopfgeld kassiert: \(hunters.compactMap { s.player($0)?.name }.joined(separator: ", "))", at: now) }
         }
@@ -234,7 +251,10 @@ public enum Scoring {
     /// Affensteuer payout at match end: the winner of the last question takes the crate.
     static func payoutAffensteuer(_ s: inout EngineState, now: Millis) {
         guard s.affensteuerKiste > 0 else { return }
-        if let w = s.lastKorrekt.filter({ $0.value }).keys.first, let i = s.index(of: w) {
+        // Fastest right answer of the last question, else the first right one in seat order.
+        let right = s.players.map { $0.id }.filter { s.lastKorrekt[$0] == true }
+        let fastest = s.lastReveal?.schnellster.flatMap { f in right.contains(f) ? f : nil }
+        if let w = fastest ?? right.first, let i = s.index(of: w) {
             s.players[i].balance += s.affensteuerKiste
             s.addMoment("steuer", "📦 Bananenkiste: \(Money.format(s.affensteuerKiste)) für \(s.players[i].name)", player: w, betrag: s.affensteuerKiste, at: now)
         }

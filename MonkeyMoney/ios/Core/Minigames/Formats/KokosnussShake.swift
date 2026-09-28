@@ -12,6 +12,8 @@ public enum KokosnussShake: MinigamePlugin {
         public var suddenDeath: Bool
         public var finished: Bool
         public var lastBatchAt: [PlayerId: Millis]
+        /// Still tied after sudden death: a seeded coin toss decides (never seat order).
+        public var muenzwurf: PlayerId?
     }
 
     public static let meta = MinigameMeta(
@@ -21,7 +23,7 @@ public enum KokosnussShake: MinigamePlugin {
         regeln: ["Gleichstand an der Spitze — die Kokosnuss entscheidet",
                  "Nach dem 3-Sekunden-Countdown: 10 Sekunden schütteln, so schnell ihr könnt",
                  "Wer mehr schafft, gewinnt",
-                 "Erneuter Gleichstand: 3 Sekunden Sudden Death"],
+                 "Erneuter Gleichstand: 3 Sekunden Sudden Death — danach der Münzwurf"],
         gewinn: "Sieger +50 MM und der Titel",
         contentKind: .none, roundBased: true, streak: false, jokerAktionen: [], isMc: false, musik: "bomb_pass"
     )
@@ -31,7 +33,7 @@ public enum KokosnussShake: MinigamePlugin {
         let top = ctx.balances.values.max() ?? 0
         var tied = ctx.players.filter { (ctx.balances[$0] ?? 0) == top }
         if tied.count < 2 { tied = Array(ctx.players.prefix(2)) }
-        return State(contestants: tied, startAt: ctx.now + 3000, endAt: ctx.now + 13_000, taps: [:], suddenDeath: false, finished: false, lastBatchAt: [:])
+        return State(contestants: tied, startAt: ctx.now + 3000, endAt: ctx.now + 13_000, taps: [:], suddenDeath: false, finished: false, lastBatchAt: [:], muenzwurf: nil)
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
@@ -54,7 +56,24 @@ public enum KokosnussShake: MinigamePlugin {
             state.endAt = state.startAt + 3000
             return
         }
+        if winners.count > 1 { state.muenzwurf = ctx.rng.pick(winners) }
         state.finished = true
+    }
+
+    public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) {
+        switch action {
+        case .timerShift(let ms):
+            state.startAt += ms
+            state.endAt += ms
+            for (p, t) in state.lastBatchAt { state.lastBatchAt[p] = t + ms }
+        case .forceFinish:
+            guard !state.finished else { return }
+            let best = state.contestants.map { state.taps[$0] ?? 0 }.max() ?? 0
+            let winners = state.contestants.filter { (state.taps[$0] ?? 0) == best }
+            if winners.count > 1 { state.muenzwurf = ctx.rng.pick(winners) }
+            state.finished = true
+        default: break
+        }
     }
 
     public static func isFinished(_ state: State, ctx: MinigameContext) -> Bool { state.finished }
@@ -62,7 +81,8 @@ public enum KokosnussShake: MinigamePlugin {
     static func winner(_ s: State, ctx: MinigameContext) -> PlayerId? {
         let best = s.contestants.map { s.taps[$0] ?? 0 }.max() ?? 0
         let w = s.contestants.filter { (s.taps[$0] ?? 0) == best }
-        return w.count == 1 ? w[0] : w.min { ctx.players.firstIndex(of: $0) ?? 0 < ctx.players.firstIndex(of: $1) ?? 0 }
+        if w.count == 1 { return w[0] }
+        return s.muenzwurf ?? w.first
     }
 
     public static func scores(_ state: State, ctx: MinigameContext) -> [PlayerId: Int] {
@@ -89,6 +109,9 @@ public enum KokosnussShake: MinigamePlugin {
     }
 
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
-        (nil, Dictionary(uniqueKeysWithValues: state.contestants.map { ($0, "\(state.taps[$0] ?? 0) Taps") }))
+        let info = GmQuestionInfo(id: "shake", text: state.suddenDeath ? "Kokosnuss-Shake · SUDDEN DEATH (3 s)" : "Kokosnuss-Shake · 10 s Schütteln",
+                                  kategorie: "Stechen", schwierigkeit: .medium, korrekt: winner(state, ctx: ctx).map { ctx.name($0) } ?? "—",
+                                  erklaerung: state.contestants.map { ctx.name($0) }.joined(separator: " vs "), tipps: [], typ: .choice)
+        return (info, Dictionary(uniqueKeysWithValues: state.contestants.map { ($0, "\(state.taps[$0] ?? 0) Taps") }))
     }
 }

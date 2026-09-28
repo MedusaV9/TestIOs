@@ -18,12 +18,13 @@ public enum Taschendieb: MinigamePlugin {
     public static let meta = MinigameMeta(
         id: "taschendieb", name: "Taschendieb-Affe", emoji: "🦝",
         kurz: "Die schnellste richtige Antwort darf klauen — 300/500 MM vom Opfer deiner Wahl.",
-        erklaerung: "Alle antworten — aber nur die SCHNELLSTE richtige Antwort gewinnt das Klau-Recht: geheime Opferwahl auf dem Handy, dann flitzt der Dieb-Affe mit Maske los. 300 MM (mittel) bzw. 500 MM (schwer), gedeckelt auf ein Viertel des Opfer-Kontos. Alle anderen Richtigen bekommen den halben Fragenwert aus der Bank. Der Bananentresor-Joker blockt den Klau.",
+        erklaerung: "Alle antworten — aber nur die SCHNELLSTE richtige Antwort gewinnt das Klau-Recht: geheime Opferwahl auf dem Handy, dann flitzt der Dieb-Affe mit Maske los. 300 MM (leicht/mittel) bzw. 500 MM (schwer), gedeckelt auf ein Viertel des Opfer-Kontos — aber nie weniger als die anderen Richtigen bekommen. Alle anderen Richtigen bekommen den halben Fragenwert aus der Bank. Der Bananentresor-Joker blockt den Klau.",
         regeln: ["Alle antworten — die SCHNELLSTE richtige Antwort darf klauen",
                  "Der Dieb wählt geheim ein Opfer auf dem Handy",
-                 "Beute: 300 MM (mittel) / 500 MM (schwer), max. ¼ vom Opfer-Konto",
-                 "Alle anderen Richtigen: halber Fragenwert aus der Bank"],
-        gewinn: "Dieb: 300/500 MM vom Opfer · andere Richtige: ½ Fragenwert",
+                 "Beute: 300 MM (leicht/mittel) / 500 MM (schwer), max. ¼ vom Opfer-Konto",
+                 "Alle anderen Richtigen: halber Fragenwert aus der Bank",
+                 "Fotofinish (unter 0,05 s): der Zweite bekommt den vollen Fragenwert"],
+        gewinn: "Dieb: Beute vom Opfer (mind. ½ Fragenwert) · andere Richtige: ½ Fragenwert",
         contentKind: .choiceLike, streak: false, jokerAktionen: ["fiftyFifty", "removeOne"], isMc: true, musik: "steal_sneak"
     )
 
@@ -60,19 +61,40 @@ public enum Taschendieb: MinigamePlugin {
     }
 
     public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) {
-        if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
-        if case .forceFinish = action { state.phase = "fertig" }
+        switch action {
+        case .forceFinish:
+            // "Weiter" resolves everything now: the steal still happens (timeout rule picks the victim).
+            if state.phase == "frage" { state.core.applyGm(.forceFinish, ctx: &ctx); tick(&state, ctx: &ctx) }
+            if state.phase == "opferwahl" { autoVictim(&state, ctx: &ctx) }
+            state.phase = "fertig"
+        case .timerShift(let ms):
+            state.core.applyGm(action, ctx: &ctx)
+            if let u = state.chooseUntil { state.chooseUntil = u + ms }
+            if let u = state.cutsceneUntil { state.cutsceneUntil = u + ms }
+        case .timerExtend(let ms):
+            if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
+            else if state.phase == "opferwahl", let u = state.chooseUntil { state.chooseUntil = u + ms }
+        default:
+            if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
+        }
+    }
+
+    /// Timeout / absent thief: the richest connected candidate (ties: seat order).
+    static func autoVictim(_ state: inout State, ctx: inout MinigameContext) {
+        let cands = candidates(state, ctx: ctx)
+        let top = cands.map { ctx.balances[$0] ?? 0 }.max()
+        if let richest = cands.first(where: { (ctx.balances[$0] ?? 0) == top }) { pickVictim(&state, richest, ctx: &ctx) } else { state.phase = "fertig" }
     }
 
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {
         switch state.phase {
         case "frage":
             guard state.core.finished(now: ctx.now, ctx: ctx) else { return }
-            // Fastest correct answer wins the steal.
-            let correct = state.core.answers.filter { $0.value.index == state.core.correctIndex }.sorted { $0.value.at < $1.value.at }
+            // Fastest correct answer wins the steal (equal times: seat order, never dictionary order).
+            let correct = state.core.correctByTime(ctx.players)
             guard let first = correct.first else { state.phase = "fertig"; return }
-            state.thief = first.key
-            if correct.count > 1, correct[1].value.at - first.value.at < 50 { state.fotofinish = correct[1].key }
+            state.thief = first
+            if correct.count > 1, let a = state.core.answers[first]?.at, let b = state.core.answers[correct[1]]?.at, b - a < 50 { state.fotofinish = correct[1] }
             let cands = candidates(state, ctx: ctx)
             if cands.count == 1 {
                 pickVictim(&state, cands[0], ctx: &ctx)
@@ -83,13 +105,9 @@ public enum Taschendieb: MinigamePlugin {
                 state.chooseUntil = ctx.now + ctx.answerWindow(8000)
             }
         case "opferwahl":
-            if let u = state.chooseUntil, ctx.now >= u {
-                // Timeout: richest connected candidate.
-                let cands = candidates(state, ctx: ctx)
-                if let richest = cands.max(by: { (ctx.balances[$0] ?? 0) < (ctx.balances[$1] ?? 0) }) {
-                    pickVictim(&state, richest, ctx: &ctx)
-                } else { state.phase = "fertig" }
-            }
+            // Timeout — or the thief left the table (timer off would wait forever).
+            let thiefGone = state.thief.map { !ctx.connected.contains($0) } ?? true
+            if let u = state.chooseUntil, ctx.now >= u || thiefGone { autoVictim(&state, ctx: &ctx) }
         case "cutscene":
             if let u = state.cutsceneUntil, ctx.now >= u { state.phase = "fertig" }
         default: break
@@ -105,9 +123,11 @@ public enum Taschendieb: MinigamePlugin {
             if state.core.isCorrect(p) == true && p != state.thief { s[p] = half } else { s[p] = 0 }
         }
         if let f = state.fotofinish { s[f] = state.core.question.value }
-        if let t = state.thief, let v = state.victim, state.amount > 0 {
-            s[t, default: 0] += state.amount
-            s[v, default: 0] -= state.amount
+        if let t = state.thief {
+            if let v = state.victim, state.amount > 0 { s[v, default: 0] -= state.amount }
+            // The fastest right answer never earns less than the slower ones: a thin
+            // (or blocked) loot is topped up by the bank to half the question value.
+            s[t, default: 0] += max(state.amount, half)
         }
         return s
     }
@@ -141,15 +161,22 @@ public enum Taschendieb: MinigamePlugin {
                 let refs = candidates(state, ctx: ctx).map { id in PlayerRef(Player(id: id, name: ctx.name(id), avatar: Avatar(), joinOrder: 0), platz: 0) }
                 var withBalance = refs
                 for i in withBalance.indices { withBalance[i].balance = ctx.balances[withBalance[i].id] ?? 0 }
-                return .pickPlayer(title: "Bei wem klaust du?", subtitle: "\(Money.format(stealBase(state.core.question.schw))) (max. 25 % des Kontos)", candidates: withBalance, chosen: nil, deadline: ctx.visible(state.chooseUntil))
+                return .pickPlayer(title: "🦝 Du warst am schnellsten! Bei wem klaust du?", subtitle: "\(Money.format(stealBase(state.core.question.schw))) (max. 25 % des Kontos) — geheim!", candidates: withBalance, chosen: nil, deadline: ctx.visible(state.chooseUntil))
             }
-            return .idle(title: "🦝 \(ctx.name(state.thief ?? "")) wählt ein Opfer …", subtitle: "Festhalten!")
+            let mine = state.core.isCorrect(player) == true ? "Du lagst richtig (+\(Money.format(state.core.question.value / 2))) — aber " : ""
+            return .idle(title: "🦝 \(ctx.name(state.thief ?? "")) wählt ein Opfer …", subtitle: mine + "gleich wird geklaut. Festhalten!")
         default:
-            return .idle(title: state.victim == player ? "😱 Du wirst beklaut!" : "🦝 Klau-Cutscene", subtitle: state.victim.map { "\(ctx.name(state.thief ?? "")) klaut bei \(ctx.name($0))" })
+            let title = state.victim == player ? (state.blocked ? "🛡️ Dein Tresor hält!" : "😱 Du wirst beklaut!") : (state.thief == player ? "🦝 Beute unterwegs!" : "🦝 Klau-Cutscene")
+            return .idle(title: title, subtitle: state.victim.map { "\(ctx.name(state.thief ?? "")) klaut bei \(ctx.name($0))" + (state.blocked ? " — geblockt!" : ": \(Money.format(state.amount))") })
         }
     }
 
-    public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) { state.core.gmInfo(ctx: ctx) }
+    public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
+        var g = state.core.gmInfo(ctx: ctx)
+        if let t = state.thief { g.answers[t] = (g.answers[t] ?? "") + " · 🦝 Dieb" }
+        if let v = state.victim { g.answers[v] = (g.answers[v] ?? "—") + (state.blocked ? " · 🛡️ geblockt" : " · Opfer −\(Money.format(state.amount))") }
+        return g
+    }
 }
 
 /// Alles oder Banane — high stakes: only category + difficulty are teased,
@@ -164,6 +191,8 @@ public enum AllesOderBanane: MinigamePlugin {
         public var betUntil: Millis
         public var revealUntil: Millis?
         public var revealedCount: Int
+        /// When the question itself started (nil = the GM ended the round before it was asked).
+        public var questionAt: Millis?
     }
 
     public static let meta = MinigameMeta(
@@ -192,7 +221,7 @@ public enum AllesOderBanane: MinigamePlugin {
         }
         var core = ChoiceCore(question: q, ctx: ctx, timerMs: Int(Double(ctx.answerWindow(20_000)) * ctx.mods.timerFaktor))
         core.startedAt = 0 // set when the question phase starts
-        return State(core: core, phase: "setzen", bets: [:], caps: caps, credit: credit, betUntil: ctx.now + ctx.answerWindow(12_000), revealUntil: nil, revealedCount: 0)
+        return State(core: core, phase: "setzen", bets: [:], caps: caps, credit: credit, betUntil: ctx.now + ctx.answerWindow(12_000), revealUntil: nil, revealedCount: 0, questionAt: nil)
     }
 
     static func minBet(_ state: State, _ p: PlayerId) -> Int { state.credit.contains(p) ? creditStake : Economy.minWager }
@@ -210,13 +239,28 @@ public enum AllesOderBanane: MinigamePlugin {
     }
 
     public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) {
-        if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
-        if case .forceFinish = action { state.phase = "fertig" }
+        switch action {
+        case .forceFinish:
+            if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
+            state.phase = "fertig"
+        case .timerShift(let ms):
+            state.betUntil += ms
+            if let r = state.revealUntil { state.revealUntil = r + ms }
+            if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
+        case .timerExtend(let ms):
+            if state.phase == "setzen" { state.betUntil += ms } else if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
+        case .fiftyFifty, .removeOption:
+            // Bought while betting? It still bites: the options are struck before the question shows.
+            if state.phase != "fertig" { state.core.applyGm(action, ctx: &ctx) }
+        default:
+            if state.phase == "frage" { state.core.applyGm(action, ctx: &ctx) }
+        }
     }
 
     static func startQuestion(_ state: inout State, ctx: inout MinigameContext) {
         state.core.startedAt = ctx.now
         state.core.deadline = ctx.now + state.core.timerMs
+        state.questionAt = ctx.now
         state.phase = "frage"
     }
 
@@ -247,6 +291,8 @@ public enum AllesOderBanane: MinigamePlugin {
 
     public static func scores(_ state: State, ctx: MinigameContext) -> [PlayerId: Int] {
         var s: [PlayerId: Int] = [:]
+        // Ended by the Show-Master before the question was asked: nothing is at stake.
+        guard state.questionAt != nil else { for p in ctx.players { s[p] = 0 }; return s }
         for p in ctx.players {
             let bet = state.bets[p] ?? minBet(state, p)
             switch state.core.isCorrect(p) {
@@ -294,11 +340,15 @@ public enum AllesOderBanane: MinigamePlugin {
         case "setzen":
             let cap = state.caps[player] ?? creditStake
             let lo = minBet(state, player)
-            return .wager(title: "Gleich: \(kat) · \(state.core.question.schw.label)",
-                          subtitle: state.credit.contains(player) ? "Kredit der Affenbank: 100 MM gratis — verlieren kostet nichts" : "Setze \(Money.format(lo)) bis \(Money.format(cap)) — falsch ist der Einsatz weg",
+            var sub = state.credit.contains(player) ? "Kredit der Affenbank: 100 MM gratis — verlieren kostet nichts" : "Setze \(Money.format(lo)) bis \(Money.format(cap)) — falsch ist der Einsatz weg"
+            if state.bets[player] != nil {
+                let open = ctx.players.filter { ctx.connected.contains($0) && state.bets[$0] == nil }.count
+                sub = open == 0 ? "Einsatz steht — gleich werden alle Einsätze aufgedeckt!" : "Einsatz steht — noch \(open) am Überlegen, dann wird aufgedeckt"
+            }
+            return .wager(title: "Gleich: \(kat) · \(state.core.question.schw.label)", subtitle: sub,
                           min: lo, max: max(lo, cap), step: 50, current: state.bets[player], locked: state.bets[player] != nil, deadline: ctx.visible(state.betUntil))
         case "reveal":
-            return .idle(title: "Einsätze werden aufgedeckt …", subtitle: "Dein Einsatz: \(Money.format(state.bets[player] ?? minBet(state, player)))")
+            return .idle(title: "🥁 Einsätze werden aufgedeckt …", subtitle: "Dein Einsatz: \(Money.format(state.bets[player] ?? minBet(state, player))) — danach kommt die Frage")
         default:
             return state.core.prompt(for: player, ctx: ctx, revealed: false, hint: "🎰 Dein Einsatz: \(Money.format(state.bets[player] ?? minBet(state, player))) — richtig verdoppelt, falsch weg")
         }

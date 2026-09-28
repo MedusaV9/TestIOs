@@ -22,8 +22,8 @@ public enum BananenTresor: MinigamePlugin {
         erklaerung: "Der große Gleichmacher: eine Schätzfrage mit Zahl. Schiebe den Regler, tippe deinen Wert und logge ein. Platz 1 = 1,5× Fragenwert, Platz 2 = 1×, Platz 3 = 0,6× — alle anderen bekommen ein Trostgeld, schätzen lohnt sich also immer. Ein exakter Volltreffer knackt den Tresor: 3× Fragenwert und die „Nagel auf den Kopf“-Fanfare!",
         regeln: ["Eine Schätzfrage mit Zahl — alle schätzen gleichzeitig",
                  "Regler schieben oder Zahl tippen, dann EINLOGGEN",
-                 "Wer am nächsten dran ist, gewinnt — jeder bekommt etwas",
-                 "Exakter Volltreffer knackt den Tresor: 3× Fragenwert"],
+                 "Die drei Nächsten gewinnen — jeder andere Tipp bringt Trostgeld",
+                 "Volltreffer knackt den Tresor: 3× Fragenwert"],
         gewinn: "Platz 1: 1,5× · Platz 2: 1× · Platz 3: 0,6× Fragenwert · Rest: Trostgeld",
         contentKind: .fragen([.schaetz]), streak: false, jokerAktionen: [], isMc: false, musik: "estimate_think"
     )
@@ -81,8 +81,8 @@ public enum BananenTresor: MinigamePlugin {
     }
 
     static func ranking(_ state: State, ctx: MinigameContext) -> [(PlayerId, Double, Int)] {
-        // (player, distance, place) — equal distance shares the better place.
-        let entries = state.guesses.map { ($0.key, abs($0.value - state.spec.richtwert)) }.sorted { $0.1 < $1.1 }
+        // (player, distance, place) — equal distance shares the better place; seat order only sorts the display.
+        let entries = FormatHelpers.inOrder(state.guesses.keys, ctx.players).map { ($0, abs(state.guesses[$0]! - state.spec.richtwert)) }.sorted { $0.1 < $1.1 }
         var out: [(PlayerId, Double, Int)] = []
         var place = 0
         var lastDist: Double?
@@ -92,11 +92,17 @@ public enum BananenTresor: MinigamePlugin {
         return out
     }
 
+    /// A hit on the slider's resolution: exact for whole numbers, within half a
+    /// step on coarse sliders (a 10er-slider can never land on 1.234 exactly).
+    static func isBullseye(_ state: State, _ dist: Double) -> Bool {
+        dist <= step(state.spec) / 2 + 1e-9
+    }
+
     public static func scores(_ state: State, ctx: MinigameContext) -> [PlayerId: Int] {
         var s: [PlayerId: Int] = [:]
         let pay = payout(state)
         for (p, dist, place) in ranking(state, ctx: ctx) {
-            if dist < 1e-9 { s[p] = pay.bullseye; continue }
+            if isBullseye(state, dist) { s[p] = pay.bullseye; continue }
             s[p] = place - 1 < pay.ladder.count ? pay.ladder[place - 1] : pay.rest
         }
         for p in ctx.players where s[p] == nil { s[p] = 0 }
@@ -109,7 +115,7 @@ public enum BananenTresor: MinigamePlugin {
         let inTheMoney = payout(state).ladder.count
         for p in ctx.players {
             if let e = r.first(where: { $0.0 == p }) {
-                out[p] = Outcome(correct: e.2 <= inTheMoney, countsForStreak: false, detail: e.1 < 1e-9 ? "Volltreffer!" : "Platz \(e.2)")
+                out[p] = Outcome(correct: e.2 <= inTheMoney, countsForStreak: false, detail: isBullseye(state, e.1) ? "Volltreffer!" : "Platz \(e.2)")
             } else {
                 out[p] = Outcome(correct: nil, countsForStreak: false)
             }
@@ -121,11 +127,13 @@ public enum BananenTresor: MinigamePlugin {
         let kat = ctx.catalog.categories.first { $0.id == state.question.kat }
         let wall = QuestionWall(text: state.question.text, kategorie: state.question.kat, kategorieName: kat?.name ?? "", kategorieEmoji: kat?.emoji ?? "❓",
                                 schwierigkeit: state.question.schw, wert: payout(state).ladder.first ?? 0, options: nil,
-                                answered: Array(state.guesses.keys), deadline: revealed ? nil : ctx.visible(state.deadline), timerMs: state.timerMs,
+                                answered: FormatHelpers.inOrder(state.guesses.keys, ctx.players), deadline: revealed ? nil : ctx.visible(state.deadline), timerMs: state.timerMs,
                                 revealed: revealed, correctIndex: nil, answersByPlayer: [:], erklaerung: revealed ? state.question.erkl : nil,
                                 nummer: ctx.fragenNummer, gesamt: ctx.fragenGesamt)
         let r = ranking(state, ctx: ctx)
-        let guesses = revealed ? state.guesses.map { g in Guess(playerId: g.key, value: g.value, distanz: abs(g.value - state.spec.richtwert), platz: r.first { $0.0 == g.key }?.2) } : []
+        let guesses = revealed ? FormatHelpers.inOrder(state.guesses.keys, ctx.players).map { p in
+            Guess(playerId: p, value: state.guesses[p]!, distanz: abs(state.guesses[p]! - state.spec.richtwert), platz: r.first { $0.0 == p }?.2)
+        } : []
         return MinigameStageOutput(wall: wall,
                                    extra: .numberLine(min: state.spec.min, max: state.spec.max, unit: state.spec.einheit, guesses: guesses,
                                                       truth: revealed ? state.spec.richtwert : nil, log: state.spec.skala == "log"),
@@ -150,6 +158,7 @@ public enum BananenTresor: MinigamePlugin {
                        unit: state.spec.einheit, current: state.guesses[player], locked: state.guesses[player] != nil, deadline: ctx.visible(state.deadline))
     }
 
+
     static func format(_ v: Double) -> String {
         v == v.rounded() ? Money.formatNumber(Int(v)) : String(format: "%.1f", v)
     }
@@ -158,7 +167,7 @@ public enum BananenTresor: MinigamePlugin {
         let info = GmQuestionInfo(id: state.question.id, text: state.question.text, kategorie: ctx.catalog.categoryPath(state.question),
                                   schwierigkeit: state.question.schw, korrekt: "\(format(state.spec.richtwert)) \(state.spec.einheit)",
                                   erklaerung: state.question.erkl, tipps: state.question.tipps, typ: .schaetz)
-        return (info, state.guesses.mapValues { format($0) })
+        return (info, state.guesses.mapValues { "\(format($0)) \(state.spec.einheit)".trimmingCharacters(in: .whitespaces) })
     }
 }
 
@@ -221,7 +230,11 @@ public enum Affenleiter: MinigamePlugin {
     public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) {
         switch action {
         case .timerExtend(let ms): state.deadline += ms; state.timerMs += ms
-        case .timerShift(let ms): state.deadline += ms; state.startedAt += ms
+        case .timerShift(let ms):
+            // The whole timeline moves (pause / GM clock) — lock-in times included, or the speed bonus breaks.
+            state.deadline += ms
+            state.startedAt += ms
+            for (p, t) in state.lockedAt { state.lockedAt[p] = t + ms }
         case .forceFinish, .skipQuestion: state.finishedAt = ctx.now
         default: break
         }
@@ -251,7 +264,9 @@ public enum Affenleiter: MinigamePlugin {
             if n == state.correct.count {
                 win = Int(Double(win) * 1.5)
                 let after = max(0, (state.lockedAt[p] ?? state.deadline) - state.startedAt)
-                win += Money.speedBonus(value: wert, answeredAfterMs: after, timerMs: state.timerMs)
+                // Timer off: measure speed against the nominal 30-s window, not the hour-long clock.
+                let window = ctx.timerAus ? ctx.ms(30_000) : state.timerMs
+                win += Money.speedBonus(value: wert, answeredAfterMs: after, timerMs: window)
             }
             s[p] = Economy.roundTo10(win)
         }
@@ -273,7 +288,7 @@ public enum Affenleiter: MinigamePlugin {
     public static func stage(_ state: State, revealed: Bool, ctx: MinigameContext) -> MinigameStageOutput {
         let kat = ctx.catalog.categories.first { $0.id == state.question.kat }
         let wall = QuestionWall(text: state.question.text, kategorie: state.question.kat, kategorieName: kat?.name ?? "", kategorieEmoji: kat?.emoji ?? "❓",
-                                schwierigkeit: state.question.schw, wert: state.question.value, options: nil, answered: Array(state.lockedAt.keys),
+                                schwierigkeit: state.question.schw, wert: state.question.value, options: nil, answered: FormatHelpers.inOrder(state.lockedAt.keys, ctx.players),
                                 deadline: revealed ? nil : ctx.visible(state.deadline), timerMs: state.timerMs, revealed: revealed, correctIndex: nil,
                                 answersByPlayer: [:], erklaerung: revealed ? state.question.erkl : nil, nummer: ctx.fragenNummer, gesamt: ctx.fragenGesamt)
         return MinigameStageOutput(wall: wall,
@@ -290,6 +305,10 @@ public enum Affenleiter: MinigamePlugin {
             return .reveal(title: n == state.correct.count ? "PERFEKTE LEITER!" : "\(n)/\(state.correct.count) richtig", correct: n == state.correct.count,
                            delta: s, detail: richtig, streak: 0, speedBonus: nil)
         }
+        if state.lockedAt[player] != nil {
+            let open = ctx.players.filter { ctx.connected.contains($0) && state.lockedAt[$0] == nil }.count
+            return .idle(title: "🔒 Leiter eingeloggt!", subtitle: open == 0 ? "Alle fertig — gleich wird Sprosse für Sprosse aufgedeckt" : "Noch \(open) am Sortieren — dann wird Sprosse für Sprosse aufgedeckt")
+        }
         let order = state.orders[player] ?? state.startOrders[player] ?? Array(state.items.indices)
         return .order(question: state.question.text, items: state.items.enumerated().map { OrderItem(id: $0.offset, text: $0.element) },
                       order: order, locked: state.lockedAt[player] != nil, deadline: ctx.visible(state.deadline))
@@ -300,8 +319,9 @@ public enum Affenleiter: MinigamePlugin {
                                   schwierigkeit: state.question.schw, korrekt: state.correct.map { state.items[$0] }.joined(separator: " → "),
                                   erklaerung: state.question.erkl, tipps: state.question.tipps, typ: .sortier)
         var answers: [PlayerId: String] = [:]
-        for (p, order) in state.orders where state.lockedAt[p] != nil {
-            answers[p] = "\(correctCount(state, p))/\(state.correct.count) · " + order.map { state.items[$0] }.joined(separator: " → ")
+        for (p, order) in state.orders where state.lockedAt[p] != nil || order != state.startOrders[p] {
+            let secs = state.lockedAt[p].map { String(format: " (%.1f s)", Double(max(0, $0 - state.startedAt)) / 1000) } ?? " (sortiert noch)"
+            answers[p] = "\(correctCount(state, p))/\(state.correct.count) · " + order.map { state.items[$0] }.joined(separator: " → ") + secs
         }
         return (info, answers)
     }

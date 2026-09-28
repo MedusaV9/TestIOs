@@ -125,8 +125,11 @@ public enum KokosnussUhr: MinigamePlugin {
         let core = ChoiceCore(question: q, ctx: ctx)
         let s = sack(q.schw)
         let ticks = max(1, s.start / s.tick)
-        let window = Int(Double(ctx.ms(Money.timerMs(q.schw))) * ctx.mods.timerFaktor)
-        return State(core: core, startSack: s.start, ticks: ticks, frozen: [:], tickMs: max(500, window / ticks))
+        // The sack melts over the real answer window (a fixed Show-Master time of
+        // 5 s or 60 s included); only with the timer off it keeps the show-tempo pace.
+        let nominal = Int(Double(ctx.ms(Money.timerMs(q.schw))) * ctx.mods.timerFaktor)
+        let window = ctx.timerAus ? nominal : core.timerMs
+        return State(core: core, startSack: s.start, ticks: ticks, frozen: [:], tickMs: max(300, window / ticks))
     }
 
     static func currentAmount(_ s: State, now: Millis) -> Int {
@@ -171,9 +174,15 @@ public enum KokosnussUhr: MinigamePlugin {
 
     public static func prompt(_ state: State, player: PlayerId, revealed: Bool, ctx: MinigameContext) -> PlayerPrompt {
         if revealed { return state.core.prompt(for: player, ctx: ctx, revealed: true, delta: scores(state, ctx: ctx)[player]) }
-        let amount = state.frozen[player] ?? currentAmount(state, now: ctx.now)
-        return state.core.prompt(for: player, ctx: ctx, revealed: false, hint: "🥥 Sack: \(Money.format(amount))")
+        if let frozen = state.frozen[player] {
+            return state.core.prompt(for: player, ctx: ctx, revealed: false, hint: "🧊 Dein Sack ist eingefroren: \(Money.format(frozen)) — wenn's stimmt")
+        }
+        return state.core.prompt(for: player, ctx: ctx, revealed: false, hint: "🥥 Sack: \(Money.format(currentAmount(state, now: ctx.now))) — schrumpft jede Sekunde")
     }
 
-    public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) { state.core.gmInfo(ctx: ctx) }
+    public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
+        var g = state.core.gmInfo(ctx: ctx)
+        for (p, v) in state.frozen { g.answers[p] = (g.answers[p] ?? "") + " · 🧊 \(Money.format(v))" }
+        return g
+    }
 }

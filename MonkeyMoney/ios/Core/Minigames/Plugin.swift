@@ -332,6 +332,11 @@ public enum MinigameRegistry {
         AnyMinigame(MusikvideoRaten.self),
         AnyMinigame(WerSingts.self),
         AnyMinigame(KokosnussShake.self),
+        AnyMinigame(Affenzahn.self),
+        AnyMinigame(LetzterAffe.self),
+        AnyMinigame(Affenschaukel.self),
+        AnyMinigame(Herdentrieb.self),
+        AnyMinigame(KokosKopf.self),
     ]
 
     public static func plugin(_ id: String) -> AnyMinigame? { all.first { $0.meta.id == id } }

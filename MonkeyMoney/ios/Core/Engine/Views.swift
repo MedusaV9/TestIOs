@@ -365,6 +365,90 @@ public indirect enum StageExtra: Codable, Equatable, Sendable {
     case song(songId: String, snippet: String, playAt: Millis?, revealed: Bool, titel: String?, artist: String?, video: Bool, hint: [String]?)
     /// Free key/value stats card.
     case card(title: String, lines: [String])
+    /// ⚡ Affenzahn: blitz question n/N, live answer count, per-question speed podium
+    /// (`ranking`, only in the mini-reveal) and running round totals.
+    /// phase: "frage" | "mini" | "fertig".
+    case speed(nummer: Int, gesamt: Int, phase: String, answered: Int, wert: Int, frage: String?, richtig: String?,
+               ranking: [SpeedEntry], totals: [PlayerId: Int], siege: [PlayerId: Int], bestMs: [PlayerId: Int])
+    /// 🪂 Der letzte Affe: who is still alive, who fell at which question, banked money,
+    /// the players eliminated by the last question, mercy rule, winners and tips (at the end).
+    case survival(nummer: Int, gesamt: Int, phase: String, alive: [PlayerId], out: [SurvivalOut], banked: [PlayerId: Int],
+                  lastOut: [PlayerId], gnade: Bool, answered: Int, frage: String?, richtig: String?, sieger: [PlayerId],
+                  bonus: Int, tippAnzahl: Int, tipps: [PlayerId: PlayerId], cheers: Int)
+    /// ↕️ Affenschaukel: anchor vs. truth. `votes` and `truth` stay nil until the mini-reveal;
+    /// `lo`/`hi` span the display scale (log scale when `log`).
+    case schaukel(nummer: Int, gesamt: Int, phase: String, anchor: Double, anchorText: String, unit: String, truth: Double?,
+                  truthText: String?, richtung: String?, votes: SchaukelVotes?, answered: Int, log: Bool, lo: Double, hi: Double,
+                  frage: String?, serien: [PlayerId: Int], points: [PlayerId: Int], totals: [PlayerId: Int])
+    /// 🐑 Herdentrieb: opinion prompt, options (counts/voters only after the reveal),
+    /// majority option ids, lone wolves, answered count.
+    case herde(nummer: Int, gesamt: Int, phase: String, prompt: String, options: [HerdeOption], majority: [Int],
+               einzelgaenger: [PlayerId], answered: Int, points: [PlayerId: Int], totals: [PlayerId: Int], wert: Int)
+    /// 🧠 Kokos-Kopf: the symbol show ("zeigen": `zeigenAb` + `symbolMs` drive the choreography,
+    /// `gezeigt` = shown so far), the input ("eingeben": no sequence on the wire) and the reveal
+    /// ("aufloesung"/"fertig": full sequence + correct positions per player).
+    case memory(schritt: Int, gesamt: Int, phase: String, laenge: Int, zeigenAb: Millis?, symbolMs: Int, zeigeIndex: Int?,
+                gezeigt: [String], sequenz: [String]?, namen: [String]?, answered: [PlayerId], deadline: Millis?, timerMs: Int,
+                richtige: [PlayerId: Int], perfekt: [PlayerId], schnellster: PlayerId?, points: [PlayerId: Int], totals: [PlayerId: Int])
+}
+
+/// ⚡ Affenzahn: one line of a question's speed ranking.
+public struct SpeedEntry: Codable, Equatable, Sendable {
+    public var player: PlayerId
+    /// Answer time after the question appeared (nil = no answer).
+    public var ms: Int?
+    /// true = right, false = wrong, nil = no answer.
+    public var correct: Bool?
+    public var points: Int
+    /// Speed place among the correct answers (shared on equal times), nil otherwise.
+    public var platz: Int?
+
+    public init(player: PlayerId, ms: Int?, correct: Bool?, points: Int, platz: Int?) {
+        self.player = player
+        self.ms = ms
+        self.correct = correct
+        self.points = points
+        self.platz = platz
+    }
+}
+
+/// 🪂 Der letzte Affe: who fell at which question (1-based).
+public struct SurvivalOut: Codable, Equatable, Sendable {
+    public var player: PlayerId
+    public var atQuestion: Int
+
+    public init(player: PlayerId, atQuestion: Int) {
+        self.player = player
+        self.atQuestion = atQuestion
+    }
+}
+
+/// ↕️ Affenschaukel: who swung up, who swung down.
+public struct SchaukelVotes: Codable, Equatable, Sendable {
+    public var up: [PlayerId]
+    public var down: [PlayerId]
+
+    public init(up: [PlayerId], down: [PlayerId]) {
+        self.up = up
+        self.down = down
+    }
+}
+
+/// 🐑 Herdentrieb: one answer option; `count`/`voters` stay nil until the reveal.
+public struct HerdeOption: Codable, Equatable, Sendable {
+    public var id: Int
+    public var text: String
+    public var emoji: String
+    public var count: Int?
+    public var voters: [PlayerId]?
+
+    public init(id: Int, text: String, emoji: String, count: Int? = nil, voters: [PlayerId]? = nil) {
+        self.id = id
+        self.text = text
+        self.emoji = emoji
+        self.count = count
+        self.voters = voters
+    }
 }
 
 public struct WheelView: Codable, Equatable, Sendable {

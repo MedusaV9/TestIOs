@@ -5,8 +5,10 @@ import Foundation
 enum SongHelpers {
     static func options(target: Song, pool: [Song], artist: Bool, rng: inout SeededRandom) -> (options: [String], correct: Int) {
         let key: (Song) -> String = { artist ? ($0.artist.isEmpty ? $0.titel : $0.artist) : $0.titel }
-        var distractors = pool.filter { $0.id != target.id }.map(key).filter { $0 != key(target) }
-        distractors = Array(Set(distractors))
+        // De-duplicate keeping the pool order — `Array(Set(…))` changed the options from process to process.
+        var seen: Set<String> = [key(target)]
+        var distractors: [String] = []
+        for d in pool.filter({ $0.id != target.id }).map(key) where !seen.contains(d) { seen.insert(d); distractors.append(d) }
         distractors = rng.shuffled(distractors)
         var opts = Array(distractors.prefix(3))
         while opts.count < 3 { opts.append(["Unbekannter Künstler", "Bananen-Boogie", "Affen-Anthem", "Dschungel-Disco"][opts.count]) }
@@ -58,7 +60,14 @@ public enum SongRueckwaerts: MinigamePlugin {
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
         if case .choose(let i) = action, ctx.now >= state.core.startedAt { _ = state.core.answer(player, index: i, now: ctx.now) }
     }
-    public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) { state.core.applyGm(action, ctx: &ctx) }
+    public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) { shared(&state, action: action, ctx: &ctx) }
+
+    /// GM/joker handling of the three one-song formats: a pause during the
+    /// listening intro replays the snippet after the pause (playAt moves along).
+    static func shared(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) {
+        if case .timerShift(let ms) = action, ctx.now < state.core.startedAt { state.playAt += ms }
+        state.core.applyGm(action, ctx: &ctx)
+    }
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {}
     public static func isFinished(_ state: State, ctx: MinigameContext) -> Bool { ctx.now >= state.core.startedAt && state.core.finished(now: ctx.now, ctx: ctx) }
     public static func scores(_ state: State, ctx: MinigameContext) -> [PlayerId: Int] { state.core.standardScores(ctx: ctx, speed: true) }
@@ -103,7 +112,7 @@ public enum WerSingts: MinigamePlugin {
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) { SongRueckwaerts.reduce(&state, action: action, from: player, ctx: &ctx) }
-    public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) { state.core.applyGm(action, ctx: &ctx) }
+    public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) { SongRueckwaerts.shared(&state, action: action, ctx: &ctx) }
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {}
     public static func isFinished(_ state: State, ctx: MinigameContext) -> Bool { SongRueckwaerts.isFinished(state, ctx: ctx) }
     public static func scores(_ state: State, ctx: MinigameContext) -> [PlayerId: Int] { state.core.standardScores(ctx: ctx, speed: true) }
@@ -145,7 +154,7 @@ public enum MusikvideoRaten: MinigamePlugin {
     }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) { SongRueckwaerts.reduce(&state, action: action, from: player, ctx: &ctx) }
-    public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) { state.core.applyGm(action, ctx: &ctx) }
+    public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) { SongRueckwaerts.shared(&state, action: action, ctx: &ctx) }
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {}
     public static func isFinished(_ state: State, ctx: MinigameContext) -> Bool { SongRueckwaerts.isFinished(state, ctx: ctx) }
     public static func scores(_ state: State, ctx: MinigameContext) -> [PlayerId: Int] { state.core.standardScores(ctx: ctx, speed: true) }
@@ -265,8 +274,13 @@ public enum SongSnippet: MinigamePlugin {
     }
 
     public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) {
-        if case .forceFinish = action { state.finished = true }
-        if case .timerShift(let ms) = action { state.stufeStartedAt += ms; state.core?.shift(ms: ms); if let r = state.revealUntil { state.revealUntil = r + ms } }
+        switch action {
+        case .forceFinish: state.finished = true
+        case .skipQuestion: if !state.finished { nextSong(&state, ctx: &ctx) }
+        case .timerShift(let ms): state.stufeStartedAt += ms; state.core?.shift(ms: ms); if let r = state.revealUntil { state.revealUntil = r + ms }
+        case .timerExtend(let ms): if state.phase == "antworten" { state.core?.extend(ms: ms) }
+        default: break
+        }
     }
 
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {
@@ -322,17 +336,24 @@ public enum SongSnippet: MinigamePlugin {
         guard let c = state.core else { return .idle(title: meta.name, subtitle: nil) }
         switch state.phase {
         case "hoeren":
-            if state.lockedOut.contains(player) { return .buzzer(question: nil, armed: false, pressed: false, lockedUntil: nil, hint: "Gesperrt für diesen Song") }
+            if state.lockedOut.contains(player) { return .buzzer(question: nil, armed: false, pressed: false, lockedUntil: nil, hint: "Gesperrt für diesen Song — der nächste kommt gleich") }
             return .buzzer(question: "Stufe \(state.stufe + 1)/5 · \(Money.format(treppe(c.question.schw)[min(state.stufe, 5)]))", armed: true, pressed: false, lockedUntil: nil, hint: nil)
         case "antworten":
             if player == state.buzzer { return c.prompt(for: player, ctx: ctx, revealed: false, hint: "🎧 Du hast gebuzzert — welcher Song?") }
-            return .idle(title: "🎧 \(ctx.name(state.buzzer ?? "")) hat gebuzzert", subtitle: "Falsch = du bist dran!")
+            return .idle(title: "🎧 \(ctx.name(state.buzzer ?? "")) hat gebuzzert", subtitle: state.lockedOut.contains(player) ? "Du bist für diesen Song gesperrt" : "Liegt er falsch, ist der Buzzer wieder frei — bereithalten!")
         default:
             return .reveal(title: state.lastCorrect == true ? (state.buzzer == player ? "RICHTIG!" : "\(ctx.name(state.buzzer ?? "")) hat's erkannt") : "Niemand wusste es", correct: state.buzzer == player ? state.lastCorrect : nil, delta: 0, detail: c.question.erkl, streak: 0, speedBonus: nil)
         }
     }
 
-    public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) { state.core?.gmInfo(ctx: ctx) ?? (nil, [:]) }
+    public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
+        var g: (question: GmQuestionInfo?, answers: [PlayerId: String]) = state.core?.gmInfo(ctx: ctx) ?? (nil, [:])
+        for p in state.lockedOut { g.answers[p] = (g.answers[p] ?? "") + " 🚫 gesperrt" }
+        if let b = state.buzzer { g.answers[b] = (g.answers[b] ?? "") + " 🔔 gebuzzert" }
+        for (p, e) in state.earned where e != 0 { g.answers[p] = (g.answers[p] ?? "") + " · \(Money.formatDelta(e))" }
+        g.answers["_stufe"] = "Song \(state.index)/\(min(3, state.songs.count)) · Stufe \(state.stufe + 1)/\(stufen.count) · \(state.phase)"
+        return g
+    }
     public static func questionsUsed(_ state: State) -> Int { max(1, state.index) }
 }
 
@@ -355,7 +376,15 @@ public enum BuchstabenTelegramm: MinigamePlugin {
     }
 
     static let letterMs = 2500
-    static let pool = ["BANANEN", "AFFENZOO", "DSCHUNGEL", "JACKPOT", "KOKOSNUSS", "LIANE", "GORILLA", "TROMMEL", "SCHATZ", "PALME", "KAPUZINER", "URWALD", "TRESOR", "SPIELSHOW", "QUIZMASTER", "GOLDMUENZE", "BUZZER", "PAVIAN", "ORANGUTAN", "MANGO"]
+    static let pool = ["BANANEN", "AFFENZOO", "DSCHUNGEL", "JACKPOT", "KOKOSNUSS", "LIANE", "GORILLA", "TROMMEL", "SCHATZ", "PALME", "KAPUZINER", "URWALD", "TRESOR", "SPIELSHOW", "QUIZMASTER", "GOLDMÜNZE", "BUZZER", "PAVIAN", "ORANGUTAN", "MANGO"]
+
+    /// Compare words the way people type them: case-, space- and umlaut-insensitive
+    /// ("Goldmünze" = "GOLDMUENZE" = "goldmunze").
+    static func fold(_ w: String) -> String {
+        var t = w.uppercased()
+        for (a, b) in [("Ä", "AE"), ("Ö", "OE"), ("Ü", "UE"), ("ß", "SS"), ("ẞ", "SS")] { t = t.replacingOccurrences(of: a, with: b) }
+        return t.folding(options: [.diacriticInsensitive], locale: Locale(identifier: "de_DE")).filter { $0.isLetter || $0.isNumber }
+    }
 
     public static let meta = MinigameMeta(
         id: "buchstaben-telegramm", name: "7-Buchstaben-Telegramm", emoji: "📨",
@@ -372,7 +401,9 @@ public enum BuchstabenTelegramm: MinigamePlugin {
     public static func initState(questions: [Question], songs: [Song], ctx: inout MinigameContext) -> State {
         var words = songs.map { $0.titel.uppercased().replacingOccurrences(of: " ", with: "") }.filter { $0.count >= 5 && $0.count <= 12 && $0.allSatisfy { $0.isLetter } }
         words += pool
-        words = ctx.rng.shuffled(Array(Set(words)))
+        // De-duplicate in a fixed order before the seeded shuffle (a Set's order differs per process).
+        var seen: Set<String> = []
+        words = ctx.rng.shuffled(words.filter { seen.insert($0).inserted })
         let shuffled = ctx.rng.shuffled(ctx.players)
         var pairs: [[PlayerId]] = []
         var i = 0
@@ -384,10 +415,15 @@ public enum BuchstabenTelegramm: MinigamePlugin {
     static func pairIndex(_ s: State, _ p: PlayerId) -> Int? { s.pairs.firstIndex { $0.contains(p) } }
 
     public static func reduce(_ state: inout State, action: PlayerAction, from player: PlayerId, ctx: inout MinigameContext) {
-        guard state.revealUntil == nil, case .text(let t) = action, let pi = pairIndex(state, player), !state.solvedBy.contains(pi) else { return }
-        let guess = t.uppercased().replacingOccurrences(of: " ", with: "")
+        guard state.revealUntil == nil, case .text(let t) = action else { return }
+        // A late joiner teams up with the smallest pair instead of typing into the void.
+        if pairIndex(state, player) == nil, ctx.players.contains(player), let smallest = state.pairs.indices.min(by: { state.pairs[$0].count < state.pairs[$1].count }) {
+            state.pairs[smallest].append(player)
+        }
+        guard let pi = pairIndex(state, player), !state.solvedBy.contains(pi) else { return }
+        let guess = t.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
         state.attempts[player] = guess
-        if guess == state.word {
+        if fold(guess) == fold(state.word) {
             state.solvedBy.append(pi)
             for p in state.pairs[pi] { state.earned[p, default: 0] += 250 }
             if state.solvedBy.count == 1 { state.solvedWords.append(state.index) }
@@ -396,8 +432,12 @@ public enum BuchstabenTelegramm: MinigamePlugin {
     }
 
     public static func gm(_ state: inout State, action: GmMinigameAction, ctx: inout MinigameContext) {
-        if case .forceFinish = action { state.finished = true }
-        if case .timerShift(let ms) = action { state.startedAt += ms; if let r = state.revealUntil { state.revealUntil = r + ms } }
+        switch action {
+        case .forceFinish: state.finished = true
+        case .skipQuestion: if !state.finished { nextWord(&state, ctx: &ctx) }
+        case .timerShift(let ms): state.startedAt += ms; if let r = state.revealUntil { state.revealUntil = r + ms }
+        default: break
+        }
     }
 
     static func nextWord(_ s: inout State, ctx: inout MinigameContext) {
@@ -414,8 +454,9 @@ public enum BuchstabenTelegramm: MinigamePlugin {
     public static func tick(_ state: inout State, ctx: inout MinigameContext) {
         guard !state.finished else { return }
         if let r = state.revealUntil { if ctx.now >= r { nextWord(&state, ctx: &ctx) }; return }
-        let shouldReveal = 1 + (ctx.now - state.startedAt) / ctx.ms(letterMs)
-        state.revealed = min(state.word.count, shouldReveal)
+        // A GM clock shift can move `startedAt` past now: letters already shown stay shown.
+        let shouldReveal = 1 + max(0, ctx.now - state.startedAt) / ctx.ms(letterMs)
+        state.revealed = min(state.word.count, max(state.revealed, shouldReveal))
         if state.revealed >= state.word.count, ctx.now >= state.startedAt + ctx.ms(letterMs) * (state.word.count + 2) {
             state.revealUntil = ctx.now + ctx.ms(3000)
         }
@@ -437,14 +478,18 @@ public enum BuchstabenTelegramm: MinigamePlugin {
         if revealed { let s = state.earned[player] ?? 0; return .reveal(title: s > 0 ? "Telegramm angekommen!" : "Leitung tot", correct: s > 0, delta: s, detail: nil, streak: 0, speedBonus: nil) }
         let pi = pairIndex(state, player)
         let partner = pi.flatMap { state.pairs[$0].first { $0 != player } }
-        if let pi = pi, state.solvedBy.contains(pi) { return .idle(title: "✅ Gelöst: \(state.word)", subtitle: "+250 MM für euch beide") }
+        if let pi = pi, state.solvedBy.contains(pi) { return .idle(title: "✅ Gelöst: \(state.word)", subtitle: "+250 MM für euch — gleich kommt das nächste Telegramm") }
         if state.revealUntil != nil { return .idle(title: "Das Wort war: \(state.word)", subtitle: "Nächstes Telegramm kommt …") }
         let letters = state.word.enumerated().map { $0.offset < state.revealed ? String($0.element) : "_" }.joined(separator: " ")
         return .text(question: letters, placeholder: "Wort tippen …", maxLength: 16, submitted: nil, deadline: nil).withHint(partner.map { "📨 Partner: \(ctx.name($0))" })
     }
 
     public static func gmInfo(_ state: State, ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
-        (GmQuestionInfo(id: "wort_\(state.index)", text: "Telegramm-Wort", kategorie: "Musik", schwierigkeit: .medium, korrekt: state.word, erklaerung: "", tipps: [], typ: .choice), state.attempts)
+        var answers = state.attempts
+        for pi in state.solvedBy { for p in state.pairs[pi] { answers[p] = (answers[p] ?? "—") + " ✅ gelöst" } }
+        let shown = state.word.prefix(max(0, state.revealed))
+        return (GmQuestionInfo(id: "wort_\(state.index)", text: "Telegramm-Wort \(min(state.index + 1, state.words.count))/\(state.words.count) · sichtbar: \(shown)", kategorie: "Wortspiel",
+                               schwierigkeit: .medium, korrekt: state.word, erklaerung: "Paare: " + state.pairs.map { $0.map { ctx.name($0) }.joined(separator: " + ") }.joined(separator: " · "), tipps: [], typ: .choice), answers)
     }
     public static func questionsUsed(_ state: State) -> Int { max(1, state.index + 1) }
 }

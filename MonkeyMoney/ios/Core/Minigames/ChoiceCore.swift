@@ -145,6 +145,43 @@ public struct ChoiceCore: Codable, Equatable, Sendable {
         answers[p].map { max(0, $0.at - startedAt) }
     }
 
+    /// Window the speed bonus is measured against. With the timer off the
+    /// clock is an hour long — measuring against it would hand everybody the
+    /// full +50 %; the nominal difficulty window keeps "fast pays" meaningful.
+    public func speedWindowMs(ctx: MinigameContext) -> Int {
+        ctx.timerAus ? ctx.ms(Money.timerMs(question.schw)) : timerMs
+    }
+
+    /// Players who locked in, in seat (join) order — never dictionary order.
+    public func answeredInOrder(_ players: [PlayerId]) -> [PlayerId] {
+        FormatHelpers.inOrder(answers.keys.filter { hasAnswered($0) }, players)
+    }
+
+    /// Correct answers sorted by answer time; equal times fall back to seat order
+    /// (dictionary order must never decide who was "first").
+    public func correctByTime(_ players: [PlayerId]) -> [PlayerId] {
+        let seat = Dictionary(uniqueKeysWithValues: players.enumerated().map { ($0.element, $0.offset) })
+        return answers.filter { $0.value.index == correctIndex }
+            .sorted { a, b in a.value.at != b.value.at ? a.value.at < b.value.at : (seat[a.key] ?? Int.max, a.key) < (seat[b.key] ?? Int.max, b.key) }
+            .map { $0.key }
+    }
+
+    /// Tipp-Kanone step (GM hint): the tip text of this step shows on stage and
+    /// phones; a step without a written tip strikes one wrong option instead
+    /// (step 1 always strikes one). At least two options always stay.
+    public mutating func hintStep(rng: inout SeededRandom) {
+        hintLevel += 1
+        let hasTip = hintLevel <= question.tipps.count
+        let open = options.indices.filter { !globalRemoved.contains($0) }
+        if (hintLevel == 1 || !hasTip), open.count > 2 { removeWrong(for: nil, count: 1, rng: &rng) }
+    }
+
+    /// Latest tip revealed by the Tipp-Kanone (nil before the first step).
+    public var currentTip: String? {
+        guard hintLevel > 0, !question.tipps.isEmpty else { return nil }
+        return question.tipps[min(hintLevel, question.tipps.count) - 1]
+    }
+
     // MARK: Views
 
     public func options(for p: PlayerId?) -> [ChoiceOption] {
@@ -167,7 +204,7 @@ public struct ChoiceCore: Codable, Equatable, Sendable {
             schwierigkeit: question.schw,
             wert: Int(Double(question.value) * ctx.mods.wertFaktor),
             options: blackout && !revealed ? nil : opts,
-            answered: Array(answers.keys.filter { hasAnswered($0) }) + extraAnswered,
+            answered: answeredInOrder(ctx.players) + extraAnswered,
             deadline: revealed ? nil : ctx.visible(deadline),
             timerMs: timerMs,
             revealed: revealed,
@@ -176,11 +213,11 @@ public struct ChoiceCore: Codable, Equatable, Sendable {
             image: question.bild,
             pixelLevel: nil,
             erklaerung: revealed ? question.erkl : nil,
-            tipp: hintLevel > 0 && hintLevel <= question.tipps.count ? question.tipps[hintLevel - 1] : nil,
+            tipp: currentTip,
             nummer: ctx.fragenNummer,
             gesamt: ctx.fragenGesamt,
             blackout: blackout && !revealed,
-            goldenFor: Array(ctx.mods.goldeneBanane)
+            goldenFor: FormatHelpers.inOrder(ctx.mods.goldeneBanane, ctx.players)
         )
     }
 
@@ -200,7 +237,7 @@ public struct ChoiceCore: Codable, Equatable, Sendable {
         let chosen = answers[p]?.index
         return .choice(question: question.displayText, options: options(for: p), chosen: chosen, deadline: ctx.visible(deadline),
                        secondTry: secondTryOpen[p] != nil,
-                       hint: hint ?? whisper[p] ?? (hintLevel > 0 && hintLevel <= question.tipps.count ? question.tipps[hintLevel - 1] : nil))
+                       hint: FormatHelpers.joinHints([hint ?? whisper[p], currentTip.map { "💡 " + $0 }]))
     }
 
     public func gmInfo(ctx: MinigameContext) -> (question: GmQuestionInfo?, answers: [PlayerId: String]) {
@@ -225,7 +262,8 @@ public struct ChoiceCore: Codable, Equatable, Sendable {
             }
             let after = max(0, a.at - startedAt)
             let correct = a.index == correctIndex
-            let bonus = speed && correct && !a.secondTry ? Money.speedBonus(value: question.value, answeredAfterMs: after, timerMs: timerMs) : 0
+            let wert = Int(Double(question.value) * ctx.mods.wertFaktor)
+            let bonus = speed && correct && !a.secondTry ? Money.speedBonus(value: wert, answeredAfterMs: after, timerMs: speedWindowMs(ctx: ctx)) : 0
             out[p] = Outcome(correct: correct, answeredAfterMs: after, timerMs: timerMs, speedBonus: bonus, countsForStreak: true,
                              detail: a.secondTry ? "2. Versuch" : nil)
         }
@@ -240,7 +278,7 @@ public struct ChoiceCore: Codable, Equatable, Sendable {
             guard let a = answers[p] else { s[p] = 0; continue }
             if a.index == correctIndex {
                 let after = max(0, a.at - startedAt)
-                var win = wert + (speed ? Money.speedBonus(value: wert, answeredAfterMs: after, timerMs: timerMs) : 0)
+                var win = wert + (speed ? Money.speedBonus(value: wert, answeredAfterMs: after, timerMs: speedWindowMs(ctx: ctx)) : 0)
                 if a.secondTry { win = win / 2 }
                 s[p] = win
             } else {
@@ -250,19 +288,28 @@ public struct ChoiceCore: Codable, Equatable, Sendable {
         return s
     }
 
-    /// Handle joker-driven GM actions common to all MC formats.
+    /// Handle joker-driven GM actions common to all MC formats. A 50:50 or a
+    /// struck option for a player who already locked in does nothing (so the
+    /// engine does not charge the joker).
     public mutating func applyGm(_ action: GmMinigameAction, ctx: inout MinigameContext) {
         switch action {
         case .timerExtend(let ms): extend(ms: ms)
         case .timerShift(let ms): shift(ms: ms)
         case .forceFinish: finishedAt = ctx.now
-        case .removeOption(let p): removeWrong(for: p, count: 1, rng: &ctx.rng)
-        case .fiftyFifty(let p): removeWrong(for: p, count: max(0, options.count - 2), rng: &ctx.rng)
+        case .removeOption(nil): hintStep(rng: &ctx.rng)
+        case .removeOption(let p?):
+            guard !hasAnswered(p), finishedAt == nil else { return }
+            removeWrong(for: p, count: 1, rng: &ctx.rng)
+        case .fiftyFifty(let p):
+            guard !hasAnswered(p), finishedAt == nil else { return }
+            let open = options.indices.filter { !(removed[p] ?? []).contains($0) && !globalRemoved.contains($0) }
+            removeWrong(for: p, count: max(0, open.count - 2), rng: &ctx.rng)
         case .secondTry(let p): _ = openSecondTry(for: p, now: ctx.now)
         case .skipQuestion: finishedAt = ctx.now
         }
     }
 }
+
 
 /// Helpers for question formats.
 public enum FormatHelpers {
@@ -278,6 +325,42 @@ public enum FormatHelpers {
 
     public static func first(_ questions: [Question], kind: ContentKind) -> Question {
         fitting(questions, kind: kind).first ?? questions.first ?? Question.fallback(0)
+    }
+
+    /// Ids in seat (join) order — the deterministic replacement for iterating a
+    /// Dictionary/Set (whose order changes from process to process). Ids that are
+    /// no longer seated follow, sorted.
+    public static func inOrder<S: Sequence>(_ ids: S, _ players: [PlayerId]) -> [PlayerId] where S.Element == PlayerId {
+        let set = Set(ids)
+        return players.filter { set.contains($0) } + set.subtracting(players).sorted()
+    }
+
+    /// Join optional phone hints ("🥥 Sack …", "💡 tip") into one line.
+    public static func joinHints(_ parts: [String?]) -> String? {
+        let p = parts.compactMap { $0 }.filter { !$0.isEmpty }
+        return p.isEmpty ? nil : p.joined(separator: " · ")
+    }
+
+    /// German decimal comma ("×2,40").
+    public static func decimal(_ v: Double, digits: Int = 2) -> String {
+        String(format: "%.\(digits)f", v).replacingOccurrences(of: ".", with: ",")
+    }
+
+    /// How many questions the engine should draw for a section of this format:
+    /// round formats run a fixed series internally (plus spares, so a GM skip or
+    /// swap never runs dry — the placeholder question must never reach a phone);
+    /// rapid-fire rounds need a deep stack. Single-question formats use the plan's count.
+    public static func questionBudget(formatId: String, roundBased: Bool, sectionFragen: Int) -> Int {
+        guard roundBased else { return sectionFragen }
+        switch formatId {
+        case "affenbank": return max(sectionFragen, 40)
+        case "stinkbanane": return max(sectionFragen, 48)
+        case "lianensteg-duell": return max(sectionFragen, 7) + 3
+        case "bananen-boxkampf", "konter-quiz", "bananen-tortenschlacht", "risiko-leiter": return max(sectionFragen, 8) + 3
+        case "einer-gegen-alle": return max(sectionFragen, 6) + 3
+        case "goldener-affe": return max(sectionFragen, 4) + 3
+        default: return sectionFragen
+        }
     }
 
     public static func places(_ values: [PlayerId: Int]) -> [PlayerId: Int] {

@@ -155,9 +155,9 @@ final class RulesTests: XCTestCase {
         XCTAssertEqual(Avatar(wire: "").affe, "don-bananas")
     }
 
-    func testMinigameRegistryHasAllTwentySevenFormats() {
-        XCTAssertEqual(MinigameRegistry.all.count, 28)
-        XCTAssertEqual(Set(MinigameRegistry.all.map { $0.meta.id }).count, 28)
+    func testMinigameRegistryHasAllFormats() {
+        XCTAssertEqual(MinigameRegistry.all.count, 33)
+        XCTAssertEqual(Set(MinigameRegistry.all.map { $0.meta.id }).count, 33)
         XCTAssertEqual(BoardgameRegistry.all.count, 6)
     }
 }
