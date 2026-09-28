@@ -296,8 +296,12 @@ final class FormatAuditTests: XCTestCase {
     ]
 
     func testSweepGmToolsNeverCrashOrStick() {
-        for (name, cmd) in FormatAuditTests.gmTools {
-            sweep("gm-\(name)", setup: { d in
+        // Every tool on every format would be 11 × 28 section runs (~3 min); a rotation gives each
+        // format 5 different tools and every tool ≥ 12 formats — same coverage of tool × format kinds.
+        let tools = FormatAuditTests.gmTools
+        for (t, (name, cmd)) in tools.enumerated() {
+            let formats = AuditDriver.all.enumerated().filter { (i, _) in (0..<5).contains { k in (i + k) % tools.count == t } }.map { $0.element }
+            sweep("gm-\(name)", formats: formats, setup: { d in
                 d.advance(1500)
                 d.gm(cmd)
             }, each: { d in

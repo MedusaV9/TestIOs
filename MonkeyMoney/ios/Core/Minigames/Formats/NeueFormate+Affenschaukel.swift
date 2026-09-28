@@ -36,16 +36,20 @@ public enum Affenschaukel: MinigamePlugin {
         public var verbraucht: Int
     }
 
+    private static let k = NeueFormate.faktor(NeueFormate.Anteil.schaukel)
+    private static let s2 = String(NeueFormate.faktor(NeueFormate.Anteil.schaukelSerie2).dropLast())
+    private static let s3 = String(NeueFormate.faktor(NeueFormate.Anteil.schaukelSerie3).dropLast())
+
     public static let meta = MinigameMeta(
         id: "affenschaukel", name: "Affenschaukel", emoji: "↕️",
         kurz: "Höher oder tiefer? Schätzfragen mit Anker-Wert — schaukel in die richtige Richtung.",
-        erklaerung: "Zu jeder Schätzfrage zeigt die Bühne einen Anker-Wert. Liegt die richtige Antwort HÖHER oder TIEFER? Tippe ⬆️ oder ⬇️ auf dem Handy. Richtig bringt 0,4× Fragenwert — und wer mehrmals in Folge richtig schaukelt, bekommt mehr: zwei in Folge ×1,5, ab drei ×2. Nach jeder Frage schaukelt die Wahrheit auf der Skala an ihren Platz.",
+        erklaerung: "Zu jeder Schätzfrage zeigt die Bühne einen Anker-Wert. Liegt die richtige Antwort HÖHER oder TIEFER? Tippe ⬆️ oder ⬇️ auf dem Handy. Richtig bringt \(k) Fragenwert — und wer mehrmals in Folge richtig schaukelt, bekommt mehr: zwei in Folge ×\(s2), ab drei ×\(s3). Nach jeder Frage schaukelt die Wahrheit auf der Skala an ihren Platz.",
         regeln: ["Schätzfrage + Anker-Wert auf der Bühne",
                  "Liegt die Wahrheit HÖHER ⬆️ oder TIEFER ⬇️ als der Anker?",
-                 "Richtig: 0,4× Fragenwert",
-                 "Serie in der Runde: 2 in Folge ×1,5 · ab 3 in Folge ×2",
+                 "Richtig: \(k) Fragenwert",
+                 "Serie in der Runde: 2 in Folge ×\(s2) · ab 3 in Folge ×\(s3)",
                  "Falsch oder keine Antwort: 0 und die Serie reißt"],
-        gewinn: "Richtig 0,4× Fragenwert · 2er-Serie ×1,5 · ab 3er-Serie ×2",
+        gewinn: "Richtig \(k) Fragenwert · 2er-Serie ×\(s2) · ab 3er-Serie ×\(s3)",
         contentKind: .fragen([.schaetz]), roundBased: true, streak: false, jokerAktionen: [], isMc: false, musik: "estimate_think", v2: true
     )
 

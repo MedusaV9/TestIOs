@@ -35,16 +35,20 @@ public enum KokosKopf: MinigamePlugin {
         public var gespielt: Int
     }
 
+    private static let p = NeueFormate.faktor(NeueFormate.Anteil.kokosPerfekt)
+    private static let pos = NeueFormate.faktor(NeueFormate.Anteil.kokosPosition)
+    private static let sn = NeueFormate.faktor(NeueFormate.Anteil.kokosSchnellster)
+
     public static let meta = MinigameMeta(
         id: "kokos-kopf", name: "Kokos-Kopf", emoji: "🧠",
         kurz: "Merk dir die Dschungel-Symbole in ihrer Reihenfolge — und sortiere sie auf dem Handy zurück.",
-        erklaerung: "Gedächtnis-Training im Dschungel: Auf der Bühne erscheinen Symbole nacheinander — Banane, Kokosnuss, Affe … erst vier, dann fünf, sechs, sieben. Danach bekommst du dieselben Symbole durcheinander aufs Handy und bringst sie in die richtige Reihenfolge. Alles richtig: 0,5× Fragenwert, sonst 0,08× pro richtiger Position. Wer als Schnellster alles richtig hat, bekommt +0,2× obendrauf.",
+        erklaerung: "Gedächtnis-Training im Dschungel: Auf der Bühne erscheinen Symbole nacheinander — Banane, Kokosnuss, Affe … erst vier, dann fünf, sechs, sieben. Danach bekommst du dieselben Symbole durcheinander aufs Handy und bringst sie in die richtige Reihenfolge. Alles richtig: \(p) Fragenwert, sonst \(pos) pro richtiger Position. Wer als Schnellster alles richtig hat, bekommt +\(sn) obendrauf.",
         regeln: ["Symbole erscheinen nacheinander auf der Bühne — gut merken!",
                  "Jede Runde ein Symbol mehr: 4, 5, 6, 7 …",
                  "Auf dem Handy die Symbole in die richtige Reihenfolge bringen",
-                 "Alles richtig: 0,5× Fragenwert · sonst 0,08× pro richtiger Position",
-                 "Schnellster mit allem richtig: +0,2× obendrauf"],
-        gewinn: "Alles richtig 0,5× Fragenwert · pro richtiger Position 0,08× · Schnellster Perfekter +0,2×",
+                 "Alles richtig: \(p) Fragenwert · sonst \(pos) pro richtiger Position",
+                 "Schnellster mit allem richtig: +\(sn) obendrauf"],
+        gewinn: "Alles richtig \(p) Fragenwert · pro richtiger Position \(pos) · Schnellster Perfekter +\(sn)",
         contentKind: .none, roundBased: true, streak: false, jokerAktionen: [], isMc: false, musik: "pixel_retro", v2: true
     )
 

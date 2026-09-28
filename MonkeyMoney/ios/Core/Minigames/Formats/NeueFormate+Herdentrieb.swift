@@ -37,16 +37,19 @@ public enum Herdentrieb: MinigamePlugin {
         public var gespielt: Int
     }
 
+    private static let h = NeueFormate.faktor(NeueFormate.Anteil.herde)
+    private static let g = NeueFormate.faktor(NeueFormate.Anteil.herdeGleichstand)
+
     public static let meta = MinigameMeta(
         id: "herdentrieb", name: "Herdentrieb", emoji: "🐑",
         kurz: "Keine richtige Antwort — tippe, was die Mehrheit wählt. Die Herde kassiert, Einzelgänger gehen leer aus.",
-        erklaerung: "Pizza oder Pasta? Strand oder Berge? Hier gibt es kein Richtig oder Falsch — nur die Herde. Tippe, was deiner Meinung nach DIE MEHRHEIT wählt. Die größte Gruppe bekommt 0,4× Fragenwert pro Kopf. Sind mehrere Gruppen gleich groß, bekommen alle 0,2×. Wer ganz allein auf einer Antwort steht, ist ein Einzelgänger und geht leer aus.",
+        erklaerung: "Pizza oder Pasta? Strand oder Berge? Hier gibt es kein Richtig oder Falsch — nur die Herde. Tippe, was deiner Meinung nach DIE MEHRHEIT wählt. Die größte Gruppe bekommt \(h) Fragenwert pro Kopf. Sind mehrere Gruppen gleich groß, bekommen alle \(g). Wer ganz allein auf einer Antwort steht, ist ein Einzelgänger und geht leer aus.",
         regeln: ["Keine richtige Antwort — nur die Meinung der Herde zählt",
                  "Tippe, was die MEHRHEIT wählt, nicht deinen Liebling",
-                 "Größte Gruppe: 0,4× Fragenwert pro Kopf",
-                 "Gleichstand an der Spitze: alle Spitzen-Gruppen 0,2×",
+                 "Größte Gruppe: \(h) Fragenwert pro Kopf",
+                 "Gleichstand an der Spitze: alle Spitzen-Gruppen \(g)",
                  "Allein auf einer Antwort? Einzelgänger — 0"],
-        gewinn: "Größte Gruppe 0,4× Fragenwert · Gleichstand 0,2× · Einzelgänger 0",
+        gewinn: "Größte Gruppe \(h) Fragenwert · Gleichstand \(g) · Einzelgänger 0",
         contentKind: .none, roundBased: true, streak: false, jokerAktionen: [], isMc: true, musik: "market_trade", v2: true
     )
 

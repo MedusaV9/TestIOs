@@ -192,25 +192,153 @@ final class NeueFormateTests: XCTestCase {
     /// Recommended round sizes (section.fragen) — see the report for the show-mode agent.
     let groesse = ["affenzahn": 6, "letzter-affe": 10, "affenschaukel": 5, "herdentrieb": 5, "kokos-kopf": 4]
 
-    // MARK: Balance measurement (printed)
+    // MARK: Whole matches + balance gate
 
-    func testBalanceMeasurement() {
-        for players in [2, 4, 8] {
-            for id in alle {
-                let n = groesse[id]!
-                var fmt = 0.0, basics = 0.0, playedSum = 0.0
-                for seed: UInt32 in [1, 2, 3, 4, 5] {
-                    let a = NFSim.run(formats: [id], players: players, seed: seed, fragen: [id: n], keepTail: false)
-                    let b = NFSim.run(formats: ["bananen-basics"], players: players, seed: seed, fragen: ["bananen-basics": n], keepTail: false)
-                    fmt += Double(a.paid[0] ?? 0)
-                    basics += Double(b.paid[0] ?? 0)
-                    playedSum += Double(a.played[0] ?? 0)
-                    XCTAssertEqual(a.state.phase, .ende)
+    /// One match per (players, seed): a standard 4-question Bananen-Basics round first
+    /// (the show's economic unit), then all five new formats at their recommended size.
+    /// Every format must finish, and a round of it must pay 0.5–1.8× the standard round.
+    func testAllNewFormatsFinishAndPayLikeAStandardRound() {
+        var ratios: [String: [Double]] = [:]
+        var lines: [String] = []
+        for (players, seeds) in [(2, [UInt32(1)]), (4, [1, 2]), (8, [1])] {
+            for seed in seeds {
+                let plan = ["bananen-basics"] + alle
+                var sizes = groesse
+                sizes["bananen-basics"] = 4
+                let r = NFSim.run(formats: plan, players: players, seed: seed, fragen: sizes, keepTail: false)
+                XCTAssertEqual(r.state.phase, .ende, "\(players)p seed \(seed) stuck in \(r.state.phase)")
+                XCTAssertTrue(Set(alle).isSubset(of: r.minigames), "\(players)p: not all formats ran: \(r.minigames.sorted())")
+                let base = Double(max(1, r.paid[0] ?? 0))
+                for (i, id) in alle.enumerated() {
+                    let ratio = Double(r.paid[i + 1] ?? 0) / base
+                    ratios["\(id) \(players)p", default: []].append(ratio)
+                    lines.append(String(format: "%@ %dp seed %d: paid %d vs standard round %.0f → %.2f (played %d)", id, players, seed, r.paid[i + 1] ?? 0, base, ratio, r.played[i + 1] ?? 0))
                 }
-                let perQ = basics / Double(n)
-                print(String(format: "BALANCE-NF %@ players %d size %d: format %.0f  basics %.0f  ratio %.2f  played %.1f  ratio/played %.2f", id, players, n, fmt / 5, basics / 5,
-                             fmt / max(1, basics), playedSum / 5, fmt / max(1, perQ * max(1, playedSum))))
             }
         }
+        print("BALANCE-NF\n" + lines.joined(separator: "\n"))
+        for (key, rs) in ratios {
+            let avg = rs.reduce(0, +) / Double(rs.count)
+            XCTAssertGreaterThanOrEqual(avg, 0.5, "\(key) pays too little: \(avg)")
+            XCTAssertLessThanOrEqual(avg, 1.8, "\(key) pays too much: \(avg)")
+        }
+    }
+
+    // MARK: Pure rules
+
+    func testAffenzahnSpeedPodium() {
+        let w = 250
+        let r = Affenzahn.rangliste([("a", 3000, true), ("b", 1200, true), ("c", 800, false), ("d", nil, nil), ("e", 2000, true), ("f", 2500, true)], wert: w)
+        let by = Dictionary(uniqueKeysWithValues: r.map { ($0.player, $0) })
+        XCTAssertEqual(r.first?.player, "b", "fastest correct first")
+        XCTAssertEqual(by["b"]?.platz, 1)
+        XCTAssertEqual(by["e"]?.platz, 2)
+        XCTAssertEqual(by["f"]?.platz, 3)
+        XCTAssertEqual(by["a"]?.platz, 4)
+        XCTAssertEqual(by["b"]?.points, NeueFormate.betrag(w, NeueFormate.Anteil.affenzahn[0]))
+        XCTAssertEqual(by["e"]?.points, NeueFormate.betrag(w, NeueFormate.Anteil.affenzahn[1]))
+        XCTAssertEqual(by["f"]?.points, NeueFormate.betrag(w, NeueFormate.Anteil.affenzahn[2]))
+        XCTAssertEqual(by["a"]?.points, NeueFormate.betrag(w, NeueFormate.Anteil.affenzahnRest))
+        XCTAssertEqual(by["c"]?.points, 0, "wrong answers are free but pay nothing, even when fast")
+        XCTAssertEqual(by["d"]?.points, 0)
+        // Equal times share the place.
+        let tie = Affenzahn.rangliste([("x", 1000, true), ("y", 1000, true), ("z", 1500, true)], wert: w)
+        XCTAssertEqual(tie.filter { $0.platz == 1 }.count, 2)
+        XCTAssertEqual(tie.first { $0.player == "z" }?.platz, 3)
+    }
+
+    func testLetzterAffeVerdictMercyAndWinner() {
+        let u = LetzterAffe.urteil(alive: ["a", "b", "c"]) { ["a": true, "b": false][$0] ?? nil }
+        XCTAssertEqual(u.survivors, ["a"])
+        XCTAssertEqual(u.out, ["b", "c"], "no answer knocks you out too")
+        XCTAssertFalse(u.gnade)
+        let mercy = LetzterAffe.urteil(alive: ["a", "b"]) { _ in false }
+        XCTAssertEqual(mercy.survivors, ["a", "b"], "all wrong: nobody falls")
+        XCTAssertTrue(mercy.gnade)
+        // A perfect bot against random guessers is the last monkey, the round ends early,
+        // the winner gets the bonus and the others tipped once.
+        let bots = [NFSim.Bot(id: "p0", skill: 1.0, delayMs: 900), NFSim.Bot(id: "p1", skill: 0, delayMs: 1500), NFSim.Bot(id: "p2", skill: 0, delayMs: 2100)]
+        var end: LetzterAffe.State?
+        let r = NFSim.run(formats: ["letzter-affe"], players: 3, seed: 7, fragen: ["letzter-affe": 12], keepTail: false, bots: bots) { s, _, _ in
+            if s.phase == .aufloesung, end == nil { end = NFSim.decode(LetzterAffe.State.self, s) }
+        }
+        XCTAssertEqual(r.state.phase, .ende)
+        guard let st = end else { return XCTFail("no reveal") }
+        XCTAssertEqual(st.sieger, ["p0"])
+        XCTAssertEqual(st.bonus["p0"], NeueFormate.betrag(st.bonusWert, NeueFormate.Anteil.letzterBonus))
+        XCTAssertLessThan(st.gespielt, 12, "the round ends as soon as one monkey is left")
+        XCTAssertTrue(Set(st.tipps.keys).isSubset(of: ["p1", "p2"]), "only knocked-out monkeys tip")
+        XCTAssertEqual(st.leben["p0"], LetzterAffe.startLeben, "the perfect monkey never lost a life")
+        XCTAssertTrue(st.out.allSatisfy { st.leben[$0.player] == 0 }, "out = no lives left")
+        for (p, t) in st.tipps { XCTAssertEqual(st.tippGewinn[p] ?? 0, t == "p0" ? NeueFormate.betrag(st.bonusWert, NeueFormate.Anteil.tippRichtig) : 0) }
+    }
+
+    func testAffenschaukelAnchorAndStreak() {
+        let questions = TestContent.catalog.questions.filter { $0.typ == .schaetz && $0.schaetz != nil }
+        XCTAssertGreaterThan(questions.count, 100)
+        var rng = SeededRandom(seed: 3)
+        for q in questions {
+            let spec = q.schaetz!
+            let jahr = Affenschaukel.istJahr(spec, text: q.text)
+            let tol = Affenschaukel.toleranz(spec, jahr: jahr)
+            for _ in 0..<3 {
+                let a = Affenschaukel.anker(spec, text: q.text, rng: &rng)
+                XCTAssertGreaterThan(abs(a - spec.richtwert), tol, "\(q.id): anchor \(a) inside the tolerance zone of \(spec.richtwert) ± \(tol)")
+                if jahr { XCTAssertEqual(a, a.rounded(), "\(q.id): years stay whole") }
+            }
+        }
+        let w = 250
+        XCTAssertEqual(Affenschaukel.punkte(wert: w, serie: 1), NeueFormate.betrag(w, NeueFormate.Anteil.schaukel))
+        XCTAssertEqual(Affenschaukel.punkte(wert: w, serie: 2), NeueFormate.betrag(w, NeueFormate.Anteil.schaukel * NeueFormate.Anteil.schaukelSerie2))
+        XCTAssertEqual(Affenschaukel.punkte(wert: w, serie: 5), NeueFormate.betrag(w, NeueFormate.Anteil.schaukel * NeueFormate.Anteil.schaukelSerie3))
+    }
+
+    func testHerdentriebMajorityTieAndLoneWolf() {
+        let w = 250
+        let herd = Herdentrieb.auswertung([("a", 0), ("b", 0), ("c", 0), ("d", 1), ("e", 1), ("f", 2)], optionen: 3, wert: w)
+        XCTAssertEqual(herd.mehrheit, [0])
+        XCTAssertEqual(herd.punkte["a"], NeueFormate.betrag(w, NeueFormate.Anteil.herde))
+        XCTAssertEqual(herd.punkte["d"], 0)
+        XCTAssertEqual(herd.einzel, ["f"])
+        XCTAssertEqual(herd.counts, [3, 2, 1])
+        let tie = Herdentrieb.auswertung([("a", 0), ("b", 0), ("c", 1), ("d", 1)], optionen: 2, wert: w)
+        XCTAssertEqual(tie.mehrheit, [0, 1])
+        XCTAssertEqual(tie.punkte["c"], NeueFormate.betrag(w, NeueFormate.Anteil.herdeGleichstand))
+        let loners = Herdentrieb.auswertung([("a", 0), ("b", 1), ("c", 2)], optionen: 3, wert: w)
+        XCTAssertTrue(loners.mehrheit.isEmpty, "a herd needs at least two monkeys")
+        XCTAssertEqual(Set(loners.einzel), ["a", "b", "c"])
+        XCTAssertTrue(loners.punkte.values.allSatisfy { $0 == 0 })
+        XCTAssertGreaterThanOrEqual(Herdentrieb.fragen.count, 60)
+        XCTAssertEqual(Set(Herdentrieb.fragen.map { $0.text }).count, Herdentrieb.fragen.count, "no duplicate prompts")
+    }
+
+    func testKokosKopfPartialAndFastestPerfect() {
+        let w = 250
+        let seq = [3, 1, 4, 0]
+        let r = KokosKopf.bewerte([("a", [3, 1, 4, 0], 5000), ("b", [3, 1, 4, 0], 4000), ("c", [3, 4, 1, 0], 3000), ("d", nil, nil)], sequenz: seq, wert: w)
+        XCTAssertEqual(Set(r.perfekt), ["a", "b"])
+        XCTAssertEqual(r.schnellster, ["b"], "fastest PERFECT, not fastest overall")
+        XCTAssertEqual(r.punkte["b"], NeueFormate.betrag(w, NeueFormate.Anteil.kokosPerfekt) + NeueFormate.betrag(w, NeueFormate.Anteil.kokosSchnellster))
+        XCTAssertEqual(r.punkte["a"], NeueFormate.betrag(w, NeueFormate.Anteil.kokosPerfekt))
+        XCTAssertEqual(r.richtige["c"], 2)
+        XCTAssertEqual(r.punkte["c"], NeueFormate.betrag(w, NeueFormate.Anteil.kokosPosition * 2))
+        XCTAssertNil(r.punkte["d"])
+        XCTAssertEqual(KokosKopf.laenge(schritt: 0), 4)
+        XCTAssertEqual(KokosKopf.laenge(schritt: 3), 7)
+    }
+
+    /// Explain cards quote the real payout constants (texts are generated from them).
+    func testRulesTextsMatchThePayouts() {
+        let texts = alle.compactMap { MinigameRegistry.plugin($0)?.meta }.map { ($0.id, ($0.regeln + [$0.gewinn, $0.erklaerung]).joined(separator: " ")) }
+        XCTAssertEqual(texts.count, 5)
+        let f = NeueFormate.faktor
+        let expect: [String: [String]] = [
+            "affenzahn": NeueFormate.Anteil.affenzahn.map(f) + [f(NeueFormate.Anteil.affenzahnRest)],
+            "letzter-affe": [f(NeueFormate.Anteil.ueberlebt), f(NeueFormate.Anteil.letzterBonus), f(NeueFormate.Anteil.tippRichtig)],
+            "affenschaukel": [f(NeueFormate.Anteil.schaukel)],
+            "herdentrieb": [f(NeueFormate.Anteil.herde), f(NeueFormate.Anteil.herdeGleichstand)],
+            "kokos-kopf": [f(NeueFormate.Anteil.kokosPerfekt), f(NeueFormate.Anteil.kokosPosition), f(NeueFormate.Anteil.kokosSchnellster)],
+        ]
+        for (id, text) in texts { for e in expect[id] ?? [] { XCTAssertTrue(text.contains(e), "\(id): rules text lacks \(e)") } }
     }
 }

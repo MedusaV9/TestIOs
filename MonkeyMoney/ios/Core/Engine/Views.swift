@@ -370,10 +370,10 @@ public indirect enum StageExtra: Codable, Equatable, Sendable {
     /// phase: "frage" | "mini" | "fertig".
     case speed(nummer: Int, gesamt: Int, phase: String, answered: Int, wert: Int, frage: String?, richtig: String?,
                ranking: [SpeedEntry], totals: [PlayerId: Int], siege: [PlayerId: Int], bestMs: [PlayerId: Int])
-    /// 🪂 Der letzte Affe: who is still alive, who fell at which question, banked money,
+    /// 🪂 Der letzte Affe: who is still alive (and their lives), who lost a life / fell at which question, banked money,
     /// the players eliminated by the last question, mercy rule, winners and tips (at the end).
     case survival(nummer: Int, gesamt: Int, phase: String, alive: [PlayerId], out: [SurvivalOut], banked: [PlayerId: Int],
-                  lastOut: [PlayerId], gnade: Bool, answered: Int, frage: String?, richtig: String?, sieger: [PlayerId],
+                  leben: [PlayerId: Int], getroffen: [PlayerId], lastOut: [PlayerId], gnade: Bool, answered: Int, frage: String?, richtig: String?, sieger: [PlayerId],
                   bonus: Int, tippAnzahl: Int, tipps: [PlayerId: PlayerId], cheers: Int)
     /// ↕️ Affenschaukel: anchor vs. truth. `votes` and `truth` stay nil until the mini-reveal;
     /// `lo`/`hi` span the display scale (log scale when `log`).

@@ -1,10 +1,11 @@
 import Foundation
 
-/// Der letzte Affe — survival. Everyone starts alive; a wrong or missing
-/// answer knocks you out (mercy: if every survivor is wrong, nobody falls).
-/// Each survived question banks 0.2 F, the last one standing gets 1 F (several
-/// survivors of the final question split it). Knocked-out monkeys tip the
-/// winner once (right tip +0.3 F) and cheer. Ends early at ≤ 1 survivor.
+/// Der letzte Affe — survival. Everyone starts with two lives (🍌🍌); a wrong or
+/// missing answer costs one, the last one knocks you out (mercy: if every survivor
+/// is wrong, nobody loses a life). Each right answer banks `Anteil.ueberlebt` F, the
+/// last one standing gets `Anteil.letzterBonus` F (several survivors of the final
+/// question split it). Knocked-out monkeys tip the winner once and cheer.
+/// Ends early at ≤ 1 survivor.
 public enum LetzterAffe: MinigamePlugin {
     public struct State: Codable, Equatable, Sendable {
         public var questions: [Question]
@@ -21,6 +22,10 @@ public enum LetzterAffe: MinigamePlugin {
         /// Roster at the start of the round (late joiners watch).
         public var teilnehmer: [PlayerId]
         public var alive: [PlayerId]
+        /// Lives left per player (0 = out).
+        public var leben: [PlayerId: Int]
+        /// Lost a life on the last resolved question but are still in.
+        public var getroffen: [PlayerId]
         public var out: [SurvivalOut]
         public var banked: [PlayerId: Int]
         /// Knocked out / survived by the last resolved question.
@@ -38,16 +43,20 @@ public enum LetzterAffe: MinigamePlugin {
         public var letzteRichtig: String?
     }
 
+    private static let u = NeueFormate.faktor(NeueFormate.Anteil.ueberlebt)
+    private static let b = NeueFormate.faktor(NeueFormate.Anteil.letzterBonus)
+    private static let t = NeueFormate.faktor(NeueFormate.Anteil.tippRichtig)
+
     public static let meta = MinigameMeta(
         id: "letzter-affe", name: "Der letzte Affe", emoji: "🪂",
-        kurz: "Survival: Falsch oder zu langsam heißt raus — wer als Letzter steht, kassiert den Bonus.",
-        erklaerung: "Alle Affen starten im Spiel. Die Fragen kommen Schlag auf Schlag — wer falsch oder gar nicht antwortet, fliegt raus. Gnade: Liegen ALLE Übrigen falsch, fliegt keiner. Jede überlebte Frage bringt 0,2× Fragenwert aufs Konto. Wer als Letzter übrig bleibt, bekommt 1× Fragenwert Bonus — überleben mehrere die letzte Frage, teilen sie ihn. Wer raus ist, tippt einmal auf den Sieger (richtig: +0,3×) und feuert an.",
-        regeln: ["Falsch oder keine Antwort: raus!",
-                 "Gnade: liegen alle Übrigen falsch, fliegt keiner",
-                 "Jede überlebte Frage: +0,2× Fragenwert",
-                 "Der letzte Affe bekommt 1× Fragenwert Bonus (mehrere teilen)",
-                 "Raus? Tippe einmal auf den Sieger (+0,3×) und feuere an"],
-        gewinn: "Pro überlebter Frage 0,2× Fragenwert · Letzter Affe +1× (geteilt) · richtiger Tipp +0,3×",
+        kurz: "Survival mit zwei Leben: Falsch oder zu langsam kostet eine Banane — wer als Letzter steht, kassiert den Bonus.",
+        erklaerung: "Alle Affen starten mit zwei Leben 🍌🍌. Die Fragen kommen Schlag auf Schlag — wer falsch oder gar nicht antwortet, verliert ein Leben, ohne Leben fliegt er raus. Gnade: Liegen ALLE Übrigen falsch, verliert keiner. Jede richtige Antwort bringt \(u) Fragenwert aufs Konto. Wer als Letzter übrig bleibt, bekommt \(b) Fragenwert Bonus — überleben mehrere die letzte Frage, teilen sie ihn. Wer raus ist, tippt einmal auf den Sieger (richtig: +\(t)) und feuert an.",
+        regeln: ["Jeder startet mit 2 Leben 🍌🍌 — falsch oder keine Antwort kostet eins",
+                 "Gnade: liegen alle Übrigen falsch, verliert keiner ein Leben",
+                 "Jede richtige Antwort: +\(u) Fragenwert",
+                 "Der letzte Affe bekommt \(b) Fragenwert Bonus (mehrere teilen)",
+                 "Raus? Tippe einmal auf den Sieger (+\(t)) und feuere an"],
+        gewinn: "Pro richtiger Antwort \(u) Fragenwert · Letzter Affe +\(b) (geteilt) · richtiger Tipp +\(t)",
         contentKind: .choiceLike, roundBased: true, streak: false, jokerAktionen: [], isMc: true, musik: "duel_showdown", v2: true
     )
 
@@ -56,11 +65,15 @@ public enum LetzterAffe: MinigamePlugin {
         if qs.isEmpty { qs = [Question.fallback(0)] }
         var s = State(questions: qs, gesamt: NeueFormate.schritte(ctx, verfuegbar: qs.count), index: 0, core: nil, wert: 0,
                       bonusWert: NeueFormate.sectionWert(ctx: ctx), phase: "frage", revealUntil: nil, teilnehmer: ctx.players, alive: ctx.players,
+                      leben: Dictionary(uniqueKeysWithValues: ctx.players.map { ($0, startLeben) }), getroffen: [],
                       out: [], banked: [:], lastOut: [], lastSurvivors: [], gnade: false, tipps: [:], cheers: [:], sieger: [], bonus: [:],
                       tippGewinn: [:], gespielt: 0, verbraucht: 0, letzteFrage: nil, letzteRichtig: nil)
         start(&s, index: 0, ctx: ctx)
         return s
     }
+
+    /// Lives everyone starts with.
+    public static let startLeben = 2
 
     static func start(_ s: inout State, index: Int, ctx: MinigameContext) {
         let q = s.questions[index % s.questions.count]
@@ -90,11 +103,18 @@ public enum LetzterAffe: MinigamePlugin {
         guard let core = s.core else { return }
         let before = lebend(s, ctx: ctx)
         let u = urteil(alive: before) { core.isCorrect($0) }
-        for p in u.survivors { s.banked[p, default: 0] += NeueFormate.betrag(s.wert, NeueFormate.Anteil.ueberlebt) }
-        for p in u.out { s.out.append(SurvivalOut(player: p, atQuestion: s.index + 1)) }
-        s.alive = u.survivors
-        s.lastOut = u.out
-        s.lastSurvivors = u.survivors
+        // Only right answers bank (in the mercy case nobody was right: nobody banks, nobody loses a life).
+        for p in before where core.isCorrect(p) == true { s.banked[p, default: 0] += NeueFormate.betrag(s.wert, NeueFormate.Anteil.ueberlebt) }
+        var knocked: [PlayerId] = [], hit: [PlayerId] = []
+        for p in u.out {
+            let left = max(0, (s.leben[p] ?? 1) - 1)
+            s.leben[p] = left
+            if left == 0 { knocked.append(p); s.out.append(SurvivalOut(player: p, atQuestion: s.index + 1)) } else { hit.append(p) }
+        }
+        s.alive = before.filter { (s.leben[$0] ?? 0) > 0 }
+        s.lastOut = knocked
+        s.getroffen = hit
+        s.lastSurvivors = s.alive
         s.gnade = u.gnade
         s.gespielt += 1
         s.letzteFrage = core.question.displayText
@@ -228,7 +248,7 @@ public enum LetzterAffe: MinigamePlugin {
         let answered = s.core.map { c in alive.filter { c.hasAnswered($0) }.count } ?? 0
         let reveal = phase != "frage"
         return .survival(nummer: s.index + 1, gesamt: s.gesamt, phase: phase, alive: alive, out: s.out, banked: s.banked,
-                         lastOut: reveal ? s.lastOut : [], gnade: reveal && s.gnade, answered: phase == "frage" ? answered : 0,
+                         leben: s.leben, getroffen: reveal ? s.getroffen : [], lastOut: reveal ? s.lastOut : [], gnade: reveal && s.gnade, answered: phase == "frage" ? answered : 0,
                          frage: reveal ? s.letzteFrage : nil, richtig: reveal ? s.letzteRichtig : nil, sieger: phase == "fertig" ? s.sieger : [],
                          bonus: NeueFormate.betrag(s.bonusWert, NeueFormate.Anteil.letzterBonus), tippAnzahl: s.tipps.count,
                          tipps: phase == "fertig" ? s.tipps : [:], cheers: s.cheers.values.reduce(0, +))
@@ -276,10 +296,16 @@ public enum LetzterAffe: MinigamePlugin {
         case "frage":
             guard state.alive.contains(player), let core = state.core else { return zuschauerPrompt(state, player, ctx: ctx) }
             let n = lebend(state, ctx: ctx).count
+            let lives = state.leben[player] ?? 1
+            let warn = lives <= 1 ? "letztes Leben — falsch = raus!" : "\(String(repeating: "🍌", count: lives)) falsch kostet ein Leben"
             return core.prompt(for: player, ctx: NeueFormate.frageKontext(ctx, nummer: state.index + 1, gesamt: state.gesamt), revealed: false,
-                               hint: "🪂 Frage \(state.index + 1)/\(state.gesamt) · noch \(n) im Spiel — falsch = raus!")
+                               hint: "🪂 Frage \(state.index + 1)/\(state.gesamt) · noch \(n) im Spiel · \(warn)")
         case "mini":
             let bank = Money.format(state.banked[player] ?? 0)
+            if state.getroffen.contains(player) {
+                let loesung = state.letzteRichtig.map { "Richtig war: \($0) · " } ?? ""
+                return .reveal(title: "💔 Ein Leben weg — noch 🍌", correct: false, delta: 0, detail: "\(loesung)letztes Leben! · gesichert: \(bank)", streak: 0, speedBonus: nil)
+            }
             if state.lastSurvivors.contains(player) {
                 let left = state.alive.count
                 let rest = left == 1 && state.teilnehmer.count >= 2 ? "Du bist der letzte Affe!" : "Noch \(left) im Spiel"

@@ -159,15 +159,18 @@ public enum Affenzahn: MinigamePlugin {
         public var letzteRichtig: String?
     }
 
+    private static let z = NeueFormate.Anteil.affenzahn.map(NeueFormate.faktor)
+    private static let zr = NeueFormate.faktor(NeueFormate.Anteil.affenzahnRest)
+
     public static let meta = MinigameMeta(
         id: "affenzahn", name: "Affenzahn", emoji: "⚡",
         kurz: "Blitzrunde mit Mini-Timer: nur Tempo zählt — wer am schnellsten richtig liegt, kassiert am meisten.",
-        erklaerung: "Mit einem Affenzahn durch die Fragen! Blitzfragen mit ganz kurzem Timer, alle antworten gleichzeitig. Pro Frage zählt nur die Geschwindigkeit: der schnellste Richtige bekommt 0,8× Fragenwert, der zweite 0,5×, der dritte 0,3×, alle weiteren Richtigen 0,1×. Falsch oder zu langsam bringt nichts, kostet aber auch nichts. Nach jeder Frage zeigt das Speed-Podium für einen Wimpernschlag die Top 3.",
+        erklaerung: "Mit einem Affenzahn durch die Fragen! Blitzfragen mit ganz kurzem Timer, alle antworten gleichzeitig. Pro Frage zählt nur die Geschwindigkeit: der schnellste Richtige bekommt \(z[0]) Fragenwert, der zweite \(z[1]), der dritte \(z[2]), alle weiteren Richtigen \(zr). Falsch oder zu langsam bringt nichts, kostet aber auch nichts. Nach jeder Frage zeigt das Speed-Podium für einen Wimpernschlag die Top 3.",
         regeln: ["Blitzfragen mit Mini-Timer — alle antworten gleichzeitig",
                  "Nur Tempo zählt: der schnellste Richtige gewinnt am meisten",
                  "Nach jeder Frage: kurz das Speed-Podium mit den Top 3",
                  "Falsch oder zu langsam: 0 — aber kein Abzug"],
-        gewinn: "Pro Frage: schnellster Richtiger 0,8× · 2. 0,5× · 3. 0,3× Fragenwert · jeder weitere Richtige 0,1×",
+        gewinn: "Pro Frage: schnellster Richtiger \(z[0]) · 2. \(z[1]) · 3. \(z[2]) Fragenwert · jeder weitere Richtige \(zr)",
         contentKind: .choiceLike, roundBased: true, streak: false, jokerAktionen: [], isMc: true, musik: "bomb_pass", v2: true
     )
 
