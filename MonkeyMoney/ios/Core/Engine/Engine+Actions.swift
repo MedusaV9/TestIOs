@@ -3,6 +3,17 @@ import Foundation
 extension Engine {
     // MARK: Player actions
 
+    /// Who decides the "👍 Weiter" skip: connected human players (bots never hold the show up).
+    static func weiterWaehler(_ s: EngineState) -> [PlayerId] { s.connectedPlayers.filter { !$0.isBot }.map { $0.id } }
+
+    /// Skip-vote state in a waiting phase (nil elsewhere).
+    static func weiterInfo(_ s: EngineState, player: PlayerId? = nil) -> WeiterInfo? {
+        guard !s.paused, [.zwischenstand, .halbzeit, .highlights].contains(s.phase), let end = s.phaseEndsAt, end > 0 else { return nil }
+        let humans = weiterWaehler(s)
+        guard !humans.isEmpty else { return nil }
+        return WeiterInfo(done: player.map { s.bereit.contains($0) } ?? false, anzahl: humans.filter { s.bereit.contains($0) }.count, noetig: humans.count, spieler: s.bereit)
+    }
+
     func playerAction(_ s: inout EngineState, _ id: PlayerId, _ action: PlayerAction, now: Millis) {
         guard let pi = s.index(of: id) else { return }
         if s.paused { return }
@@ -53,6 +64,16 @@ extension Engine {
                     if !s.bereit.contains(id) { s.bereit.append(id) }
                     let active = s.connectedPlayers.map { $0.id }
                     if active.allSatisfy({ s.bereit.contains($0) }) { s.phaseEndsAt = min(s.phaseEndsAt ?? now, now + 1200) }
+                }
+            }
+        case .zwischenstand, .halbzeit, .highlights:
+            // "👍 Weiter": when every connected human wants to move on, the wait shrinks to 1.5 s.
+            if case .ready(let what) = action, what == "weiter" {
+                if s.bereit.contains(id) { s.bereit.removeAll { $0 == id } } else { s.bereit.append(id) }
+                let humans = Engine.weiterWaehler(s)
+                if !humans.isEmpty, humans.allSatisfy({ s.bereit.contains($0) }), let end = s.phaseEndsAt, end > now + 1500 {
+                    s.phaseEndsAt = now + 1500
+                    s.addMoment("weiter", "👍 Alle wollen weiter!", at: now)
                 }
             }
         case .frage:

@@ -200,16 +200,18 @@ final class NeueFormateTests: XCTestCase {
     func testAllNewFormatsFinishAndPayLikeAStandardRound() {
         var ratios: [String: [Double]] = [:]
         var lines: [String] = []
-        for (players, seeds) in [(2, [UInt32(1)]), (4, [1, 2]), (8, [1])] {
+        for (players, seeds) in [(2, [UInt32(1), 2]), (4, [1, 2]), (8, [1])] {
             for seed in seeds {
                 let plan = ["bananen-basics"] + alle
                 var sizes = groesse
                 sizes["bananen-basics"] = 4
                 let r = NFSim.run(formats: plan, players: players, seed: seed, fragen: sizes, keepTail: false)
                 XCTAssertEqual(r.state.phase, .ende, "\(players)p seed \(seed) stuck in \(r.state.phase)")
-                XCTAssertTrue(Set(alle).isSubset(of: r.minigames), "\(players)p: not all formats ran: \(r.minigames.sorted())")
+                // Herdentrieb needs a herd: from 3 players (2 players get the fallback format).
+                let expected = players >= 3 ? alle : alle.filter { $0 != "herdentrieb" }
+                XCTAssertTrue(Set(expected).isSubset(of: r.minigames), "\(players)p: not all formats ran: \(r.minigames.sorted())")
                 let base = Double(max(1, r.paid[0] ?? 0))
-                for (i, id) in alle.enumerated() {
+                for (i, id) in alle.enumerated() where expected.contains(id) {
                     let ratio = Double(r.paid[i + 1] ?? 0) / base
                     ratios["\(id) \(players)p", default: []].append(ratio)
                     lines.append(String(format: "%@ %dp seed %d: paid %d vs standard round %.0f → %.2f (played %d)", id, players, seed, r.paid[i + 1] ?? 0, base, ratio, r.played[i + 1] ?? 0))

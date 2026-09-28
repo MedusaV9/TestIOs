@@ -74,7 +74,7 @@ public struct Engine: Sendable {
     public static let graceMs = 180_000
 
     /// Settings that shape the plan — changeable in the lobby (and after the show) only.
-    public static let lobbyOnlySettings: [String] = ["modus", "teams", "specialRules", "rundenOverride", "v2Formate", "allInErlaubt", "finaleFaktor", "spielModus", "tutorialVideos", "alltimeItems"]
+    public static let lobbyOnlySettings: [String] = ["modus", "teams", "specialRules", "rundenOverride", "v2Formate", "allInErlaubt", "finaleFaktor", "spielModus", "tutorialVideos", "alltimeItems", "eigenePlaylist", "eigenerJackpot"]
 
     // MARK: Phase durations (base ms, scaled by tempo)
 
@@ -303,7 +303,7 @@ public struct Engine: Sendable {
             return
         }
         // Halbzeit (marathon): after the configured round, once.
-        if let hz = Blueprints.blueprint(for: s.settings.modus).halbzeitNach, section.typ == .runde, section.rundenNummer == hz + 1, !s.halbzeitGemacht {
+        if let hz = Blueprints.blueprint(for: s.settings).halbzeitNach, section.typ == .runde, section.rundenNummer == hz + 1, !s.halbzeitGemacht {
             s.halbzeitGemacht = true
             s.sectionIndex -= 1
             enter(&s, .halbzeit, duration: Dur.halbzeit, now: now)
@@ -459,7 +459,7 @@ public struct Engine: Sendable {
             if picked.count > before { s.addMoment("regie", "⚠️ Filter zu streng — nehme Ersatzfragen", at: s.phaseStartedAt) }
         }
         // ULTRAHARD cap per match (§1.2): replace surplus with the nearest enabled lower tier.
-        let cap = Blueprints.blueprint(for: s.settings.modus).ultrahardMax
+        let cap = Blueprints.blueprint(for: s.settings).ultrahardMax
         let lower = [Difficulty.hard, .medium, .easy].filter { !filter.schwierigkeiten.contains($0) }
         for i in picked.indices where picked[i].schw == .ultrahard && section.typ == .runde {
             if s.ultrahardCount >= cap {

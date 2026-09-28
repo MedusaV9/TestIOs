@@ -1,13 +1,17 @@
 import Foundation
 
 public enum Modus: String, Codable, CaseIterable, Sendable {
-    case quick, klassik, marathon
+    case quick, klassik, marathon, blitz, party, profi, eigen
 
     public var title: String {
         switch self {
         case .quick: return "Quick Cash"
         case .klassik: return "Klassik-Show"
         case .marathon: return "Marathon"
+        case .blitz: return "Blitz-Show"
+        case .party: return "Party-Chaos"
+        case .profi: return "Quiz-Profi"
+        case .eigen: return "Eigene Show"
         }
     }
 
@@ -16,7 +20,34 @@ public enum Modus: String, Codable, CaseIterable, Sendable {
         case .quick: return "4 Runden · ~15–20 min · Ein-Tap-Start"
         case .klassik: return "6 Runden + Jackpot + Finale · ~40 min"
         case .marathon: return "9+ Runden · Halbzeit · alle Formate · ~70 min"
+        case .blitz: return "3 Blitzrunden + Mini-Finale · ~10 min"
+        case .party: return "6 Party-Runden · wenig Wissen, viel Chaos · ~30 min"
+        case .profi: return "6 Wissensrunden + Jackpot · knifflig, ohne Glücksrad · ~40 min"
+        case .eigen: return "Du baust die Playlist: Formate, Reihenfolge, Fragenzahl"
         }
+    }
+
+    public var emoji: String {
+        switch self {
+        case .quick: return "⚡"
+        case .klassik: return "🎩"
+        case .marathon: return "🏃"
+        case .blitz: return "🌩️"
+        case .party: return "🎉"
+        case .profi: return "🎓"
+        case .eigen: return "🛠️"
+        }
+    }
+}
+
+/// One round of a hand-built show ("Eigene Show").
+public struct PlaylistItem: Codable, Equatable, Sendable {
+    public var id: String
+    public var fragen: Int
+
+    public init(id: String, fragen: Int) {
+        self.id = id
+        self.fragen = fragen
     }
 }
 
@@ -118,6 +149,9 @@ public struct MatchSettings: Codable, Equatable, Sendable {
     public var schwierigkeitenAus: [Difficulty]
     public var typenAus: [QuestionType]
     public var fragenAus: [String]
+    /// "Eigene Show": the hand-built playlist (empty = the Klassik playlist) and the jackpot beat.
+    public var eigenePlaylist: [PlaylistItem]
+    public var eigenerJackpot: Bool
 
     public init(modus: Modus = .klassik) {
         self.modus = modus
@@ -152,6 +186,27 @@ public struct MatchSettings: Codable, Equatable, Sendable {
         schwierigkeitenAus = []
         typenAus = []
         fragenAus = []
+        eigenePlaylist = []
+        eigenerJackpot = true
+        switch modus {
+        case .blitz:
+            tempo = .zackig
+            kurzeShow = true
+            jokerAn = false
+            radAn = false
+            kategorienWahl = "aus"
+        case .party:
+            tempo = .normal
+        case .profi:
+            tempo = .normal
+            fragenMix = .knifflig
+            radAn = false
+            autoTipp = false
+        case .eigen:
+            tempo = .normal
+        default:
+            break
+        }
     }
 
     /// Apply a question-set preset: pool + kid-safe flag follow the set.
@@ -188,6 +243,8 @@ public struct MatchSettings: Codable, Equatable, Sendable {
             fresh.schwierigkeitenAus = schwierigkeitenAus
             fresh.typenAus = typenAus
             fresh.fragenAus = fragenAus
+            fresh.eigenePlaylist = eigenePlaylist
+            fresh.eigenerJackpot = eigenerJackpot
             self = fresh
         }
         if let s = patch["tempo"]?.stringValue, let v = Tempo(rawValue: s) { tempo = v }
@@ -226,6 +283,15 @@ public struct MatchSettings: Codable, Equatable, Sendable {
         if let n = patch["fragenZeit"]?.intValue { fragenZeit = n <= 0 ? nil : min(300, max(5, n)) }
         if patch["fragenZeit"] == .null { fragenZeit = nil }
         applyFilter(patch: patch)
+        if let arr = patch["eigenePlaylist"]?.arrayValue {
+            eigenePlaylist = Array(arr.compactMap { v -> PlaylistItem? in
+                let id: String?, n: Int?
+                if case .object(let o) = v { id = o["id"]?.stringValue; n = o["fragen"]?.intValue } else { id = v.stringValue; n = nil }
+                guard let id, Blueprints.eigenWaehlbar(id) else { return nil }
+                return PlaylistItem(id: id, fragen: min(12, max(1, n ?? Blueprints.empfohleneFragen(id))))
+            }.prefix(Blueprints.eigenMaxRunden))
+        }
+        if let b = patch["eigenerJackpot"]?.boolValue { eigenerJackpot = b }
         if gmLos { autoGm = true }
         if familienModus { alkoholEdition = false }
     }
@@ -302,6 +368,8 @@ extension MatchSettings {
         schwierigkeitenAus = try take(.schwierigkeitenAus, schwierigkeitenAus)
         typenAus = try take(.typenAus, typenAus)
         fragenAus = try take(.fragenAus, fragenAus)
+        eigenePlaylist = try take(.eigenePlaylist, eigenePlaylist)
+        eigenerJackpot = try take(.eigenerJackpot, eigenerJackpot)
     }
 }
 
@@ -390,6 +458,41 @@ public enum Blueprints {
     static let risiko: [Difficulty] = [.hard, .ultrahard]
     static let leiter: [Difficulty] = [.easy, .medium, .hard, .ultrahard]
 
+    /// The blueprint a match actually plays: the mode matrix, or the hand-built playlist.
+    public static func blueprint(for settings: MatchSettings) -> ModeBlueprint {
+        guard settings.modus == .eigen else { return blueprint(for: settings.modus) }
+        let list = settings.eigenePlaylist.filter { eigenWaehlbar($0.id) }
+        guard !list.isEmpty else {
+            var bp = blueprint(for: .klassik)
+            bp.jackpotFrage = settings.eigenerJackpot
+            return bp
+        }
+        let n = list.count
+        let runden = list.enumerated().map { i, item -> RoundBlueprint in
+            // Dramaturgy by position: warm up, build up, the last round is the risk round.
+            let slot: SlotTag = i == 0 ? .opener : (i == n - 1 && n >= 3 ? .risiko : (i % 3 == 2 ? .konflikt : .aufbau))
+            let tiers: [Difficulty] = i == 0 ? opener : (slot == .risiko ? risiko : (slot == .konflikt ? konflikt : aufbau))
+            return RoundBlueprint(slot, item.id, item.fragen, item.id == "risiko-leiter" ? leiter : tiers, i == 0 ? .keine : .voting, i % 2 == 1 && i < n - 1)
+        }
+        return ModeBlueprint(runden: runden, jackpotFrage: settings.eigenerJackpot && n >= 3, finaleFragen: n >= 5 ? 5 : 3,
+                             ultrahardMax: 2, halbzeitNach: n >= 9 ? n / 2 : nil)
+    }
+
+    /// Formats a hand-built show may use (the finale and the tiebreak are fixed beats).
+    public static func eigenWaehlbar(_ id: String) -> Bool {
+        id != "lianen-finale" && id != "kokosnuss-shake" && MinigameRegistry.plugin(id) != nil
+    }
+
+    public static let eigenMaxRunden = 12
+
+    /// Suggested question count of a format (its playlist size elsewhere, else 4).
+    public static func empfohleneFragen(_ id: String) -> Int {
+        let neu = ["affenzahn": 6, "letzter-affe": 10, "affenschaukel": 5, "herdentrieb": 5, "kokos-kopf": 4]
+        if let n = neu[id] { return n }
+        for m in [Modus.marathon, .klassik, .quick] { if let r = blueprint(for: m).runden.first(where: { $0.minigameId == id }) { return r.fragen } }
+        return 4
+    }
+
     /// Mode matrix (GAME-DESIGN §1.3): playlists + Q + wheel beats.
     public static func blueprint(for modus: Modus) -> ModeBlueprint {
         switch modus {
@@ -437,12 +540,44 @@ public enum Blueprints {
                 RoundBlueprint(.risiko, "alles-oder-banane", 4, risiko, .voting, false),
                 RoundBlueprint(.konflikt, "goldener-affe", 4, risiko, .keine, false, v2: true),
             ], jackpotFrage: true, finaleFragen: 7, ultrahardMax: 2, halbzeitNach: 5)
+        case .blitz:
+            // ~10 minutes: three rapid formats, no wheel, no jackpot, a short finale.
+            return ModeBlueprint(runden: [
+                RoundBlueprint(.opener, "affenzahn", 6, opener, .keine, false),
+                RoundBlueprint(.aufbau, "affenschaukel", 5, aufbau, .keine, false),
+                RoundBlueprint(.risiko, "letzter-affe", 8, aufbau, .keine, false),
+            ], jackpotFrage: false, finaleFragen: 3, ultrahardMax: 1, halbzeitNach: nil)
+        case .party:
+            // Opinions, memory, bluffing and chaos — knowledge is a side dish.
+            return ModeBlueprint(runden: [
+                RoundBlueprint(.opener, "herdentrieb", 5, geld, .keine, false),
+                RoundBlueprint(.aufbau, "kokos-kopf", 4, geld, .keine, true),
+                RoundBlueprint(.konflikt, "bananen-bluff", 4, konflikt, .voting, false, v2: true),
+                RoundBlueprint(.konflikt, "stinkbanane", 4, opener, .letzter, true),
+                RoundBlueprint(.geld, "affenschaukel", 5, geld, .voting, false),
+                RoundBlueprint(.risiko, "bananen-tortenschlacht", 8, aufbau, .voting, false, v2: true),
+            ], jackpotFrage: false, finaleFragen: 3, ultrahardMax: 1, halbzeitNach: nil)
+        case .profi:
+            // Knowledge first: harder tiers, the survival round, speed, estimates, the ladder.
+            return ModeBlueprint(runden: [
+                RoundBlueprint(.opener, "bananen-basics", 5, aufbau, .keine, false),
+                RoundBlueprint(.aufbau, "letzter-affe", 10, aufbau, .voting, false),
+                RoundBlueprint(.aufbau, "bananen-tresor", 4, konflikt, .voting, false),
+                RoundBlueprint(.konflikt, "affenzahn", 6, konflikt, .voting, false),
+                RoundBlueprint(.konflikt, "affenleiter", 4, konflikt, .voting, false),
+                RoundBlueprint(.risiko, "risiko-leiter", 8, leiter, .voting, false, v2: true),
+            ], jackpotFrage: true, finaleFragen: 5, ultrahardMax: 3, halbzeitNach: nil)
+        case .eigen:
+            // Resolved from the settings (see `blueprint(for settings:)`); Klassik as the default.
+            return blueprint(for: .klassik)
         }
     }
 
     /// Playlist under the settings: v2 rounds only with the flag, optional round cap.
     public static func rounds(for settings: MatchSettings) -> [RoundBlueprint] {
-        var list = blueprint(for: settings.modus).runden.filter { !$0.v2 || settings.v2Formate }
+        // A hand-built playlist is played as built (the v2 switch only thins the preset playlists).
+        let bp = blueprint(for: settings)
+        var list = settings.modus == .eigen ? bp.runden : bp.runden.filter { !$0.v2 || settings.v2Formate }
         if let cap = settings.rundenOverride, cap >= 2, cap < list.count {
             list = Array(list.prefix(cap))
         }

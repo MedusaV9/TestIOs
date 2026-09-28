@@ -359,6 +359,8 @@ public enum FormatHelpers {
         case "bananen-boxkampf", "konter-quiz", "bananen-tortenschlacht", "risiko-leiter": return max(sectionFragen, 8) + 3
         case "einer-gegen-alle": return max(sectionFragen, 6) + 3
         case "goldener-affe": return max(sectionFragen, 4) + 3
+        case "letzter-affe": return sectionFragen + 4
+        case "affenzahn", "affenschaukel": return sectionFragen + 2
         default: return sectionFragen
         }
     }

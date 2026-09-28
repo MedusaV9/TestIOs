@@ -18,7 +18,7 @@ public enum NeueFormate {
         public static let affenzahn: [Double] = [2.0, 1.25, 0.75]
         public static let affenzahnRest = 0.5
         // 🪂 Der letzte Affe.
-        public static let ueberlebt = 1.5
+        public static let ueberlebt = 1.0
         public static let letzterBonus = 3.0
         public static let tippRichtig = 1.0
         // ↕️ Affenschaukel.

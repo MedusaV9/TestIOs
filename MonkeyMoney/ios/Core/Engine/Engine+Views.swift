@@ -184,7 +184,7 @@ extension Engine {
                          moments: s.moments, serverTime: now, paused: s.paused, sectionLabel: sectionLabel(s), progress: progress(s), gmOnline: s.gmOnline,
                          gmLos: s.settings.gmLos, canAdvance: advance != nil, advanceLabel: advance, audio: audioCue(s, stage: stageOut), modus: s.settings.modus,
                          seq: s.seq, specialRules: s.settings.specialRules.map { $0.name }, affensteuerKiste: s.affensteuerKiste,
-                         timerAus: s.settings.timerAus, fragenZeit: s.settings.fragenZeit)
+                         timerAus: s.settings.timerAus, fragenZeit: s.settings.fragenZeit, weiter: Engine.weiterInfo(s))
     }
 
     /// Label of the stage "Weiter" button (nil = nothing to advance right now).
@@ -302,7 +302,8 @@ extension Engine {
                           ranking: refs(s).sorted { $0.platz < $1.platz }, teamTopf: p.teamId.flatMap { t in s.teams.first { $0.id == t }?.topf },
                           sectionLabel: sectionLabel(s), ohneScreen: !s.screenOnline, haptic: haptic, flash: flash,
                           jackpotGlas: s.jackpotGlas, jackpotAktiv: jackpotAktiv, jackpotHinweis: jackpotHinweis, progress: progress(s),
-                          ergebnis: s.paused ? nil : ergebnis, stats: PlayerStatsView(richtig: p.stats.richtig, falsch: p.stats.falsch, laengsteSerie: p.stats.laengsteSerie))
+                          ergebnis: s.paused ? nil : ergebnis, weiter: Engine.weiterInfo(s, player: id),
+                          stats: PlayerStatsView(richtig: p.stats.richtig, falsch: p.stats.falsch, laengsteSerie: p.stats.laengsteSerie))
     }
 
     // MARK: GM

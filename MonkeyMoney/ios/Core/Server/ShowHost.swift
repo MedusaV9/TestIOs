@@ -199,7 +199,31 @@ public final class ShowHost: @unchecked Sendable {
         }
     }
 
-    struct ModeInfo: Codable { var id: String; var title: String; var subtitle: String }
+    struct ModeInfo: Codable {
+        var id: String
+        var title: String
+        var subtitle: String
+        var emoji: String
+        /// Rough duration with the mode's default settings.
+        var minuten: Int
+        var runden: Int
+        var jackpot: Bool
+        /// Format names of the playlist in order (the mode card's highlights).
+        var formate: [String]
+    }
+    /// A format for the "Eigene Show" playlist builder.
+    struct FormatInfo: Codable {
+        var id: String
+        var name: String
+        var emoji: String
+        var kurz: String
+        var fragen: Int
+        var minPlayers: Int
+        var maxPlayers: Int
+        /// "fragen" | "songs" | "party" — what the format feeds on.
+        var art: String
+        var roundBased: Bool
+    }
     struct RuleInfo: Codable { var id: String; var name: String; var emoji: String; var description: String }
     struct OptionInfo: Codable { var id: String; var label: String }
 
@@ -219,6 +243,7 @@ public final class ShowHost: @unchecked Sendable {
         var bots: Int
         var settings: MatchSettings?
         var modes: [ModeInfo]
+        var formate: [FormatInfo]
         var tempos: [OptionInfo]
         var mixes: [OptionInfo]
         var specialRules: [RuleInfo]
@@ -243,7 +268,19 @@ public final class ShowHost: @unchecked Sendable {
             profileCount: server.meta.profiles.count, autosave: auto.map(SlotSummary.init), slots: (1...3).map { readSlot($0).map(SlotSummary.init) },
             roomCode: showActive ? hub.state.roomCode : nil, joinURL: showActive ? hub.joinURL : nil, gmURL: showActive ? hub.gmURL : nil,
             gmPin: showActive ? hub.state.gmPin : nil, baseURL: baseURL, bots: hub.state.players.filter { $0.isBot }.count, settings: showActive ? hub.state.settings : nil,
-            modes: Modus.allCases.map { ModeInfo(id: $0.rawValue, title: $0.title, subtitle: $0.subtitle) },
+            modes: Modus.allCases.map { m in
+                let s = defaultSettings(m)
+                let rounds = Blueprints.rounds(for: s)
+                return ModeInfo(id: m.rawValue, title: m.title, subtitle: m.subtitle, emoji: m.emoji, minuten: Plan.estimateMinutes(settings: s),
+                                runden: rounds.count, jackpot: Blueprints.blueprint(for: s).jackpotFrage,
+                                formate: rounds.compactMap { MinigameRegistry.plugin($0.minigameId).map { "\($0.meta.emoji) \($0.meta.name)" } })
+            },
+            formate: MinigameRegistry.all.filter { Blueprints.eigenWaehlbar($0.meta.id) }.map { p in
+                let art: String
+                switch p.meta.contentKind { case .fragen: art = "fragen"; case .songs: art = "songs"; case .none: art = "party" }
+                return FormatInfo(id: p.meta.id, name: p.meta.name, emoji: p.meta.emoji, kurz: p.meta.kurz, fragen: Blueprints.empfohleneFragen(p.meta.id),
+                                  minPlayers: p.meta.minPlayers, maxPlayers: p.meta.maxPlayers, art: art, roundBased: p.meta.roundBased)
+            },
             tempos: Tempo.allCases.map { OptionInfo(id: $0.rawValue, label: $0.label) },
             mixes: FragenMix.allCases.map { OptionInfo(id: $0.rawValue, label: $0.label) },
             specialRules: SpecialRule.allCases.map { RuleInfo(id: $0.rawValue, name: $0.name, emoji: $0.emoji, description: $0.description) },

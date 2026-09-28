@@ -50,6 +50,7 @@ public enum Herdentrieb: MinigamePlugin {
                  "Gleichstand an der Spitze: alle Spitzen-Gruppen \(g)",
                  "Allein auf einer Antwort? Einzelgänger — 0"],
         gewinn: "Größte Gruppe \(h) Fragenwert · Gleichstand \(g) · Einzelgänger 0",
+        minPlayers: 3,
         contentKind: .none, roundBased: true, streak: false, jokerAktionen: [], isMc: true, musik: "market_trade", v2: true
     )
 

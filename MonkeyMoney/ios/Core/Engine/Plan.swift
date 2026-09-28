@@ -22,7 +22,7 @@ public enum Plan {
     }
 
     public static func build(settings: MatchSettings, playerCount: Int, availability: MinigameRegistry.Availability) -> [Section] {
-        let bp = Blueprints.blueprint(for: settings.modus)
+        let bp = Blueprints.blueprint(for: settings)
         let rounds = Blueprints.rounds(for: settings)
         var sections: [Section] = []
         for (i, r) in rounds.enumerated() {
@@ -51,10 +51,13 @@ public enum Plan {
     /// Rough duration estimate in minutes (for the mode picker).
     public static func estimateMinutes(settings: MatchSettings) -> Int {
         let rounds = Blueprints.rounds(for: settings)
-        let questions = rounds.reduce(0) { $0 + $1.fragen } + Blueprints.blueprint(for: settings.modus).finaleFragen
-        let perQuestion = 45.0 * settings.tempoFactor
-        let overhead = Double(rounds.count) * 40 * settings.tempoFactor + 120
-        return Int((Double(questions) * perQuestion + overhead) / 60)
+        // Seconds per question: ~45 s for a classic question with its reveal; the rapid
+        // round formats run their questions with short mini-reveals.
+        let perFormat: [String: Double] = ["affenzahn": 12, "affenschaukel": 20, "letzter-affe": 11, "herdentrieb": 18, "kokos-kopf": 30]
+        let seconds = rounds.reduce(0.0) { $0 + Double($1.fragen) * (perFormat[$1.minigameId] ?? 45) }
+            + Double(Blueprints.blueprint(for: settings).finaleFragen) * 45
+        let overhead = Double(rounds.count) * 40 + 120
+        return Int(((seconds + overhead) * settings.tempoFactor) / 60)
     }
 }
 

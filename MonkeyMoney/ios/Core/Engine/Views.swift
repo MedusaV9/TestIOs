@@ -197,6 +197,8 @@ public struct PlayerView: Codable, Equatable, Sendable {
     public var progress: Double
     /// My result of the question just revealed (only during `aufloesung`).
     public var ergebnis: PlayerErgebnis? = nil
+    /// "👍 Weiter" skip vote in waiting phases (standings, halftime, highlights).
+    public var weiter: WeiterInfo? = nil
     /// Match stats so far (right / wrong / longest streak).
     public var stats: PlayerStatsView = PlayerStatsView()
 }
@@ -585,6 +587,8 @@ public struct StageView: Codable, Equatable, Sendable {
     public var affensteuerKiste: Int
     public var timerAus: Bool
     public var fragenZeit: Int?
+    /// "👍 Weiter" skip vote of the phones in waiting phases.
+    public var weiter: WeiterInfo? = nil
 }
 
 /// Music/SFX hint for the stage (the stage decides what to actually play).
@@ -655,4 +659,19 @@ public struct GmView: Codable, Equatable, Sendable {
     public var katalog: KatalogInfo? = nil
     /// Id of the question on the wall (or about to be asked on the explain card).
     public var aktuelleFrageId: String? = nil
+}
+
+/// "👍 Weiter" skip vote: `anzahl` of `noetig` connected humans want to move on.
+public struct WeiterInfo: Codable, Equatable, Sendable {
+    public var done: Bool
+    public var anzahl: Int
+    public var noetig: Int
+    public var spieler: [PlayerId]
+
+    public init(done: Bool, anzahl: Int, noetig: Int, spieler: [PlayerId]) {
+        self.done = done
+        self.anzahl = anzahl
+        self.noetig = noetig
+        self.spieler = spieler
+    }
 }
