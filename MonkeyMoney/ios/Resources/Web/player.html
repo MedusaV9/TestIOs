@@ -2,17 +2,26 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="theme-color" content="#1a0d47" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Monkey Money" />
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+  <meta name="theme-color" content="#1d0f4a" />
+  <meta name="color-scheme" content="dark" />
   <title>Monkey Money — Mitspielen</title>
   <link rel="icon" href="/img/favicon.svg" />
+  <link rel="apple-touch-icon" href="/img/favicon.svg" />
+  <link rel="modulepreload" href="/vendor/preact-htm.js" />
+  <link rel="modulepreload" href="/lib/core.js" />
+  <link rel="modulepreload" href="/lib/prompts.js" />
   <link rel="stylesheet" href="/css/base.css" />
   <link rel="stylesheet" href="/css/prompts.css" />
   <link rel="stylesheet" href="/css/player.css" />
 </head>
 <body class="phone-body">
-  <div id="app"></div>
+  <div id="app"><div class="phone"><div class="p-wait"><div class="spin-banana">🍌</div><p>Monkey Money lädt …</p></div></div></div>
   <script type="module" src="/player/app.js"></script>
 </body>
 </html>

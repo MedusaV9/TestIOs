@@ -169,3 +169,39 @@ export const Wheel = {
     return Math.min(total, Math.floor(Wheel.progress(elapsed, duration) * total));
   },
 };
+
+
+// ---------- phone feedback bridge ----------
+// Prompts call `feel(kind)` (tap | lock | correct | wrong | heavy | error) and
+// `notify(text)`; the phone app plugs in sound, visual pulse and toasts via
+// `setFeedback`. Without a plugged-in handler (stage, cockpit) only `haptic` runs.
+const fxBridge = { feel: null, say: null };
+export function setFeedback(o) { Object.assign(fxBridge, o || {}); }
+export function feel(kind = "tap") {
+  if (kind !== "tick") haptic(kind === "lock" || kind === "correct" ? "success" : kind === "wrong" || kind === "error" ? "error" : kind === "heavy" ? "heavy" : undefined);
+  if (fxBridge.feel) { try { fxBridge.feel(kind); } catch (_) {} }
+}
+export function notify(text) { if (fxBridge.say) fxBridge.say(text); }
+
+/** Optimistic commit: `commit(action, value)` sends, shows a pending state
+ *  right away, resends while the server hasn't confirmed and rolls back after
+ *  `tries` attempts. `confirmed` = the server echo (truthy once accepted). */
+export function useCommit(send, confirmed, { every = 1800, tries = 3 } = {}) {
+  const [pend, setPend] = useState(null);
+  const seen = useRef(confirmed);
+  useEffect(() => {
+    const changed = seen.current !== confirmed;
+    seen.current = confirmed;
+    if (pend && changed && confirmed != null && confirmed !== false) setPend(null);
+  }, [confirmed]);
+  useEffect(() => {
+    if (!pend) return;
+    const t = setTimeout(() => {
+      if (pend.n < tries) { send(pend.action); setPend({ ...pend, n: pend.n + 1 }); }
+      else { setPend(null); feel("error"); notify("⚠️ Antwort nicht angekommen — bitte nochmal tippen"); }
+    }, every);
+    return () => clearTimeout(t);
+  }, [pend]);
+  const commit = (action, value = true) => { const ok = send(action); setPend({ action, value, n: 1, at: Date.now() }); feel("lock"); return ok; };
+  return [pend, commit, () => setPend(null)];
+}
