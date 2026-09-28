@@ -3,11 +3,21 @@ import { html } from "../vendor/preact-htm.js";
 import { cx, fmtMM, fmtNum, fmtDelta, serverNow, OPTION_STYLE } from "../lib/core.js";
 import { Monkey, Money, PixelImage } from "../lib/ui.js";
 import { Secs as Countdown, useSecondsLeft } from "./fx.js";
+import { NEU } from "./extras-neu.js";
+import { NEU2 } from "./extras-neu2.js";
+
+/**
+ * Widget plugins for newer formats: kind → { placement(extra, wall), tiles(extra, scene, view), Widget }.
+ * Each module owns its kinds (extras-neu.js: speed/survival/schaukel/herde/memory, extras-neu2.js: the next batch).
+ */
+const PLUG = { ...NEU, ...NEU2 };
 
 const pmap = view => Object.fromEntries(view.players.map(p => [p.id, p]));
 
 /** Where a widget lives: left of the question, below it, in the side column, or none. */
 export function extraPlacement(extra, wall) {
+  const plug = PLUG[extra.kind];
+  if (plug) return plug.placement ? plug.placement(extra, wall) : "below";
   switch (extra.kind) {
     case "none": return null;
     case "pixel": return extra.image ? "left" : null;
@@ -21,6 +31,8 @@ export function extraPlacement(extra, wall) {
 
 /** Per-player podium extras: who locked in, tags like 💣 or 🏦 +400. */
 export function extraTileInfo(extra, scene, view) {
+  const plug = PLUG[extra.kind];
+  if (plug && plug.tiles) return plug.tiles(extra, scene, view) || { tags: {}, locked: [] };
   const tags = {};
   let locked = [];
   switch (extra.kind) {
@@ -43,6 +55,8 @@ export function extraTileInfo(extra, scene, view) {
 
 export function Extra({ extra, scene, view, revealed, full }) {
   const pm = pmap(view);
+  const plug = PLUG[extra.kind];
+  if (plug && plug.Widget) return html`<${plug.Widget} x=${extra} pm=${pm} scene=${scene} view=${view} revealed=${revealed} full=${!!full} />`;
   switch (extra.kind) {
     case "none": return null;
     case "pixel": return html`<${PixelWidget} x=${extra} pm=${pm} scene=${scene} />`;
