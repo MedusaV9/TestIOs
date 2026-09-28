@@ -14,7 +14,10 @@ nur League-of-Legends-Fragen, eigene Bundle-ID — beide Apps passen nebeneinand
 
 | Bereich | Umfang |
 | --- | --- |
-| Fragen | 7.660 validierte Fragen, 14 Ober-/90 Unterkategorien, 7 Typen, 4 Schwierigkeiten (inkl. ULTRAHARD), 12 Pixel-Bilderrätsel |
+| Fragen | **11.834** validierte Fragen (davon 1.208 neue aus `tools/content/extra/`), 14 Ober-/99 Unterkategorien, 7 Typen, 4 Schwierigkeiten (inkl. ULTRAHARD), 12 Pixel-Bilderrätsel |
+| Fragen-Katalog | In Modus-Auswahl, Lobby-Einstellungen und im Show-Master-Cockpit: alle Fragen nach Kategorie/Unterkategorie, **einzelne Kategorien, Themen, Schwierigkeitsgrade und Fragetypen abschaltbar**, Fragen-Browser mit Suche und Bann einzelner Fragen — live, gilt sofort (anstehende Fragen werden getauscht) |
+| Show-Master live | Frage überspringen, tauschen (Zufall oder aus dem Katalog), bannen, Timer −10 … +30 s, Antworten mit Zeiten live, Auflösungs-Karte, „Als Nächstes"-Regal tauschen, Pause mit eigenem Text/Dauer, Bots dazu/weg |
+| Auflösung | Gestaffelte Choreografie (falsche Antworten dimmen → richtige knallt rein → Stimmbalken → Geld fliegt), Schnellster, Speed-Bonus, Serien-Aura ×1,5/×2, Rangwechsel-Animation, Szenenübergänge; Handy zeigt Ergebniskarte mit Lösung, Platz vorher/nachher und Kontostand |
 | Show | Lobby → Opening → Runden (Kategorien-Voting, Erklärkarte, Fragen, Zwischenstand, Glücksrad) → Jackpot-Frage → Lianen-Finale → Highlights → Siegerehrung → Abspann/Revanche |
 | Formate | 27: Bananen-Basics, Vier Lianen, Kokosnuss-Uhr, Bananen-Tresor, Affenleiter, Pixel-Dschungel, Affenbank, Stinkbanane, Taschendieb, Alles oder Banane, Lianen-Finale, Monkey Market, Bananen-Börse, Affen-Auktion, Bananen-Bluff, Lianensteg-Duell, Boxkampf, Konter-Quiz, Einer gegen alle, Tortenschlacht, Risiko-Leiter, Goldener Affe, Blitz-DJ, Rückwärts-Banane, Stummfilm-Studio, Wer singt's?, 7-Buchstaben-Telegramm |
 | Brettspiele | Werwölfe vom Bananenhain, Bananen-Batsche (UNO), Affen ärgern sich nicht, Bananopoly, Affenturm, Siedler vom Bananenhain — Handys und/oder iPad-Sitze (Pass-and-Play) |
@@ -137,6 +140,11 @@ swift run --package-path MonkeyMoney/ios mm-dev-server 8081 league demo=klassik 
 node tools/web/shoot.mjs  OUT                     # Host-Flow: Menü, Lobby, Regie, Spielstände, Übung
 node tools/web/match.mjs  OUT klassik 780 4       # ganzes Match mit Bots (env FORMATS=a,b für einzelne Formate)
 node tools/web/boards.mjs OUT                     # alle Brettspiele inkl. iPad-Sitz
+node tools/web/phone.mjs  OUT                     # Handy (390×844): alle Prompts, Ergebnis, Reconnect, Show beendet
+node tools/web/gm.mjs     OUT                     # Fragen-Katalog (Bühne + GM) und Show-Master-Werkzeuge, 11 Checks
+
+# Zusätzliche Fragen validieren und in fragen.json mergen (idempotent)
+python3 tools/content/merge_extra.py                 # --check nur prüfen
 
 # League-Fragenpaket neu erzeugen (schreibt fragen.json + taxonomie.json)
 python3 tools/content/league_questions.py            # --dry-run zeigt nur die Statistik
