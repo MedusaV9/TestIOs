@@ -324,3 +324,71 @@ html.fx-lock .g-main { animation: fx-thump 0.3s ease-out; }
   .has-jokers .g-main { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
   .p-sheet { max-height: calc(100dvh - 10px); }
 }
+
+
+
+/* ======================================================================
+   v3 — "👍 Weiter" skip vote (zwischenstand / halbzeit / highlights)
+   ====================================================================== */
+.weiter { position: relative; animation: rise-in 0.45s var(--ease-out) 0.2s both; }
+.wv-btn, .wv-card { position: relative; width: 100%; display: flex; align-items: center; gap: 14px; min-height: 96px; padding: 12px 18px 12px 12px; border-radius: 28px; text-align: left; isolation: isolate; }
+.wv-btn {
+  overflow: hidden; color: var(--ink);
+  background: linear-gradient(180deg, #ffe58a 0%, var(--gold) 48%, var(--gold-2) 100%);
+  box-shadow: 0 7px 0 var(--gold-d), 0 16px 34px rgba(0, 0, 0, 0.4), 0 0 0 0 rgba(255, 201, 60, 0.55), inset 0 3px 0 rgba(255, 255, 255, 0.55);
+  animation: wv-call 2s ease-in-out infinite; transition: transform 0.1s var(--ease-out), box-shadow 0.1s;
+}
+.wv-btn::before { content: ""; position: absolute; inset: 0 0 52% 0; z-index: -1; background: linear-gradient(180deg, rgba(255, 255, 255, 0.38), transparent); pointer-events: none; }
+.wv-btn::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.6) 50%, transparent 65%); background-size: 260% 100%; animation: shimmer 3.2s ease-in-out infinite; pointer-events: none; }
+.wv-btn > span:not(.wv-burst), .wv-card > span:not(.wv-burst) { position: relative; z-index: 1; } /* above the touch ripple */
+.wv-btn:active { transform: translateY(6px) scale(0.985); box-shadow: 0 1px 0 var(--gold-d), 0 6px 14px rgba(0, 0, 0, 0.4), 0 0 26px rgba(255, 201, 60, 0.75), inset 0 3px 0 rgba(255, 255, 255, 0.55); }
+@keyframes wv-call { 0%, 100% { box-shadow: 0 7px 0 var(--gold-d), 0 16px 34px rgba(0, 0, 0, 0.4), 0 0 0 0 rgba(255, 201, 60, 0.5), inset 0 3px 0 rgba(255, 255, 255, 0.55); } 50% { box-shadow: 0 7px 0 var(--gold-d), 0 16px 34px rgba(0, 0, 0, 0.4), 0 0 0 12px rgba(255, 201, 60, 0), inset 0 3px 0 rgba(255, 255, 255, 0.55); } }
+.wv-thumb { flex: none; width: 70px; height: 70px; border-radius: 50%; display: grid; place-items: center; font-size: 40px; line-height: 1; background: radial-gradient(circle at 42% 34%, #fff, #fff4c4 55%, #ffd24a); box-shadow: inset 0 -4px 0 rgba(183, 120, 11, 0.45), 0 4px 10px rgba(122, 79, 12, 0.35); }
+.wv-svg { display: block; width: 44px; height: 44px; margin-top: -3px; transform-origin: 30% 85%; animation: wv-wiggle 2s ease-in-out infinite; filter: drop-shadow(0 2px 0 rgba(122, 79, 12, 0.35)); }
+@keyframes wv-wiggle { 0%, 60%, 100% { transform: rotate(0); } 70% { transform: rotate(-16deg) scale(1.08); } 80% { transform: rotate(10deg); } 90% { transform: rotate(-5deg); } }
+.wv-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1.1; }
+.wv-t b { font-family: var(--font-display); font-weight: 900; font-size: 32px; letter-spacing: 0.01em; }
+.wv-t small { font-size: 15px; font-weight: 700; opacity: 0.78; font-variant-numeric: tabular-nums; }
+.wv-pips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.wv-pips i { width: 13px; height: 13px; border-radius: 50%; background: rgba(26, 18, 8, 0.2); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25); transition: background 0.25s, transform 0.25s var(--ease-spring); }
+.wv-pips i.on { background: var(--ink); transform: scale(1.1); }
+
+/* ready: green card with a check that pops, a ring and a little burst */
+.wv-card { overflow: visible; }
+.wv-ready { color: #eafff4; background: linear-gradient(180deg, rgba(43, 217, 138, 0.34), rgba(15, 122, 74, 0.26)); border: 2px solid rgba(111, 240, 174, 0.8); box-shadow: 0 0 34px rgba(43, 217, 138, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.18); animation: wv-pop 0.55s var(--ease-spring) both; }
+.wv-ready .wv-t b { font-size: 22px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wv-ready .wv-t small { color: #b9ffdc; opacity: 1; }
+.wv-ready .wv-pips i { background: rgba(255, 255, 255, 0.2); }
+.wv-ready .wv-pips i.on { background: #8dffc4; box-shadow: 0 0 8px rgba(141, 255, 196, 0.8); }
+.wv-ready .wv-pips i.me { background: #fff; }
+.wv-check { position: relative; flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 30px; color: #04241a; background: radial-gradient(circle at 40% 32%, #b9ffdc, var(--leaf) 60%, #17b56c); box-shadow: 0 4px 0 var(--leaf-d), 0 0 24px rgba(43, 217, 138, 0.6); animation: check-pop 0.55s 0.08s var(--ease-spring) both; }
+.wv-check::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 3px solid #8dffc4; animation: wv-ring 0.9s 0.1s ease-out both; pointer-events: none; }
+.wv-check .ck { transform: translateY(-0.12em) rotate(45deg); }
+@keyframes wv-pop { 0% { transform: scale(0.82); opacity: 0; } 55% { transform: scale(1.045); opacity: 1; } 100% { transform: none; } }
+@keyframes wv-ring { from { transform: scale(0.9); opacity: 1; } to { transform: scale(2.1); opacity: 0; } }
+.wv-burst { position: absolute; left: 44px; top: 50%; width: 0; height: 0; pointer-events: none; z-index: 2; }
+.wv-burst i { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--banana); box-shadow: 0 0 10px rgba(255, 226, 122, 0.9); animation: wv-bit 0.75s 0.1s var(--ease-out) both; }
+.wv-burst i:nth-child(even) { background: #8dffc4; width: 8px; height: 8px; }
+@keyframes wv-bit { from { transform: rotate(var(--a)) translateY(-18px) scale(1); opacity: 1; } to { transform: rotate(var(--a)) translateY(-62px) scale(0.3); opacity: 0; } }
+.wv-undo { position: absolute; right: 6px; bottom: 2px; z-index: 2; min-width: 64px; min-height: 44px; padding: 0 10px; border-radius: 14px; font-size: 13px; font-weight: 700; color: rgba(234, 255, 244, 0.75); text-decoration: underline; text-underline-offset: 3px; }
+
+/* everyone is ready */
+.wv-all { color: var(--cream); background: linear-gradient(135deg, rgba(155, 107, 255, 0.45), rgba(255, 201, 60, 0.25)); border: 2px solid rgba(255, 226, 122, 0.75); box-shadow: 0 0 36px rgba(255, 201, 60, 0.3); animation: wv-pop 0.55s var(--ease-spring) both; }
+.wv-all .wv-t b { font-size: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wv-all .wv-t small { color: var(--banana); opacity: 1; }
+.wv-go { flex: none; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; gap: 5px; background: rgba(0, 0, 0, 0.3); border: 2px solid rgba(255, 226, 122, 0.6); }
+.wv-go i { width: 9px; height: 9px; border-radius: 50%; background: var(--banana); animation: tb-dot 1s infinite; }
+.wv-go i:nth-child(2) { animation-delay: 0.15s; }
+.wv-go i:nth-child(3) { animation-delay: 0.3s; }
+.wv-all .wv-burst { left: 40px; }
+
+@media (max-width: 350px) {
+  .wv-btn, .wv-card { gap: 10px; min-height: 84px; padding: 10px 12px 10px 10px; }
+  .wv-thumb, .wv-check, .wv-go { width: 56px; height: 56px; font-size: 32px; }
+  .wv-t b { font-size: 27px; }
+  .wv-ready .wv-t b, .wv-all .wv-t b { font-size: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wv-btn, .wv-btn::after, .wv-svg, .wv-go i { animation: none; }
+  .wv-burst, .wv-check::after { display: none; }
+}

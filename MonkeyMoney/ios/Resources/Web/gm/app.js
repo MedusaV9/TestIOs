@@ -78,6 +78,7 @@ function Cockpit({ view, cmd, say, online }) {
   const scene = decode(st.scene);
   const wall = scene.wall;
   const next = () => cmd(st.paused ? { resume: {} } : { flowNext: {} });
+  const wv = !st.paused && WAIT_PHASES.includes(st.phase) ? st.weiter : null;
   useEffect(() => { document.body.classList.toggle("gm-noscroll", !!sheet); }, [sheet]);
   return html`<div class="cockpit">
     <header class="gm-top">
@@ -101,7 +102,7 @@ function Cockpit({ view, cmd, say, online }) {
     <div class="gm-dock">
       <div class="gm-dock-row">
         <button class=${cx("gm-dock-pause", st.paused && "on")} aria-label=${st.paused ? "Fortsetzen" : "Pause"} onClick=${() => st.paused ? cmd({ resume: {} }) : ctx.open(html`<${PauseSheet} cmd=${cmd} close=${ctx.close} />`)}>${st.paused ? "▶" : "⏸"}</button>
-        <button class=${cx("btn big gm-next", st.paused && "green")} disabled=${!st.canAdvance && !st.paused} onClick=${next}>${st.paused ? "▶ Fortsetzen" : (st.advanceLabel || "Weiter") + " ▶"}</button>
+        <button class=${cx("btn big gm-next", st.paused && "green")} disabled=${!st.canAdvance && !st.paused} onClick=${next}>${st.paused ? "▶ Fortsetzen" : (st.advanceLabel || "Weiter") + " ▶"}${wv && html`<span class=${cx("gm-next-vote", wv.anzahl >= wv.noetig && "all")} aria-label=${`${wv.anzahl} von ${wv.noetig} Spielern wollen weiter`}>👍 ${wv.anzahl}/${wv.noetig}</span>`}</button>
       </div>
       <nav class="gm-tabs">${TABS.map(([id, e, l]) => html`<button class=${cx(tab === id && "on")} onClick=${() => { setTab(id); window.scrollTo(0, 0); }}><span>${e}</span><small>${l}</small></button>`)}</nav>
     </div>
@@ -120,7 +121,18 @@ function Clock({ deadline, paused }) {
 }
 
 // ---------- Regie ----------
-const MODUS = { quick: "⚡ Quick", klassik: "🎩 Klassik", marathon: "🏃 Marathon" };
+// All show modes (mirrors Core/Rules/Settings.swift `Modus`): id → [emoji, label, one-liner].
+const MODES = [
+  ["quick", "⚡", "Quick", "4 Runden · ~15–20 min · Ein-Tap-Start"],
+  ["klassik", "🎩", "Klassik", "6 Runden + Jackpot + Finale · ~40 min"],
+  ["marathon", "🏃", "Marathon", "9+ Runden · Halbzeit · alle Formate · ~70 min"],
+  ["blitz", "🌩️", "Blitz", "3 Blitzrunden + Mini-Finale · ~10 min"],
+  ["party", "🎉", "Party", "6 Party-Runden · wenig Wissen, viel Chaos · ~30 min"],
+  ["profi", "🎓", "Profi", "6 Wissensrunden + Jackpot · knifflig, ohne Glücksrad"],
+  ["eigen", "🛠️", "Eigene Show", "Du baust die Playlist: Formate, Reihenfolge, Fragenzahl"],
+];
+const MODUS = Object.fromEntries(MODES.map(([id, e, l]) => [id, `${e} ${l}`]));
+const WAIT_PHASES = ["zwischenstand", "halbzeit", "highlights"];
 let lastRounds = 0; // remembered across tab switches (jackpot/finale labels carry no round count)
 /** Compact run-of-show: round dots from "Runde n/m · Format", section + question numbers, overall progress. */
 function Ablauf({ st, scene }) {
@@ -159,8 +171,10 @@ function Regie(ctx) {
   const scene = decode(st.scene);
   // While a question runs the live cards come first; the run-of-show card follows them.
   const live = !!view.spickzettel && ["erklaerkarte", "frage", "aufloesung"].includes(st.phase);
+  const wv = !st.paused && WAIT_PHASES.includes(st.phase) ? st.weiter : null;
   return html`<div class="gm-stack">
     ${view.empfehlung && html`<p class="gm-tip">🧠 ${view.empfehlung}</p>`}
+    ${wv && html`<${WeiterCard} view=${view} w=${wv} cmd=${cmd} />`}
     ${!live && html`<${Ablauf} st=${st} scene=${scene} />`}
     ${scene.kind === "kategorieWahl" && html`<div class="card gm-block"><h3>🗂️ Kategorie festlegen</h3><div class="gm-grid">${scene.optionen.map(o => html`<button class="pick" onClick=${() => cmd({ kategoriePick: { _0: o.id } })}>${o.emoji} ${o.label} <small>${o.count}</small></button>`)}</div></div>`}
     ${view.spickzettel && html`<${LiveQuestion} ...${ctx} scene=${scene} />`}
@@ -181,6 +195,27 @@ function Regie(ctx) {
     </div>
     ${view.regal.length > 0 && html`<${RegalCard} ...${ctx} />`}
     <div class="card gm-block"><h3>📜 Logbuch</h3><ul class="gm-log">${view.log.slice(-12).reverse().map(l => html`<li><small>${new Date(l.at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</small> ${l.text}</li>`)}</ul></div>
+  </div>`;
+}
+
+/** "👍 Weiter" skip vote of the phones: who is ready (n/m) + the manual next right beside it. */
+function WeiterCard({ view, w, cmd }) {
+  const st = view.stage;
+  const full = Object.fromEntries(view.players.map(p => [p.id, p]));
+  const ready = new Set(w.spieler || []);
+  const humans = st.players.filter(p => p.connected !== false && !(full[p.id] || {}).isBot);
+  humans.sort((a, b) => (ready.has(b.id) - ready.has(a.id)) || a.platz - b.platz);
+  const all = w.anzahl >= w.noetig;
+  const pct = w.noetig ? Math.round((w.anzahl / w.noetig) * 100) : 0;
+  return html`<div class=${cx("card gm-block gm-weiter", all && "all")}>
+    <div class="gm-block-head"><h3>👍 Weiter-Abstimmung</h3><span class="gm-wv-count" key=${w.anzahl}><b>${w.anzahl}</b>/${w.noetig}</span></div>
+    <div class="gm-wv-bar" role="progressbar" aria-valuemin="0" aria-valuemax=${w.noetig} aria-valuenow=${w.anzahl} aria-label="Spieler, die weiter wollen"><i style=${`width:${pct}%`}></i></div>
+    <ul class="gm-wv-list">${humans.map(p => { const on = ready.has(p.id);
+      return html`<li class=${cx(on && "on")} key=${p.id}><${Monkey} wire=${p.avatar} anim="none" size=${28} /><span>${p.name}</span><i class="gm-wv-st" aria-label=${on ? "bereit" : "wartet"}>${on ? html`<i class="ck"></i>` : "…"}</i></li>`; })}</ul>
+    <div class="gm-wv-foot">
+      <small class="muted">${all ? "Alle bereit — die Bühne geht gleich von selbst weiter." : "Tippen alle auf „Weiter“, geht's automatisch weiter."}</small>
+      <button class="gm-act gm-wv-next" disabled=${!st.canAdvance} onClick=${() => cmd({ flowNext: {} })}><span>⏭</span>${all ? "Sofort" : "Nicht warten"}</button>
+    </div>
   </div>`;
 }
 
@@ -514,7 +549,11 @@ function Settings({ view, cmd }) {
   return html`<div class="gm-stack">
     ${view.katalog && html`<p class="gm-tip">📚 ${katalogSummary(view.katalog, s)}</p>`}
     <div class="card gm-block"><h3>Ablauf</h3>
-      ${Seg("modus", [["quick", "Quick"], ["klassik", "Klassik"], ["marathon", "Marathon"]])}
+      <h4>Show-Modus${lock("modus") ? html` <small class="muted">· nur in der Lobby</small>` : ""}</h4>
+      <div class="gm-modes" role="radiogroup" aria-label="Show-Modus">${MODES.map(([v, e, l]) => html`<button class=${cx("gm-mode", s.modus === v && "on")} data-mode=${v} role="radio" aria-checked=${s.modus === v} disabled=${lock("modus")} onClick=${() => s.modus !== v && set({ modus: v })}>
+        <span aria-hidden="true">${e}</span><b>${l}</b></button>`)}</div>
+      ${(() => { const m = MODES.find(x => x[0] === s.modus); return m ? html`<p class="gm-mode-sub"><b>${m[1]} ${m[2]}</b> · ${m[3]}</p>` : null; })()}
+      <h4>Tempo & Teams</h4>
       ${Seg("tempo", [["zackig", "Zackig"], ["normal", "Normal"], ["gemuetlich", "Gemütlich"]])}
       ${Seg("teams", [["aus", "Keine Teams"], ["2er", "2er"], ["2v2v2v2", "4 Lager"], ["frei", "Frei"]])}
       <h4>Timer pro Frage</h4>

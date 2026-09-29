@@ -50,7 +50,7 @@ export function Timer({ d, done }) {
   const frac = Math.max(0, Math.min(1, remain / first.current.total));
   return html`<div class=${cx("p-timer", hot && "hot", remain === 0 && "over", done && "done")} role="timer" aria-label=${done ? "Eingeloggt" : `Noch ${secs} Sekunden`}>
     <div class="pt-bar" aria-hidden="true"><i style=${`transform:scaleX(${frac})`}></i></div>
-    <b class="pt-secs" key=${hot ? secs : "s"} aria-hidden="true">${done ? "🔒" : secs}</b>
+    <b class="pt-secs" key=${done ? "lk" : hot ? secs : "s"} aria-hidden="true">${done ? html`<i class="lk"></i>` : secs}</b>
   </div>`;
 }
 /** The question card; the font steps down with the text length (see .q-len-*). */
@@ -70,7 +70,7 @@ export function OptButton({ o, i, chosen, onClick, locked, pending, children, kl
   return html`<button class=${cx("p-opt", chosen && "chosen", chosen && pending && "pending", chosen && locked && !pending && "locked-in", o.removed && "removed", locked && !chosen && "dim", klass)}
       style=${`--c:${st.c};--d:${st.d};animation-delay:${i * 55}ms`} disabled=${o.removed || (locked && !chosen)} onClick=${onClick} aria-pressed=${!!chosen} aria-label=${`${st.l}: ${o.text}${o.removed ? " (gestrichen)" : ""}`}>
     <span class="p-opt-badge" aria-hidden="true"><b>${st.l}</b><i>${st.e}</i></span><span class="p-opt-text">${o.text}</span>
-    ${chosen && html`<span class="p-lock">${pending ? html`<span class="ln-spin dark"></span>` : "🔒"}</span>`}${children}
+    ${chosen && html`<span class=${cx("p-lock", !pending && "on")} aria-hidden="true">${pending ? html`<span class="ln-spin dark"></span>` : html`<i class="lk"></i>`}</span>`}${children}
   </button>`;
 }
 
@@ -122,7 +122,7 @@ function Idle({ p, me, x, compact }) {
       </div>`
       : html`<h2 class="idle-title">${p.title}</h2>${p.subtitle && html`<p class="idle-sub">${p.subtitle}</p>`}`}
     ${phase === "lobby" && x.players > 0 && html`<div class="idle-count"><b>${x.players}</b> ${x.players === 1 ? "Affe" : "Affen"} im Raum</div>`}
-    ${!standings && html`<div class="look-up"><span>${hint[0]}</span>${hint[1]}</div>`}
+    ${!standings && html`<div class="look-up">${!x.ohneScreen && phase !== "lobby" && phase !== "ende" && html`<i class="lu-live" aria-hidden="true"></i>`}<span>${hint[0]}</span>${hint[1]}</div>`}
     ${phase === "lobby" && html`<div class="idle-tip" key=${tip}>${TIPS[tip]}</div>`}
     ${played > 0 && !standings && html`<div class="mini-stats">
       <span><b>${st.richtig}</b><small>✅ richtig</small></span><span><b>${st.falsch}</b><small>❌ falsch</small></span><span><b>${st.laengsteSerie}</b><small>🔥 Serie</small></span>
@@ -192,7 +192,7 @@ function Stepper({ value, set, min, max, step, fmt }) {
 function LockedValue({ title, value, unit, pend, text }) {
   return html`<div class="p-locked">
     ${title}
-    <div class="lock-card pop-in"><span class="lock-ico">${pend ? "⏳" : "🔒"}</span><div class="big-val">${value}${unit && html` <small>${unit}</small>`}</div></div>
+    <div class="lock-card pop-in"><span class=${cx("lock-ico", pend && "pend")} key=${pend ? "p" : "ok"} aria-hidden="true">${pend ? html`<span class="ln-spin"></span>` : html`<i class="lk"></i>`}</span><div class="big-val">${value}${unit && html` <small>${unit}</small>`}</div></div>
     <${LockNote} pend=${pend} text=${text} />
   </div>`;
 }
@@ -583,7 +583,7 @@ function Reveal({ p, me, x, compact }) {
     ${showTitle && html`<p class="rev-title rv" style=${b()}>${p.title}</p>`}
     ${e && e.richtigText && html`<div class="rev-answer rv" style=${b()}><small>${richtig === true ? "Lösung" : "Richtig war"}</small><b>${e.richtigText}</b></div>`}
     <div class=${cx("rev-delta rv", delta > 0 ? "pos" : delta < 0 ? "neg" : "zero")} style=${b()}>
-      ${delta === 0 ? "±0" : html`${delta > 0 ? "+" : "−"}<${CountUp} value=${Math.abs(delta)} delay=${400} />`}<small> MM</small>
+      <span class="rev-num">${delta === 0 ? "±0" : html`${delta > 0 ? "+" : "−"}<${CountUp} value=${Math.abs(delta)} delay=${400} />`}</span><small> MM</small>
     </div>
     <div class="rev-chips rv" style=${b()}>
       ${speed > 0 && html`<span class="rchip speed">⚡ Speed +${fmtNum(speed)}</span>`}

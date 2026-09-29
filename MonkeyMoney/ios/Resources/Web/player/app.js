@@ -316,6 +316,7 @@ function Game({ view, send, say, leave }) {
     ${view.whisper && html`<div class="whisper pop-in" key=${view.whisper}><small>🤫 Flüster-Tipp vom Show-Master</small><b>${view.whisper}</b></div>`}
     <main class="g-main" key=${mainKey}>
       <${Prompt} p=${p} send=${send} me=${me} extra=${extra} />
+      ${view.weiter && html`<${WeiterVote} key=${view.phase} w=${view.weiter} me=${me} send=${send} />`}
       ${rankPhase && html`<${Ranking} view=${view} snap=${snap.current} />`}
     </main>
     ${hasJokers && html`<nav class="jokers" aria-label="Joker" ref=${dock} onScroll=${dockEdge}>${view.jokers.map(j => html`<button class=${cx("joker", j.nutzbar && "ready", j.ladungen === 0 && !j.kaufbar && "empty")} onClick=${() => { feel("tap"); setJoker(j); }}
@@ -332,6 +333,50 @@ function Game({ view, send, say, leave }) {
     ${flashOn && html`<div class=${cx("flash", flash.k)} key=${flash.t}></div>`}
     ${p.kind === "reveal" && p.correct && p.delta >= 50 && html`<${MoneyRain} n=${p.delta >= 500 ? 34 : 18} key=${p.title + p.delta} />`}
   </div>`;
+}
+
+// ---------- "👍 Weiter" skip vote (standings, halftime, highlights) ----------
+// The server toggles on every {ready:"weiter"} and ignores idem keys, so the
+// intent is sent exactly once; the UI flips right away (optimistic) and falls
+// back to the server state when no echo arrives within a few seconds.
+const WV_BITS = [0, 60, 120, 180, 240, 300];
+/** Cartoon thumbs-up as inline SVG — renders the same everywhere, no emoji font needed. */
+const Thumb = () => html`<svg class="wv-svg" viewBox="0 0 48 48" aria-hidden="true">
+  <rect x="5" y="21" width="10" height="21" rx="2.5" fill="#5b2bd6" stroke="#1a1208" stroke-width="3" />
+  <path d="M15 23.5 22.5 9.5c1.2-2.4 5.6-2.2 6.4.8.6 2.4-.2 5.5-1.4 8.7h9.8c3 0 4.9 2.6 4.2 5.4l-3.2 13.1c-.6 2.5-2.6 4.5-5.4 4.5H15z" fill="#fff6e3" stroke="#1a1208" stroke-width="3" stroke-linejoin="round" />
+  <path d="M29 26h10.5M29 32h9.5M29.5 38h7" fill="none" stroke="#1a1208" stroke-width="2.6" stroke-linecap="round" />
+  <path d="M19 16.5l3-5.5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".9" />
+</svg>`;
+function WeiterVote({ w, me, send }) {
+  const server = !!(w.done || (w.spieler || []).includes(me.id));
+  const [want, setWant] = useState(null); // { v: wanted ready state, at }
+  const [pop, setPop] = useState(0);
+  useEffect(() => { if (want && server === want.v) setWant(null); }, [server, want]);
+  useEffect(() => { if (!want) return; const t = setTimeout(() => { setWant(null); feel("error"); }, 4500); return () => clearTimeout(t); }, [want]);
+  const mine = want ? want.v : server;
+  const n = Math.max(0, Math.min(w.noetig, w.anzahl + (mine && !server ? 1 : !mine && server ? -1 : 0)));
+  const all = n >= w.noetig;
+  const vote = v => {
+    if (want) return;
+    send({ type: "ready", value: "weiter" });
+    setWant({ v, at: Date.now() });
+    if (v) { setPop(Date.now()); feel("lock"); try { navigator.vibrate && navigator.vibrate([16, 40, 28]); } catch (_) {} }
+    else feel("tap");
+  };
+  const pips = html`<span class="wv-pips" aria-hidden="true">${Array.from({ length: Math.min(w.noetig, 12) }, (_, i) => html`<i class=${cx(i < n && "on", mine && i === n - 1 && "me")}></i>`)}</span>`;
+  const burst = pop > 0 && html`<span class="wv-burst" key=${pop} aria-hidden="true">${WV_BITS.map(a => html`<i style=${`--a:${a}deg`}></i>`)}</span>`;
+  return html`<section class=${cx("weiter", mine && "is-ready", all && "is-all")} aria-live="polite">
+    ${all ? html`<div class="wv-card wv-all" key="all" role="status">${burst}
+        <span class="wv-go" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="wv-t"><b>Gleich geht's weiter …</b><small>Alle ${w.noetig} ${w.noetig === 1 ? "ist" : "sind"} bereit</small></span></div>`
+      : mine ? html`<div class="wv-card wv-ready" key="ready" role="status">${burst}
+        <span class="wv-check" aria-hidden="true"><i class="ck"></i></span>
+        <span class="wv-t"><b>Du bist bereit · ${n}/${w.noetig}</b><small>Warte auf die anderen …</small>${pips}</span>
+        ${server && !want && html`<button class="wv-undo" onClick=${() => vote(false)}>Zurück</button>`}</div>`
+      : html`<button class="wv-btn" key="btn" onClick=${() => vote(true)} aria-label=${`Weiter — ${n} von ${w.noetig} bereit`}>
+        <span class="wv-thumb" aria-hidden="true"><${Thumb} /></span>
+        <span class="wv-t"><b>Weiter</b><small>${n}/${w.noetig} bereit</small>${pips}</span></button>`}
+  </section>`;
 }
 
 function Sheet({ close, children }) {

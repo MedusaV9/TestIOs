@@ -100,6 +100,8 @@ export function installTouch() {
     b.appendChild(clip);
     setTimeout(() => clip.remove(), 620);
   }, { passive: true, capture: true });
+  // iOS Safari only applies :active (press states) when a touchstart listener exists.
+  document.addEventListener("touchstart", () => {}, { passive: true });
   // No pinch zoom / double-tap zoom / long-press callouts during the show.
   document.addEventListener("gesturestart", e => e.preventDefault());
   document.addEventListener("dblclick", e => e.preventDefault(), { passive: false });

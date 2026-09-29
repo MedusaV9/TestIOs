@@ -99,6 +99,10 @@
 .u-mark.bad { background: rgba(0, 0, 0, 0.28); color: #fff; }
 .p-opts.many .u-mark { top: 6px; right: 6px; width: 24px; height: 24px; margin: 0; font-size: 13px; }
 .u-q .p-opt.u-ok .p-opt-badge, .u-q .p-opt.u-bad .p-opt-badge { background: #fff; }
+/* result colours win over the per-option A/B/C colour (set inline), so border + badge edge match */
+.u-q .p-opt.u-ok { --c: var(--leaf) !important; --d: var(--leaf-d) !important; border-color: #b9ffdc; }
+.u-q .p-opt.u-bad { --c: var(--red) !important; --d: var(--red-d) !important; border-color: #ffc9d3; box-shadow: 0 4px 0 var(--red-d), 0 10px 24px rgba(0, 0, 0, 0.3); }
+.u-q .p-opt.u-ok .p-opt-text { color: #04241a; }
 
 .u-fb { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 24px; animation: rise-in 0.45s var(--ease-out) both; scroll-margin-bottom: 14px; }
 .u-fb.ok { background: radial-gradient(circle at 18% 0%, rgba(43, 217, 138, 0.42), rgba(43, 217, 138, 0.06) 70%); border: 1.5px solid rgba(43, 217, 138, 0.55); }

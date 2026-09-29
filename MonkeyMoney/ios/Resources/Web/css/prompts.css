@@ -534,3 +534,56 @@ input[type=range]::-moz-range-thumb { width: 34px; height: 34px; border-radius: 
   .cheer-bit { display: none; }
   .p-cards.my-turn .hand-card.playable { transform: none; }
 }
+
+
+
+/* ======================================================================
+   v3 — press / locked-in states, font-safe lock glyph, result polish
+   ====================================================================== */
+/* CSS padlock (never depends on an emoji font) */
+.lk { position: relative; display: inline-block; width: 0.72em; height: 0.56em; margin-top: 0.36em; border-radius: 0.14em; background: currentColor; vertical-align: middle; }
+.lk::before { content: ""; position: absolute; left: 50%; bottom: 86%; width: 0.46em; height: 0.46em; box-sizing: border-box; transform: translateX(-50%); border: 0.11em solid currentColor; border-bottom: 0; border-radius: 0.25em 0.25em 0 0; }
+.lk::after { content: ""; position: absolute; left: 50%; top: 28%; width: 0.13em; height: 0.22em; transform: translateX(-50%); border-radius: 0.07em; background: rgba(0, 0, 0, 0.35); }
+.p-timer.done .pt-secs .lk { font-size: 20px; margin-top: 6px; }
+.lock-ico { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; color: #04241a; background: radial-gradient(circle at 40% 32%, #b9ffdc, var(--leaf) 60%, #17b56c); box-shadow: 0 4px 0 var(--leaf-d), 0 0 22px rgba(43, 217, 138, 0.55); }
+.lock-ico .lk { font-size: 30px; margin-top: 8px; }
+.lock-ico.pend { color: var(--banana); background: rgba(0, 0, 0, 0.3); box-shadow: inset 0 0 0 2px rgba(255, 201, 60, 0.5); }
+.lock-ico.pend .ln-spin { width: 26px; height: 26px; border-width: 3px; }
+
+/* answer buttons: content above the touch ripple, press = squash + glow in the option colour */
+.p-opt > .p-opt-badge, .p-opt > .p-opt-text, .p-opt > .p-lock { z-index: 1; }
+.p-opts:not(.is-locked) .p-opt:active:not(:disabled) {
+  transform: translateY(4px) scale(0.975); filter: brightness(1.14) saturate(1.1); transition-duration: 0.05s;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--d) 75%, #000), 0 0 0 3px color-mix(in srgb, var(--c) 75%, transparent), 0 0 30px color-mix(in srgb, var(--c) 80%, transparent);
+}
+.p-opts:not(.is-locked) .p-opt:active:not(:disabled) .p-opt-badge { transform: scale(0.92) rotate(-4deg); }
+.p-opt-badge { transition: transform 0.12s var(--ease-spring); }
+/* locked in: breathing glow + a solid white padlock badge */
+.p-opt.chosen.locked-in { animation: opt-lock 0.5s var(--ease-spring) both, opt-glow 2.4s 0.6s ease-in-out infinite; }
+@keyframes opt-glow { 0%, 100% { box-shadow: 0 0 0 3px #fff, 0 0 24px var(--c), 0 4px 0 var(--d); } 50% { box-shadow: 0 0 0 4px #fff, 0 0 48px var(--c), 0 4px 0 var(--d); } }
+.p-opt.chosen .p-opt-text { color: var(--ink); }
+.p-lock { color: var(--ink); }
+.p-lock.on { background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); }
+.p-lock .lk { font-size: 18px; margin-top: 5px; }
+.p-opts.many .p-lock .lk { font-size: 13px; margin-top: 4px; }
+.p-opts.is-locked .p-opt.dim { transform: scale(0.97); }
+.local-seat .p-opt.chosen.locked-in { animation: none; } /* stage seats re-render often — keep them static */
+
+/* result: the money delta lands with a bump + flash when the count-up finishes */
+.rev-num { position: relative; display: inline-block; isolation: isolate; }
+.rev-delta.pos .rev-num, .rev-delta.neg .rev-num { animation: rev-land 0.5s 1.28s var(--ease-spring) both; }
+.rev-delta.pos .rev-num::after { content: ""; position: absolute; inset: -34% -20%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, rgba(141, 255, 196, 0.6), rgba(141, 255, 196, 0)); animation: rev-flash 0.8s 1.22s ease-out both; pointer-events: none; }
+@keyframes rev-land { 0% { transform: none; } 40% { transform: scale(1.2); } 100% { transform: none; } }
+@keyframes rev-flash { 0% { transform: scale(0.4); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+.rev-rank s { text-decoration: none; opacity: 0.45; }
+.p-reveal.ok .stamp { background: rgba(4, 36, 26, 0.35); box-shadow: 0 0 30px rgba(43, 217, 138, 0.35); }
+.p-reveal.nope .stamp { background: rgba(40, 4, 16, 0.35); }
+
+/* waiting: a live dot on the "look at the stage" pill */
+.lu-live { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--red); animation: lu-live 1.6s ease-out infinite; }
+@keyframes lu-live { 0% { box-shadow: 0 0 0 0 rgba(255, 77, 109, 0.75); } 70%, 100% { box-shadow: 0 0 0 9px rgba(255, 77, 109, 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .p-opt.chosen.locked-in { animation: none; }
+  .rev-delta .rev-num, .rev-delta .rev-num::after, .lu-live { animation: none; }
+}
