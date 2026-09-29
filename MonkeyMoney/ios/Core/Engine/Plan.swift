@@ -53,7 +53,8 @@ public enum Plan {
         let rounds = Blueprints.rounds(for: settings)
         // Seconds per question: ~45 s for a classic question with its reveal; the rapid
         // round formats run their questions with short mini-reveals.
-        let perFormat: [String: Double] = ["affenzahn": 12, "affenschaukel": 20, "letzter-affe": 11, "herdentrieb": 18, "kokos-kopf": 30]
+        let perFormat: [String: Double] = ["affenzahn": 12, "affenschaukel": 20, "letzter-affe": 11, "herdentrieb": 18, "kokos-kopf": 30,
+                                           "tipp-treppe": 22, "faktencheck": 10, "tauziehen": 19]
         let seconds = rounds.reduce(0.0) { $0 + Double($1.fragen) * (perFormat[$1.minigameId] ?? 45) }
             + Double(Blueprints.blueprint(for: settings).finaleFragen) * 45
         let overhead = Double(rounds.count) * 40 + 120

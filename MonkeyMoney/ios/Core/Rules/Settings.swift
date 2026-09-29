@@ -487,7 +487,8 @@ public enum Blueprints {
 
     /// Suggested question count of a format (its playlist size elsewhere, else 4).
     public static func empfohleneFragen(_ id: String) -> Int {
-        let neu = ["affenzahn": 6, "letzter-affe": 10, "affenschaukel": 5, "herdentrieb": 5, "kokos-kopf": 4]
+        let neu = ["affenzahn": 6, "letzter-affe": 10, "affenschaukel": 5, "herdentrieb": 5, "kokos-kopf": 4,
+                   "tipp-treppe": 4, "faktencheck": 8, "tauziehen": 6]
         if let n = neu[id] { return n }
         for m in [Modus.marathon, .klassik, .quick] { if let r = blueprint(for: m).runden.first(where: { $0.minigameId == id }) { return r.fragen } }
         return 4
@@ -560,8 +561,9 @@ public enum Blueprints {
             ], jackpotFrage: false, finaleFragen: 3, ultrahardMax: 1, halbzeitNach: nil)
         case .profi:
             // Knowledge first: harder tiers, the survival round, speed, estimates, the ladder.
+            // Opener: the Tipp-Treppe (knowledge + nerve: lock in before the hints; pays ≈ a standard round).
             return ModeBlueprint(runden: [
-                RoundBlueprint(.opener, "bananen-basics", 5, aufbau, .keine, false),
+                RoundBlueprint(.opener, "tipp-treppe", 4, aufbau, .keine, false),
                 RoundBlueprint(.aufbau, "letzter-affe", 10, aufbau, .voting, false),
                 RoundBlueprint(.aufbau, "bananen-tresor", 4, konflikt, .voting, false),
                 // Speed podium pays up to 4.5 F per question → medium/hard like the knowledge rounds, not hard-only.

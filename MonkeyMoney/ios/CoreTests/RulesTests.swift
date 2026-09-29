@@ -156,8 +156,8 @@ final class RulesTests: XCTestCase {
     }
 
     func testMinigameRegistryHasAllFormats() {
-        XCTAssertEqual(MinigameRegistry.all.count, 33)
-        XCTAssertEqual(Set(MinigameRegistry.all.map { $0.meta.id }).count, 33)
+        XCTAssertEqual(MinigameRegistry.all.count, 36)
+        XCTAssertEqual(Set(MinigameRegistry.all.map { $0.meta.id }).count, 36)
         XCTAssertEqual(BoardgameRegistry.all.count, 6)
     }
 }
