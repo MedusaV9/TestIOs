@@ -32,7 +32,9 @@ function A(el, ...list) {
   el.style.animation = el.style.animation ? `${el.style.animation}, ${s}` : s;
   return el;
 }
-const bt = n => T0 + n * P;
+// Inserted beats (edit.json beat.insert {after, beats}) push every later beat back — scenes after the
+// insertion point keep their internal beat choreography.
+const bt = n => { const I = (EDIT.beat && EDIT.beat.insert) || { after: 1e9, beats: 0 }; return T0 + (n >= I.after ? n + I.beats : n) * P; };
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const easeOutExpo = x => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
 const easeOutCubic = x => 1 - Math.pow(1 - x, 3);
@@ -464,7 +466,10 @@ function buildS4() {
   const wall = h("div", "abs p3d", { left: "0", top: "0", width: W + "px", height: H + "px" });
   put(plane, wall); put(view, plane); put(cam2, view);
   A(plane, ["tilt3d", t1 - t0, t0, E.lin]);
-  const rows = [6, 7, 7, 7, 6], tw = 250, th = 128, gap = 22;
+  // 5 rows, the longer ones in the middle (33 → 6·7·7·7·6, 36 → 7·7·8·7·7).
+  const NF = DATA.formats.length, base = Math.floor(NF / 5), extra = NF % 5;
+  const rows = [0, 1, 2, 3, 4].map(r => base + ([2, 1, 3, 0, 4].indexOf(r) < extra ? 1 : 0));
+  const tw = Math.max(...rows) > 7 ? 240 : 250, th = 128, gap = Math.max(...rows) > 7 ? 20 : 22;
   const pal = [["#7C4DFF", "#3b1c8c"], ["#FF6BD6", "#8a1f74"], ["#2BD98A", "#0f6b50"], ["#5FC4FF", "#1d4f99"], ["#FFC93C", "#a0600a"], ["#FF4D6D", "#8a1330"], ["#2ED3C6", "#0d6b66"]];
   const fmts = DATA.formats;
   let idx = 0; const tiles = [];

@@ -27,7 +27,7 @@ const { startServer, chromium, chromePath, sleep, api } = await import("../web/l
 const OUT = process.env.OUT || "/projects/sandbox/trailer/footage";
 const MAXSEC = Number(process.env.MAXSEC || 720);
 const TOUCH = new Set((process.env.TOUCH ?? "phone1,phone2,gm").split(",").map(s => s.trim()).filter(Boolean));
-const PLAYLIST = (process.env.PLAYLIST || "bananen-basics:3,affenzahn:4,letzter-affe:5,herdentrieb:3,bananen-tresor:3,affenschaukel:3")
+const PLAYLIST = (process.env.PLAYLIST || "bananen-basics:2,affenzahn:3,tipp-treppe:2,letzter-affe:4,tauziehen:3,herdentrieb:3,faktencheck:4,bananen-tresor:2,affenschaukel:2")
   .split(",").map(x => x.trim().split(":")).filter(([id]) => id).map(([id, n]) => ({ id, fragen: Number(n) || 3 }));
 const PATCH = {
   tempo: "zackig",
@@ -577,10 +577,10 @@ function holdFor(sc, n, label) {
     case "erklaerkarte": return n === 1 ? 4.2 : 3.3;
     case "kategorieWahl": return 4.0;
     case "aufloesung":
-      if (/affenzahn|letzter-affe|herdentrieb|affenschaukel/.test(sc.key)) return 6.0;
+      if (/affenzahn|letzter-affe|herdentrieb|affenschaukel|tipp-treppe|faktencheck|tauziehen/.test(sc.key)) return 6.0;
       if (/Jackpot/i.test(label)) return 5.6;
       return 4.7;
-    case "zwischenstand": return /Runde 6\//.test(label) ? 4.6 : 4.0;
+    case "zwischenstand": return /Runde 9\//.test(label) ? 4.6 : 4.0;
     case "rad": return sc.sub === "erklaert" ? 3.3 : sc.sub === "interaktion" ? 4.2 : sc.sub === "fertig" ? 1.6 : null;
     case "highlights": return 4.6;
     case "halbzeit": return 4.0;

@@ -5,6 +5,12 @@ const S = `stroke="${K}" stroke-width="5" stroke-linejoin="round" stroke-linecap
 const svg = body => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${body}</svg>`;
 
 export const ICONS = {
+  ladder: svg(`<path d="M26 6 L20 94 M74 6 L80 94" stroke="${K}" stroke-width="12" stroke-linecap="round" fill="none"/><path d="M26 6 L20 94 M74 6 L80 94" stroke="#C1864B" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <path d="M25 22 H75 M24 42 H76 M22 62 H78 M21 82 H79" stroke="${K}" stroke-width="11" stroke-linecap="round"/><path d="M25 22 H75 M24 42 H76 M22 62 H78 M21 82 H79" stroke="#FFD43B" stroke-width="5" stroke-linecap="round"/>`),
+  rope: svg(`<path d="M4 58 C16 46 26 70 38 58 C50 46 50 70 62 58 C74 46 84 70 96 58" fill="none" stroke="${K}" stroke-width="14" stroke-linecap="round"/>
+    <path d="M4 58 C16 46 26 70 38 58 C50 46 50 70 62 58 C74 46 84 70 96 58" fill="none" stroke="#E8B87A" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="50" cy="58" r="12" fill="#FF4D6D" ${S}/><path d="M50 20 V38 M42 30 L50 40 L58 30" stroke="${K}" stroke-width="6" stroke-linecap="round" fill="none"/>`),
+  check: svg(`<rect x="8" y="8" width="84" height="84" rx="20" fill="#2BD98A" ${S}/><path d="M28 52 L44 68 L74 34" fill="none" stroke="${K}" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M28 52 L44 68 L74 34" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`),
   bolt: svg(`<path d="M60 4 L20 56 H45 L36 96 L80 40 H55 L66 4 Z" fill="#FFD43B" ${S}/><path d="M58 12 L32 48" stroke="#FFF1A8" stroke-width="5" stroke-linecap="round"/>`),
   parachute: svg(`<path d="M8 46 C8 18 30 6 50 6 C70 6 92 18 92 46 C85 39 77 39 71 46 C65 39 57 39 50 46 C43 39 35 39 29 46 C23 39 15 39 8 46 Z" fill="#FF6BD6" ${S}/>
     <path d="M50 7 C40 14 34 30 29 46 M50 7 C60 14 66 30 71 46" fill="none" stroke="${K}" stroke-width="4"/>

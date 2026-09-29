@@ -165,9 +165,24 @@
    "id": "kokos-kopf",
    "name": "Kokos-Kopf",
    "emoji": "🧠"
+  },
+  {
+   "id": "tipp-treppe",
+   "name": "Tipp-Treppe",
+   "emoji": "🪜"
+  },
+  {
+   "id": "faktencheck",
+   "name": "Faktencheck",
+   "emoji": "✅"
+  },
+  {
+   "id": "tauziehen",
+   "name": "Tauziehen",
+   "emoji": "🪢"
   }
  ],
- "formatCount": 33,
+ "formatCount": 36,
  "questionCount": 13356,
  "categoryCount": 14,
  "topicCount": 99,

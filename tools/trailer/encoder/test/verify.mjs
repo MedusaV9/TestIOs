@@ -1,7 +1,7 @@
 // Verify an encode.mjs MP4 in Chromium: box structure, <video> metadata,
 // frame-accurate seeks (PNG + barcode decode), decodeAudioData RMS, play().
 //   env -u NODE_OPTIONS node tools/trailer/encoder/test/verify.mjs FILE.mp4 [--fps 30] [--duration 5] [--width 1280 --height 720]
-//        [--seek 0.5,2.5,4.5] [--png-dir DIR]
+//        [--seek 0.5,2.5,4.5] [--png-dir DIR] [--no-barcode]
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { launch } from "../../../web/lib.mjs";
@@ -13,6 +13,8 @@ const FILE = path.resolve(process.argv[2]);
 const FPS = Number(arg("fps", 30)), DUR = Number(arg("duration", 5));
 const W = arg("width") && Number(arg("width")), H = arg("height") && Number(arg("height"));
 const SEEKS = arg("seek", "0.5,2.5,4.5").split(",").map(Number);
+// --no-barcode: real content (not gen-frames.mjs test patterns) — a seek passes when the presented frame time is within half a frame.
+const NO_BARCODE = process.argv.includes("--no-barcode");
 const PNG = path.resolve(arg("png-dir", path.dirname(FILE)));
 const base = path.basename(FILE, ".mp4");
 const results = [];
@@ -106,7 +108,7 @@ try {
   for (const s of r.seeks) {
     const f = path.join(PNG, `${base}-seek-${s.t.toFixed(1)}.png`);
     writeFileSync(f, Buffer.from(s.png.split(",")[1], "base64"));
-    check(`(b) seek ${s.t}s`, s.barcode === s.expected, `currentTime ${s.currentTime}, rVFC mediaTime ${s.mediaTime}, barcode frame ${s.barcode} (expected ${s.expected}) → ${f}`);
+    check(`(b) seek ${s.t}s`, NO_BARCODE ? Math.abs(s.mediaTime - s.t) <= 0.5 / FPS : s.barcode === s.expected, `currentTime ${s.currentTime}, rVFC mediaTime ${s.mediaTime}, barcode frame ${s.barcode} (expected ${s.expected}) → ${f}`);
   }
   if (at) {
     const a = r.audio;
