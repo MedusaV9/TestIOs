@@ -1,0 +1,146 @@
+/* Monkey Money — styles for the stage building blocks in stage/fx.js + scenes.js + app.js
+   (FitBox, StageTimer, StageBar, question intro band, podium answer states, jungle parallax).
+   Loaded after stage.css / fx.css. Transform/opacity animations only. */
+
+/* ---------- FitBox: fills the rest of a flex column, scales its content down ---------- */
+.fit { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; width: 100%; display: flex; flex-direction: column; }
+.fit-in { width: 100%; display: flex; flex-direction: column; align-items: center; transform-origin: top center; }
+.fit-center { justify-content: center; }
+.fit-center .fit-in { transform-origin: center center; }
+.q-full { width: 100%; }
+.side-extra { width: 100%; flex: 1 1 auto; }
+.side-extra .fit-in { align-items: stretch; }
+
+/* ---------- StageTimer: SVG ring drained by a CSS animation ---------- */
+.st-timer { position: relative; width: var(--size, 150px); height: var(--size, 150px); flex: none; }
+.st-timer svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.st-track { fill: rgba(0, 0, 0, 0.4); stroke: rgba(255, 255, 255, 0.12); stroke-width: 8; }
+.st-ticks { fill: none; stroke: rgba(255, 255, 255, 0.22); stroke-width: 3; stroke-dasharray: 1.2 8.22; }
+.st-arc, .st-glow { fill: none; stroke: var(--leaf); stroke-width: 8; stroke-linecap: round; stroke-dasharray: 276.46; stroke-dashoffset: 0;
+  animation: st-drain var(--dur, 15s) linear forwards; transition: stroke 0.4s; }
+.st-glow { stroke-width: 16; opacity: 0.28; }
+@keyframes st-drain { to { stroke-dashoffset: 276.46; } }
+.st-timer.lvl-warn .st-arc, .st-timer.lvl-warn .st-glow { stroke: var(--gold); }
+.st-timer.lvl-hot .st-arc, .st-timer.lvl-hot .st-glow, .st-timer.lvl-done .st-arc { stroke: var(--red); }
+.st-timer.lvl-hot { animation: ring-pulse 0.6s ease-in-out infinite alternate; }
+.st-timer.paused .st-arc, .st-timer.paused .st-glow { animation-play-state: paused; }
+.st-core { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.st-secs { display: inline-block; font-family: var(--font-display); font-weight: 900; font-size: calc(var(--size, 150px) * 0.38); line-height: 1; color: var(--cream); animation: tick-pop 0.35s var(--ease-spring, ease-out); }
+.st-timer.lvl-hot .st-secs { color: #ffb3c1; }
+.st-core small { font-size: 13px; font-weight: 700; color: var(--muted); }
+
+/* ---------- StageBar: a fuse that burns down ---------- */
+.stage-bar { position: relative; height: 10px; border-radius: 99px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.stage-bar i { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, var(--leaf), var(--gold)); transform-origin: left center;
+  animation: bar-drain var(--dur, 15s) linear forwards; }
+.stage-bar.hot i { background: linear-gradient(90deg, var(--red), #ff9fb1); }
+.stage-bar.paused i { animation-play-state: paused; }
+@keyframes bar-drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.q-fuse { position: absolute; left: 34px; right: 34px; bottom: 12px; height: 7px; }
+
+/* ---------- question: intro band, then the card lands ---------- */
+.qwall { position: absolute; }
+.qwall .q-card { animation-delay: var(--qd, 0s); }
+.q-intro { position: absolute; left: 0; right: 0; top: 34%; z-index: 30; display: flex; justify-content: center; pointer-events: none; }
+.qi-band { display: flex; align-items: center; gap: 22px; padding: 18px 52px; border-radius: 999px; white-space: nowrap;
+  background: linear-gradient(90deg, #3a1d86, var(--violet) 50%, #3a1d86); border: 3px solid var(--gold);
+  box-shadow: 0 0 0 6px rgba(255, 201, 60, 0.18), 0 24px 60px rgba(0, 0, 0, 0.55);
+  font-family: var(--font-display); font-weight: 800; font-size: 38px; color: var(--cream);
+  animation: qi-sweep 1s var(--ease-in-out, ease-in-out) var(--d, 0s) both; }
+.qi-num b { font-weight: 900; font-size: 52px; color: var(--banana); }
+.qi-num small { font-size: 28px; color: var(--muted); }
+.qi-val { color: var(--gold); font-weight: 900; }
+.qi-lead { padding: 4px 18px; border-radius: 99px; background: linear-gradient(180deg, #fff1a8, var(--gold)); color: var(--ink); font-weight: 900; font-size: 28px; }
+.qi-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--gold); opacity: 0.8; }
+.q-intro.sk-finale .qi-band { background: linear-gradient(90deg, #5a0616, #d0203f 50%, #5a0616); }
+.q-intro.sk-jackpot .qi-band { background: linear-gradient(90deg, #6b4506, #b7780b 50%, #6b4506); }
+@keyframes qi-sweep {
+  0% { transform: translateX(-70%) skewX(-14deg); opacity: 0; }
+  18% { transform: translateX(2%) skewX(4deg); opacity: 1; }
+  28% { transform: none; }
+  78% { transform: none; opacity: 1; }
+  100% { transform: translateX(60%) skewX(-14deg) scale(0.9); opacity: 0; }
+}
+
+/* ---------- podium: who is still thinking, who is locked in ---------- */
+.tile-status { position: absolute; top: -8px; right: 10px; width: 18px; height: 18px; border-radius: 50%; background: rgba(0, 0, 0, 0.55); border: 2px solid var(--gold); z-index: 3; }
+.tile-status i { position: absolute; inset: 3px; border-radius: 50%; background: var(--gold); animation: fade-pulse 0.9s ease-in-out infinite alternate; }
+.tile.answered .tile-status { border-color: var(--leaf); }
+.tile.answered .tile-status i { background: var(--leaf); animation: none; }
+.tile.waiting .tile-plate { border-color: rgba(255, 201, 60, 0.45); }
+.tile.answered .tile-plate { border-color: var(--leaf); box-shadow: 0 0 22px rgba(43, 217, 138, 0.35), 0 10px 24px rgba(0, 0, 0, 0.45); }
+.podium.asking .tile:not(.answered):not(.waiting) { opacity: 0.8; }
+.think { position: absolute; z-index: 3; top: -4px; right: -10px; display: flex; gap: 4px; padding: 6px 9px; border-radius: 14px 14px 14px 4px;
+  background: rgba(255, 246, 227, 0.95); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); animation: pop-in 0.4s var(--ease-spring, ease-out) both; }
+.think i { width: 7px; height: 7px; border-radius: 50%; background: var(--plum); animation: xt-dot 1.1s ease-in-out infinite; }
+.think i:nth-child(2) { animation-delay: 0.15s; }
+.think i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes xt-dot { 0%, 100% { transform: translateY(0); opacity: 0.45; } 40% { transform: translateY(-4px); opacity: 1; } }
+
+/* ---------- jungle parallax behind menu + lobby ---------- */
+.jungle { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s ease; pointer-events: none; }
+.backdrop.jungle-on .jungle { opacity: 1; }
+.j-layer { position: absolute; inset: -5%; }
+.j-layer svg { width: 100%; height: 100%; display: block; }
+.j-far { transform: translate(calc(var(--px, 0) * -10px), calc(var(--py, 0) * -6px)); opacity: 0.8; }
+.j-mid { transform: translate(calc(var(--px, 0) * -22px), calc(var(--py, 0) * -12px)); }
+.j-near { transform: translate(calc(var(--px, 0) * -38px), calc(var(--py, 0) * -20px)); }
+.j-far, .j-mid, .j-near { transition: transform 0.6s ease-out; }
+.j-drift { width: 100%; height: 100%; animation: sway 14s ease-in-out infinite; transform-origin: 50% 0; }
+.j-mid .j-drift { animation-duration: 11s; animation-direction: reverse; }
+.j-near .j-drift { animation-duration: 8s; }
+.fireflies i { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #fff6a8; box-shadow: 0 0 12px 3px rgba(255, 226, 122, 0.8);
+  opacity: 0; animation: firefly 8s ease-in-out infinite; }
+@keyframes firefly { 0%, 100% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 0.9; } 50% { transform: translate(40px, -60px); opacity: 0.6; } 70% { opacity: 0.9; transform: translate(-20px, -110px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .q-intro, .think, .fireflies { display: none !important; }
+  .j-drift, .st-timer.lvl-hot { animation: none !important; }
+}
+
+/* The "tap for sound" hint sits below the section label, not on top of it. */
+.sound-unlock { inset: 84px 0 auto 0; padding: 8px 18px; font-size: 15px; }
+
+
+/* ---------- widget pieces that had no styles (both screen sizes) ---------- */
+/* FitBox centres its children, so a widget without in-flow content collapsed:
+   the number line shrank to the width of its hint text, then to ~0 on reveal. */
+.fit-in > .x-numline { align-self: stretch; }
+.x-wait { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 4px; text-align: center; }
+.x-wait p { margin: 0; font-size: 22px; font-weight: 600; color: var(--muted); }
+.xw-ico { font-size: 46px; line-height: 1; animation: float 3s ease-in-out infinite; }
+.fit-in > .x-ladder { min-width: 520px; }
+.ladder-step small { margin-left: auto; font-size: 16px; font-weight: 700; color: var(--muted); }
+.ba-head { display: flex; align-items: baseline; gap: 12px; padding: 0 16px 2px; }
+.ba-head span { font-family: var(--font-display); font-weight: 800; font-size: 22px; }
+.ba-head small { font-size: 15px; color: var(--muted); }
+/* Name, money and AT stack (they wrapped inline mid-number, "5.980 / MM"). */
+.cer-plate { display: flex; flex-direction: column; align-items: center; text-align: center; line-height: 1.12; margin-top: 4px; }
+.cer-plate .cer-name { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cer-plate .cer-at { font-size: 14px; margin-top: 2px; }
+
+/* The jackpot jar in the top bar never wraps its amount ("500 / MM" on iPad). */
+.topbar .jar { flex: none; }
+.jar .money { white-space: nowrap; }
+/* Guess pins' stems ran through the min/max labels of the number line. */
+.nl-ends { z-index: 2; pointer-events: none; }
+.nl-ends span { text-shadow: 0 0 6px #160c38, 0 0 3px #160c38, 0 0 1px #160c38; }
+/* A two-line answer pushed "✔" and "Richtig:" onto separate lines. */
+.richtig-banner > span { flex: none; white-space: nowrap; }
+/* "Einsatz W500 MM": the label sits above the stake instead of running into it. */
+.lianen-w small { display: block; font-family: var(--font-body); font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- 16:9 TV (canvas ≥ 1640 units wide; iPad is ~1430) ----------
+   The canvas keeps 1000 units of height, so a TV only adds width: keep lists
+   and tables at a readable line length instead of stretching them edge to edge. */
+.canvas.tv .standings { padding-left: max(110px, calc((100% - 1400px) / 2)); padding-right: max(110px, calc((100% - 1400px) / 2)); }
+.canvas.tv .hl-list { max-width: 1380px; }
+.canvas.tv .hl p { font-size: 30px; }
+.canvas.tv .cer-col { width: 330px; }
+.canvas.tv .cer-podium { gap: 28px; }
+.canvas.tv .x-numline { padding-left: 50px; padding-right: 50px; }
+.canvas.tv .bank-auszug { width: 1000px; }
+.canvas.tv .x-bomb { max-width: 1100px; }
+/* Wheel: moments (toasts) ran across the wheel; the right half is free on a TV. */
+.canvas.tv .show.scene-rad .moments { left: 50%; }
+.canvas.tv .show.scene-rad .moment { max-width: 820px; }

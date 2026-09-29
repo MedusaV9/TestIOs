@@ -1,3 +1,10 @@
+# TestIOs — iOS build snapshots
+
+- **[Monkey Money](MonkeyMoney/README.md)** — Party-Quiz-Show, Swift/SwiftUI-Port: iPad = Bühne + Server, iPhone/App Clip/Browser = Controller. Workflow `Monkey Money IPA`, Download [monkeymoney-latest](https://github.com/MedusaV9/TestIOs/releases/tag/monkeymoney-latest).
+- **SoooDreamy** — siehe unten.
+
+---
+
 # SoooDreamy — IPA build snapshot
 
 Build snapshot for the unsigned iOS 26 IPA. Source of truth stays in the private project; this tree is only the app + CI.
