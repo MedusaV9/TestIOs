@@ -1,0 +1,356 @@
+{
+ "_note": "Trailer facts. Formats = MinigameRegistry.all (Core/Minigames/Plugin.swift) name/emoji; counts from Resources/Content. Update freely - the composition reads everything from here.",
+ "formats": [
+  {
+   "id": "vier-lianen",
+   "name": "Vier Lianen",
+   "emoji": "🌿"
+  },
+  {
+   "id": "bananen-basics",
+   "name": "Bananen-Basics",
+   "emoji": "🍌"
+  },
+  {
+   "id": "kokosnuss-uhr",
+   "name": "Kokosnuss-Uhr",
+   "emoji": "🥥"
+  },
+  {
+   "id": "bananen-tresor",
+   "name": "Bananen-Tresor",
+   "emoji": "🔐"
+  },
+  {
+   "id": "affenleiter",
+   "name": "Affenleiter",
+   "emoji": "🪜"
+  },
+  {
+   "id": "pixel-dschungel",
+   "name": "Pixel-Dschungel",
+   "emoji": "🖼️"
+  },
+  {
+   "id": "affenbank",
+   "name": "Affenbank",
+   "emoji": "🏦"
+  },
+  {
+   "id": "stinkbanane",
+   "name": "Stinkbanane",
+   "emoji": "💣"
+  },
+  {
+   "id": "taschendieb",
+   "name": "Taschendieb-Affe",
+   "emoji": "🦝"
+  },
+  {
+   "id": "alles-oder-banane",
+   "name": "Alles oder Banane",
+   "emoji": "🎰"
+  },
+  {
+   "id": "lianen-finale",
+   "name": "Lianen-Finale",
+   "emoji": "🐊"
+  },
+  {
+   "id": "monkey-market",
+   "name": "Monkey Market",
+   "emoji": "🏪"
+  },
+  {
+   "id": "bananen-boerse",
+   "name": "Bananen-Börse",
+   "emoji": "📈"
+  },
+  {
+   "id": "affen-auktion",
+   "name": "Affen-Auktion",
+   "emoji": "🔨"
+  },
+  {
+   "id": "bananen-bluff",
+   "name": "Bananen-Bluff",
+   "emoji": "🤥"
+  },
+  {
+   "id": "lianensteg-duell",
+   "name": "Duell am Lianensteg",
+   "emoji": "⚔️"
+  },
+  {
+   "id": "goldener-affe",
+   "name": "Der Goldene Affe",
+   "emoji": "🏆"
+  },
+  {
+   "id": "risiko-leiter",
+   "name": "Risiko-Leiter",
+   "emoji": "🪜"
+  },
+  {
+   "id": "einer-gegen-alle",
+   "name": "Einer gegen alle",
+   "emoji": "👑"
+  },
+  {
+   "id": "konter-quiz",
+   "name": "Konter-Quiz",
+   "emoji": "🔁"
+  },
+  {
+   "id": "bananen-boxkampf",
+   "name": "Bananen-Boxkampf",
+   "emoji": "🥊"
+  },
+  {
+   "id": "bananen-tortenschlacht",
+   "name": "Bananen-Tortenschlacht",
+   "emoji": "🥧"
+  },
+  {
+   "id": "buchstaben-telegramm",
+   "name": "7-Buchstaben-Telegramm",
+   "emoji": "📨"
+  },
+  {
+   "id": "song-snippet",
+   "name": "Blitz-DJ",
+   "emoji": "🎧"
+  },
+  {
+   "id": "song-rueckwaerts",
+   "name": "Rückwärts-Banane",
+   "emoji": "⏪"
+  },
+  {
+   "id": "musikvideo-raten",
+   "name": "Stummfilm-Studio",
+   "emoji": "🎬"
+  },
+  {
+   "id": "wer-singts",
+   "name": "Wer singt's?",
+   "emoji": "🎤"
+  },
+  {
+   "id": "kokosnuss-shake",
+   "name": "Kokosnuss-Shake",
+   "emoji": "🥥"
+  },
+  {
+   "id": "affenzahn",
+   "name": "Affenzahn",
+   "emoji": "⚡"
+  },
+  {
+   "id": "letzter-affe",
+   "name": "Der letzte Affe",
+   "emoji": "🪂"
+  },
+  {
+   "id": "affenschaukel",
+   "name": "Affenschaukel",
+   "emoji": "↕️"
+  },
+  {
+   "id": "herdentrieb",
+   "name": "Herdentrieb",
+   "emoji": "🐑"
+  },
+  {
+   "id": "kokos-kopf",
+   "name": "Kokos-Kopf",
+   "emoji": "🧠"
+  }
+ ],
+ "formatCount": 33,
+ "questionCount": 13356,
+ "categoryCount": 14,
+ "topicCount": 99,
+ "categories": [
+  {
+   "id": "gaming",
+   "name": "Gaming",
+   "emoji": "🎮",
+   "farbe": "#7C4DFF",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/gaming.svg"
+  },
+  {
+   "id": "filme_serien",
+   "name": "Filme & Serien",
+   "emoji": "🎬",
+   "farbe": "#E53935",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/filme_serien.svg"
+  },
+  {
+   "id": "musik",
+   "name": "Musik",
+   "emoji": "🎵",
+   "farbe": "#FF9800",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/musik.svg"
+  },
+  {
+   "id": "sport",
+   "name": "Sport",
+   "emoji": "⚽",
+   "farbe": "#4CAF50",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/sport.svg"
+  },
+  {
+   "id": "wissenschaft",
+   "name": "Wissenschaft",
+   "emoji": "🔬",
+   "farbe": "#00BCD4",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/wissenschaft.svg"
+  },
+  {
+   "id": "geschichte",
+   "name": "Geschichte",
+   "emoji": "🏛️",
+   "farbe": "#795548",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/geschichte.svg"
+  },
+  {
+   "id": "geographie",
+   "name": "Geographie",
+   "emoji": "🌍",
+   "farbe": "#3F51B5",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/geographie.svg"
+  },
+  {
+   "id": "essen_trinken",
+   "name": "Essen & Trinken",
+   "emoji": "🍕",
+   "farbe": "#FFC107",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/essen_trinken.svg"
+  },
+  {
+   "id": "internet_memes",
+   "name": "Internet & Memes",
+   "emoji": "😂",
+   "farbe": "#FF4081",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/internet_memes.svg"
+  },
+  {
+   "id": "deutschland_spezial",
+   "name": "Deutschland-Spezial",
+   "emoji": "🇩🇪",
+   "farbe": "#111111",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/deutschland_spezial.svg"
+  },
+  {
+   "id": "tiere_natur",
+   "name": "Tiere & Natur",
+   "emoji": "🦁",
+   "farbe": "#8BC34A",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/tiere_natur.svg"
+  },
+  {
+   "id": "kunst_literatur",
+   "name": "Kunst & Literatur",
+   "emoji": "🎨",
+   "farbe": "#9C27B0",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/kunst_literatur.svg"
+  },
+  {
+   "id": "technik_autos",
+   "name": "Technik & Autos",
+   "emoji": "🚗",
+   "farbe": "#607D8B",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/technik_autos.svg"
+  },
+  {
+   "id": "kurioses_mixed",
+   "name": "Kurioses & Mixed",
+   "emoji": "🎲",
+   "farbe": "#009688",
+   "icon": "MonkeyMoney/ios/Resources/Web/img/kurioses_mixed.svg"
+  }
+ ],
+ "difficulties": [
+  {
+   "id": "easy",
+   "name": "Leicht",
+   "color": "#2BD98A"
+  },
+  {
+   "id": "medium",
+   "name": "Mittel",
+   "color": "#5FC4FF"
+  },
+  {
+   "id": "hard",
+   "name": "Schwer",
+   "color": "#FF9F1C"
+  },
+  {
+   "id": "ultrahard",
+   "name": "ULTRAHARD",
+   "color": "#FF4D6D",
+   "glitch": true
+  }
+ ],
+ "modes": [
+  {
+   "id": "quick",
+   "name": "Quick Cash",
+   "emoji": "⚡",
+   "icon": "bolt",
+   "minutes": "~20 min",
+   "color": "#FFC93C"
+  },
+  {
+   "id": "klassik",
+   "name": "Klassik",
+   "emoji": "🎩",
+   "icon": "hat",
+   "minutes": "~45 min",
+   "color": "#FF6BD6"
+  },
+  {
+   "id": "marathon",
+   "name": "Marathon",
+   "emoji": "🏃",
+   "icon": "runner",
+   "minutes": "~120 min",
+   "color": "#2BD98A"
+  },
+  {
+   "id": "blitz",
+   "name": "Blitz",
+   "emoji": "🌩️",
+   "icon": "storm",
+   "minutes": "~10 min",
+   "color": "#5FC4FF"
+  },
+  {
+   "id": "party",
+   "name": "Party-Chaos",
+   "emoji": "🎉",
+   "icon": "party",
+   "minutes": "~35 min",
+   "color": "#FF9F1C"
+  },
+  {
+   "id": "profi",
+   "name": "Quiz-Profi",
+   "emoji": "🎓",
+   "icon": "cap",
+   "minutes": "~40 min",
+   "color": "#9A72FF"
+  },
+  {
+   "id": "eigen",
+   "name": "Eigene Show",
+   "emoji": "🛠️",
+   "icon": "tools",
+   "minutes": "frei",
+   "color": "#2ED3C6"
+  }
+ ],
+ "players": "2–12"
+}

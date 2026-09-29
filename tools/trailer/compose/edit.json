@@ -1,0 +1,274 @@
+{
+  "_doc": [
+    "Shot list for the 28 s Monkey Money trailer. Edit this file to re-time scenes or re-point clips - no code changes needed.",
+    "Times are trailer seconds. The cut grid follows the music: theme_main.m4a is 139.89 BPM, beat n lands at beat.t0 + n*60/bpm (2.2, 2.629, 3.058, ...). Animations inside a scene are relative to its 'in' and scale with beats.",
+    "Clip forms (any slot): {\"page\":\"stage\",\"from\":t0,\"to\":t1,\"speed\":1} plays that footage range (frame = last frame with t <= from + (time in shot)*speed, clamped to 'to');",
+    "  {\"page\":\"stage\",\"scene\":\"frage-affenzahn-speed\",\"nth\":0,\"offset\":0.4} resolves 'from' via footage/events.json (nth event of that scene on 'scenePage' (default: the clip's page, else any page), plus offset);",
+    "  {\"still\":\"/abs/path.png\"} shows an image. A slot may carry page AND still: footage is used when footage/<page>/index.json exists (and the scene resolves), otherwise the still.",
+    "  Optional per clip: fit (cover|contain), focus [x,y] 0..1 (object-position + zoom origin), zoom [z0,z1] (push-in over the shot), aspect (device/screen aspect w/h), ",
+    "  spin {cx,cy,r,deg} (stills only: rotate a circular crop, e.g. the Gluecksrad; r relative to image width), hold true (freeze first frame), preferStill true (use the still even when footage resolves), segments [{at, from|scene/offset, speed, still}] (several source ranges inside one layer).",
+    "  {\"page\":\"gm\",\"what\":\"Frage bannen\",\"offset\":-0.3} (or \"cmd\":\"questionBan\") resolves from a recorded action instead: the nth events.json entry on that page whose detail.what contains the text (detail.cmd equal), plus offset. Survives re-recordings as long as the script performs the same actions.",
+    "Taps: footage clips of phone/gm pages get finger-tap ripples automatically from events.json tap actions inside the played range (autoTaps:false to disable). 'taps' [[x,y,t],…] (x,y 0..1, t = trailer time) are used when the still fallback is shown."
+  ],
+  "fps": 30,
+  "duration": 28,
+  "width": 1920,
+  "height": 1080,
+  "beat": { "bpm": 139.89, "t0": 2.2 },
+  "footage": { "root": "/projects/sandbox/trailer/footage", "prefer": true },
+  "scenes": [
+    { "id": "S1", "name": "Cold open", "in": 0, "out": 2.2 },
+    { "id": "S2", "name": "Setup", "in": 2.2, "out": 4.7734 },
+    { "id": "S3", "name": "Gameplay punch", "in": 4.7734, "out": 9.0624 },
+    { "id": "S4", "name": "Format wall", "in": 9.0624, "out": 12.4936 },
+    { "id": "S5", "name": "Questions", "in": 12.4936, "out": 15.9248 },
+    { "id": "S6", "name": "Show modes", "in": 15.9248, "out": 18.9271 },
+    { "id": "S7", "name": "Game-Master", "in": 18.9271, "out": 21.9294 },
+    { "id": "S8", "name": "Climax", "in": 21.9294, "out": 25.3606 },
+    { "id": "S9", "name": "End card", "in": 25.3606, "out": 28 }
+  ],
+  "text": {
+    "S1": { "tagline": "Die Quizshow fürs Wohnzimmer" },
+    "S2": { "top": "iPad oder TV ist die Bühne", "bottom": "Handys sind die Buzzer", "stamp": "keine App nötig" },
+    "S4": { "label": "Spielformate" },
+    "S5": { "label": "Fragen", "line": ["{categoryCount} Kategorien", "{topicCount} Themen"], "range": "von leicht bis" },
+    "S6": { "title": "{modeCount} Show-Modi" },
+    "S7": {
+      "pre": "Du bist der",
+      "title": "Show-Master",
+      "chips": [
+        { "text": "Fragen bannen", "icon": "ban", "color": "#FF4D6D" },
+        { "text": "+15 Sekunden", "icon": "timer", "color": "#5FC4FF" },
+        { "text": "Pause", "icon": "pause", "color": "#FFC93C" },
+        { "text": "Kategorie aus", "icon": "toggle", "color": "#2BD98A" }
+      ]
+    },
+    "S8": { "slam": "JACKPOT!" },
+    "S9": { "tagline": ["Handys raus.", "Affen los."], "small": "Monkey Money · Die Quizshow für {players} Spieler" }
+  },
+  "slots": {
+    "S2.tv": {
+      "page": "stage",
+      "scene": "joined",
+      "scenePage": "phone1",
+      "offset": -3.6,
+      "speed": 2,
+      "still": "/projects/sandbox/shots/w2c/blitz/stage-000-lobby.png",
+      "aspect": 1.4317
+    },
+    "S2.phoneL": {
+      "page": "phone1",
+      "still": "/projects/sandbox/shots/w2c/blitz/phone-000-join.png",
+      "segments": [
+        { "at": 2.2, "what": "Rein da!", "offset": -3.29, "speed": 2 },
+        { "at": 3.9156, "scene": "joined", "offset": 1.75, "speed": 1.5 }
+      ]
+    },
+    "S2.phoneR": {
+      "page": "phone2",
+      "still": "/projects/sandbox/shots/w2c/blitz/phone-001-lobby.png",
+      "segments": [
+        { "at": 2.2, "what": "Rein da!", "offset": -3, "speed": 2 },
+        { "at": 3.9156, "scene": "joined", "offset": 0.61, "speed": 1.5 }
+      ]
+    },
+    "S3.cuts": [
+      {
+        "at": 4.7734,
+        "label": "Affenzahn",
+        "icon": "bolt",
+        "kicker": "Nur Tempo zählt!",
+        "clip": {
+          "page": "stage",
+          "scene": "frage-affenzahn-speed",
+          "offset": 2.94,
+          "still": "/projects/sandbox/shots/w2c/blitz/stage-004-frage-affenzahn-speed.png",
+          "zoom": [1.02, 1.08],
+          "focus": [0.45, 0.35],
+          "speed": 1.2
+        },
+        "phone": {
+          "page": "phone1",
+          "scene": "frage-affenzahn-speed",
+          "offset": 2.94,
+          "still": "/projects/sandbox/shots/w2c/blitz/phone-004-pk-choice.png",
+          "scenePage": "stage",
+          "speed": 1.2
+        },
+        "taps": [[0.42, 0.435, 4.99]]
+      },
+      {
+        "at": 5.2023,
+        "label": "Affenzahn",
+        "icon": "bolt",
+        "kicker": "Nur Tempo zählt!",
+        "keepLabel": true,
+        "clip": {
+          "page": "stage",
+          "scene": "aufloesung-affenzahn-speed",
+          "offset": 4.3,
+          "still": "/projects/sandbox/shots/w2c/blitz/stage-005-aufloesung-affenzahn-speed.png",
+          "zoom": [1.08, 1.16],
+          "focus": [0.5, 0.4],
+          "speed": 1
+        }
+      },
+      {
+        "at": 5.6312,
+        "label": "Der letzte Affe",
+        "icon": "parachute",
+        "kicker": "Survival mit zwei Leben",
+        "clip": {
+          "page": "stage",
+          "scene": "aufloesung-letzter-affe-survival",
+          "offset": 3.7,
+          "still": "/projects/sandbox/shots/w2c/blitz/stage-009-frage-letzter-affe-survival.png",
+          "zoom": [1.1, 1.18],
+          "focus": [0.5, 0.35],
+          "speed": 1
+        }
+      },
+      {
+        "at": 6.489,
+        "label": "Herdentrieb",
+        "icon": "sheep",
+        "kicker": "Tipp, was die Mehrheit wählt",
+        "clip": {
+          "page": "stage",
+          "scene": "aufloesung-herdentrieb-herde-fertig",
+          "offset": 0.1,
+          "still": "/projects/sandbox/shots/w2/07-herde-fertig-3.png",
+          "zoom": [1.1, 1.18],
+          "focus": [0.5, 0.3],
+          "speed": 1
+        }
+      },
+      {
+        "at": 7.3468,
+        "label": "Affenschaukel",
+        "icon": "updown",
+        "kicker": "Höher oder tiefer?",
+        "clip": {
+          "page": "stage",
+          "scene": "frage-affenschaukel-schaukel",
+          "offset": 3.9,
+          "still": "/projects/sandbox/shots/w2c/blitz/stage-007-frage-affenschaukel-schaukel.png",
+          "zoom": [1.04, 1.1],
+          "focus": [0.5, 0.3],
+          "speed": 1
+        },
+        "phone": {
+          "page": "phone2",
+          "scene": "frage-affenschaukel-schaukel",
+          "offset": 3.9,
+          "still": "/projects/sandbox/shots/w2c/blitz/phone-007-pk-binary.png",
+          "scenePage": "stage",
+          "speed": 1
+        },
+        "taps": [[0.27, 0.235, 7.56]]
+      },
+      {
+        "at": 8.2046,
+        "label": "Bananen-Tresor",
+        "icon": "moneybag",
+        "kicker": "Schätzen & Tresor knacken",
+        "money": "+500 MM",
+        "clip": {
+          "page": "stage",
+          "scene": "aufloesung-bananen-tresor-numberLine",
+          "offset": 2.85,
+          "still": "/projects/sandbox/shots/final/match/stage-009-aufloesung-bananen-tresor-numberLine.png",
+          "zoom": [1.06, 1.14],
+          "focus": [0.5, 0.35],
+          "speed": 1
+        }
+      }
+    ],
+    "S7.gm": {
+      "page": "gm",
+      "still": "/projects/sandbox/shots/w2c/gm/40-gm-regie-frage.png",
+      "segments": [
+        { "at": 18.9271, "what": "+15 s", "offset": -1 },
+        { "at": 19.635, "what": "Frage bannen", "offset": -0.15 },
+        { "at": 20.064, "what": "+15 s", "offset": -0.15 },
+        { "at": 20.493, "what": "Pause starten", "offset": -0.15 },
+        { "at": 20.922, "what": "Kategorie sport aus", "offset": -0.15 }
+      ],
+      "taps": [[0.75, 0.87, 19.72], [0.62, 0.795, 20.15], [0.32, 0.87, 20.58], [0.3, 0.835, 21.01]]
+    },
+    "S8.cuts": [
+      {
+        "at": 21.9294,
+        "kicker": "Glücksrad",
+        "clip": {
+          "page": "stage",
+          "scene": "rad-dreht",
+          "offset": 1.2,
+          "speed": 1.6,
+          "still": "/projects/sandbox/shots/D1-before-m2/stage-007-rad-dreht.png",
+          "zoom": [1.05, 1.12],
+          "focus": [0.3, 0.45],
+          "spin": { "cx": 0.2905, "cy": 0.4145, "r": 0.2025, "deg": 420 }
+        }
+      },
+      {
+        "at": 22.7872,
+        "kicker": "Jackpot-Frage",
+        "clip": {
+          "page": "stage",
+          "scene": "aufloesung-vier-lianen-none-jackpot",
+          "offset": 0.3,
+          "still": "/projects/sandbox/shots/D1-before-m1/stage-021-aufloesung-affenbank-bankPot.png",
+          "zoom": [1.08, 1.16],
+          "focus": [0.45, 0.4]
+        }
+      },
+      {
+        "at": 23.2161,
+        "kicker": "Finale",
+        "clip": {
+          "page": "stage",
+          "scene": "aufloesung-lianen-finale-lianen-finale",
+          "offset": 0.2,
+          "still": "/projects/sandbox/shots/D1-before-m1/stage-023-aufloesung-lianen-finale-lianen.png",
+          "zoom": [1.06, 1.14],
+          "focus": [0.45, 0.35]
+        }
+      },
+      {
+        "at": 23.645,
+        "kicker": "Siegerehrung",
+        "clip": {
+          "page": "stage",
+          "scene": "siegerehrung-podium",
+          "offset": 0.6,
+          "still": "/projects/sandbox/shots/q2/0166-siegerehrung1-5500.png",
+          "zoom": [1.04, 1.1],
+          "focus": [0.45, 0.5]
+        }
+      }
+    ],
+    "S8.celebrate": {
+      "at": 24.0739,
+      "bg": {
+        "page": "stage",
+        "scene": "siegerehrung-podium",
+        "offset": 1.05,
+        "still": "/projects/sandbox/shots/q2/0166-siegerehrung1-5500.png"
+      }
+    },
+    "S8.monkeys": [
+      "don-bananas_gelb",
+      "glitzer-gina_pink",
+      "kahuna-kalle_blau",
+      "kiki-krawall_orange",
+      "dj-trommelfell_gruen",
+      "astro-astrid_tuerkis",
+      "pumper-paule_rot",
+      "oma-zinseszins_lila"
+    ],
+    "S2.monkeys": ["kiki-krawall_orange", "dj-trommelfell_gruen"],
+    "S9.monkeys": ["glitzer-gina_pink", "don-bananas_gelb"],
+    "S6.order": ["blitz", "quick", "klassik", "profi", "party", "marathon", "eigen"]
+  }
+}
