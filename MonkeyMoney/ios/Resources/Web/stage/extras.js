@@ -175,7 +175,7 @@ function Bets({ x, pm, revealed, compact }) {
 
 function Ladder({ x, pm, revealed }) {
   return html`<div class=${cx("x-ladder", x.correctOrder.length > 4 && "many")}>${x.correctOrder.map((idx, pos) => html`<div class=${cx("ladder-step", pos < x.revealedSteps && "open")} style=${`animation-delay:${pos * 0.2}s`}>
-    <span class="ls-n">${pos + 1}</span><span class="ls-t">${pos < x.revealedSteps ? x.items[idx] : html`<i class="ls-hidden">? ? ?</i>`}</span>${pos < x.revealedSteps && x.werte[idx] && html`<small>${x.werte[idx]}</small>`}
+    <span class="ls-n">${pos + 1}</span><span class="ls-t">${pos < x.revealedSteps ? x.items[idx] : html`<i class="ls-hidden">? ? ?</i>`}</span>${pos < x.revealedSteps && x.werte[pos] && html`<small>${x.werte[pos]}</small>`}
   </div>`)}</div>`;
 }
 

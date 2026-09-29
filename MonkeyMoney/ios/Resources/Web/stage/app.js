@@ -143,7 +143,7 @@ function App() {
       <div class="leaves l"></div><div class="leaves r"></div>
       <div class="floor"></div>
     </div>
-    <div class="canvas" style=${`width:${W}px;transform:translate(-50%,-50%) scale(${scale})`}>
+    <div class=${cx("canvas", W >= 1640 && "tv")} style=${`width:${W}px;transform:translate(-50%,-50%) scale(${scale})`}>
       ${body}
       ${inShow && drawer && html`<${SettingsDrawer} view=${view} host=${host} close=${() => setDrawer(false)} />`}
       ${!audio.unlocked && html`<button class="sound-unlock" onClick=${() => audio.unlock()}>🔊 Tippen für Ton</button>`}
@@ -193,13 +193,15 @@ function ShowLayout({ view, host }) {
   const scene = decode(view.scene);
   const podium = sceneWantsPodium(scene);
   const n = view.players.length;
+  const weiter = view.weiter && !view.paused && view.weiter.noetig > 0;
   return html`
-    <div class=${cx("show", "scene-" + scene.kind, podium && "with-podium", n > 6 ? "crowd-l" : n <= 3 ? "crowd-s" : "crowd-m")}>
+    <div class=${cx("show", "scene-" + scene.kind, podium && "with-podium", n > 6 ? "crowd-l" : n <= 3 ? "crowd-s" : "crowd-m", weiter && "has-weiter")}>
       ${scene.kind !== "lobby" && html`<${TopBar} view=${view} host=${host} />`}
       <main class="stage-main">
         <${SceneSwitch} k=${sceneKey(view, scene)} kind=${scene.kind} data=${{ view, scene, host }} render=${renderScene} />
       </main>
       ${podium && html`<${Podium} view=${view} scene=${scene} />`}
+      ${weiter && html`<${WeiterPill} view=${view} />`}
       <${Moments} view=${view} />
       ${view.paused && scene.kind !== "pause" && html`<div class="paused-veil"><div class="card pop-in"><h2>⏸ Pause</h2><p class="muted">Gleich geht's weiter …</p></div></div>`}
     </div>`;
@@ -244,6 +246,30 @@ function Controls({ view }) {
       <button class="icon-btn" title="Einstellungen" onClick=${() => StageCtx.openDrawer()}>⚙️</button>
       ${showNext && html`<button class="btn next-btn" key=${view.advanceLabel} onClick=${() => cmd({ flowNext: {} })}>${view.advanceLabel || "Weiter"} <span>▶</span></button>`}
     </div>`;
+}
+
+/** "👍 Weiter 2/4" skip vote in the waiting phases (standings, halftime, highlights): voters' monkeys pop in. */
+function WeiterPill({ view }) {
+  const w = view.weiter;
+  const pm = Object.fromEntries(view.players.map(p => [p.id, p]));
+  const voters = (w.spieler || []).filter(id => pm[id]);
+  const done = w.anzahl >= w.noetig;
+  const prev = useRef(w.anzahl);
+  const [bump, setBump] = useState(0);
+  useEffect(() => {
+    if (w.anzahl > prev.current) { setBump(b => b + 1); audio.sfx(w.anzahl >= w.noetig ? "confirm" : "tap2", { gain: 0.7 }); }
+    prev.current = w.anzahl;
+  }, [w.anzahl]);
+  const segs = Math.min(w.noetig, 12);
+  return html`<div class=${cx("weiter-pill", done && "done", w.anzahl > 0 && "has")} role="status">
+    ${bump > 0 && html`<i class="wv-ring" key=${"r" + bump}></i>`}
+    <span class="wv-thumb" key=${"t" + bump}>${done ? "🚀" : "👍"}</span>
+    ${done ? html`<span class="wv-label wv-go">Gleich geht's weiter<span class="wv-dots"><i></i><i></i><i></i></span></span>`
+      : html`<span class="wv-label">Weiter <b class="wv-n" key=${"n" + w.anzahl}>${w.anzahl}</b><span class="wv-of">/${w.noetig}</span></span>`}
+    ${voters.length > 0 && html`<span class="wv-faces">${voters.slice(0, 8).map(id => html`<span class="wv-face" key=${id} title=${pm[id].name}><${Monkey} wire=${pm[id].avatar} face="jubel" anim="none" size=${42} /></span>`)}${voters.length > 8 && html`<small class="wv-more">+${voters.length - 8}</small>`}</span>`}
+    ${!done && (w.anzahl === 0 ? html`<small class="wv-hint">👍 auf dem Handy tippen</small>`
+      : html`<span class="wv-segs">${Array.from({ length: segs }, (_, i) => html`<i class=${i < w.anzahl ? "on" : ""}></i>`)}</span>`)}
+  </div>`;
 }
 
 /** Banner ticker for fresh moments (joker, steal, bonus …). During a reveal they wait until the answer is out. */

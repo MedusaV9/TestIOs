@@ -100,3 +100,47 @@
 
 /* The "tap for sound" hint sits below the section label, not on top of it. */
 .sound-unlock { inset: 84px 0 auto 0; padding: 8px 18px; font-size: 15px; }
+
+
+/* ---------- widget pieces that had no styles (both screen sizes) ---------- */
+/* FitBox centres its children, so a widget without in-flow content collapsed:
+   the number line shrank to the width of its hint text, then to ~0 on reveal. */
+.fit-in > .x-numline { align-self: stretch; }
+.x-wait { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 4px; text-align: center; }
+.x-wait p { margin: 0; font-size: 22px; font-weight: 600; color: var(--muted); }
+.xw-ico { font-size: 46px; line-height: 1; animation: float 3s ease-in-out infinite; }
+.fit-in > .x-ladder { min-width: 520px; }
+.ladder-step small { margin-left: auto; font-size: 16px; font-weight: 700; color: var(--muted); }
+.ba-head { display: flex; align-items: baseline; gap: 12px; padding: 0 16px 2px; }
+.ba-head span { font-family: var(--font-display); font-weight: 800; font-size: 22px; }
+.ba-head small { font-size: 15px; color: var(--muted); }
+/* Name, money and AT stack (they wrapped inline mid-number, "5.980 / MM"). */
+.cer-plate { display: flex; flex-direction: column; align-items: center; text-align: center; line-height: 1.12; margin-top: 4px; }
+.cer-plate .cer-name { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cer-plate .cer-at { font-size: 14px; margin-top: 2px; }
+
+/* The jackpot jar in the top bar never wraps its amount ("500 / MM" on iPad). */
+.topbar .jar { flex: none; }
+.jar .money { white-space: nowrap; }
+/* Guess pins' stems ran through the min/max labels of the number line. */
+.nl-ends { z-index: 2; pointer-events: none; }
+.nl-ends span { text-shadow: 0 0 6px #160c38, 0 0 3px #160c38, 0 0 1px #160c38; }
+/* A two-line answer pushed "✔" and "Richtig:" onto separate lines. */
+.richtig-banner > span { flex: none; white-space: nowrap; }
+/* "Einsatz W500 MM": the label sits above the stake instead of running into it. */
+.lianen-w small { display: block; font-family: var(--font-body); font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- 16:9 TV (canvas ≥ 1640 units wide; iPad is ~1430) ----------
+   The canvas keeps 1000 units of height, so a TV only adds width: keep lists
+   and tables at a readable line length instead of stretching them edge to edge. */
+.canvas.tv .standings { padding-left: max(110px, calc((100% - 1400px) / 2)); padding-right: max(110px, calc((100% - 1400px) / 2)); }
+.canvas.tv .hl-list { max-width: 1380px; }
+.canvas.tv .hl p { font-size: 30px; }
+.canvas.tv .cer-col { width: 330px; }
+.canvas.tv .cer-podium { gap: 28px; }
+.canvas.tv .x-numline { padding-left: 50px; padding-right: 50px; }
+.canvas.tv .bank-auszug { width: 1000px; }
+.canvas.tv .x-bomb { max-width: 1100px; }
+/* Wheel: moments (toasts) ran across the wheel; the right half is free on a TV. */
+.canvas.tv .show.scene-rad .moments { left: 50%; }
+.canvas.tv .show.scene-rad .moment { max-width: 820px; }
